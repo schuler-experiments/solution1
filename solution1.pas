@@ -9,12 +9,18 @@ uses
   TaskTypes,
   TaskManager,
   TaskPersistence,
-  TaskQuery;
+  TaskQuery,
+  TaskNotes,
+  TaskScheduling;
 
 var
   mgr: TTaskManagerClass;
   persistence: TTaskPersistenceClass;
   query: TTaskQueryClass;
+  notesMgr: TTaskNotesManagerClass;
+  historyTracker: TTaskHistoryTrackerClass;
+  recurringMgr: TRecurringTaskManagerClass;
+  timeMgr: TTimeTrackingManagerClass;
 
 begin
   WriteLn('╔════════════════════════════════════════╗');
@@ -22,10 +28,14 @@ begin
   WriteLn('╚════════════════════════════════════════╝');
   WriteLn('');
   
-  { Create manager }
+  { Create managers }
   mgr := TTaskManagerClass.Create();
   persistence := TTaskPersistenceClass.Create('tasks.csv');
   query := TTaskQueryClass.Create(mgr);
+  notesMgr := TTaskNotesManagerClass.Create();
+  historyTracker := TTaskHistoryTrackerClass.Create();
+  recurringMgr := TRecurringTaskManagerClass.Create();
+  timeMgr := TTimeTrackingManagerClass.Create();
   
   try
     { Run core self-tests }
@@ -40,6 +50,19 @@ begin
     WriteLn('');
     query.SelfTest();
     
+    { Run advanced features self-tests }
+    WriteLn('');
+    notesMgr.SelfTest();
+    
+    WriteLn('');
+    historyTracker.SelfTest();
+    
+    WriteLn('');
+    recurringMgr.SelfTest();
+    
+    WriteLn('');
+    timeMgr.SelfTest();
+    
     WriteLn('');
     WriteLn('╔════════════════════════════════════════╗');
     WriteLn('║     All Self-Tests Completed!         ║');
@@ -53,5 +76,9 @@ begin
     mgr.Free();
     persistence.Free();
     query.Free();
+    notesMgr.Free();
+    historyTracker.Free();
+    recurringMgr.Free();
+    timeMgr.Free();
   end;
 end.
