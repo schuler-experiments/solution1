@@ -33,7 +33,8 @@ uses
   TaskQuality,
   TaskQualityAnalysis,
   TaskKnowledgeBase,
-  TaskStakeholder;
+  TaskStakeholder,
+  TaskWorkflow;
 
 var
   mgr: TTaskManagerClass;
@@ -61,6 +62,7 @@ var
   qualityMgr: TTaskQualityManagerClass;
   knowledgeMgr: TKnowledgeBaseClass;
   stakeholderMgr: TTaskStakeholderManagerClass;
+  workflowMgr: TTaskWorkflowManagerClass;
 
 begin
   WriteLn('========================================');
@@ -94,6 +96,7 @@ begin
   qualityMgr := TTaskQualityManagerClass.Create();
   knowledgeMgr := TKnowledgeBaseClass.Create();
   stakeholderMgr := TTaskStakeholderManagerClass.Create();
+  workflowMgr := TTaskWorkflowManagerClass.Create();
   
   try
     { Run core self-tests }
@@ -186,6 +189,9 @@ begin
 
     WriteLn('');
     stakeholderMgr.SelfTest();
+
+    WriteLn('');
+    workflowMgr.SelfTest();
     
     WriteLn('');
     WriteLn('========================================');
@@ -201,6 +207,7 @@ begin
     WriteLn('  - Quality Metrics & Analysis');
     WriteLn('  - Knowledge Base & Best Practices');
     WriteLn('  - Stakeholder Management & Engagement');
+    WriteLn('  - Workflow & State Management');
     WriteLn('');
     
   finally
@@ -228,6 +235,7 @@ begin
     qualityMgr.Free();
     knowledgeMgr.Free();
     stakeholderMgr.Free();
+    workflowMgr.Free();
     if rep <> nil then
       rep.Free();
   end;
