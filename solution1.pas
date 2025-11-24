@@ -33,8 +33,11 @@ uses
   TaskQuality,
   TaskQualityAnalysis,
   TaskKnowledgeBase,
+  TaskKnowledgeBaseSearch,
   TaskStakeholder,
+  TaskStakeholderExtended,
   TaskWorkflow,
+  TaskWorkflowApproval,
   TaskResourceOptimization;
 
 var
