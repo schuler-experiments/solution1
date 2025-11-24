@@ -34,7 +34,8 @@ uses
   TaskQualityAnalysis,
   TaskKnowledgeBase,
   TaskStakeholder,
-  TaskWorkflow;
+  TaskWorkflow,
+  TaskResourceOptimization;
 
 var
   mgr: TTaskManagerClass;
@@ -63,6 +64,7 @@ var
   knowledgeMgr: TKnowledgeBaseClass;
   stakeholderMgr: TTaskStakeholderManagerClass;
   workflowMgr: TTaskWorkflowManagerClass;
+  optimizerMgr: TTaskResourceOptimizerClass;
 
 begin
   WriteLn('========================================');
@@ -97,6 +99,7 @@ begin
   knowledgeMgr := TKnowledgeBaseClass.Create();
   stakeholderMgr := TTaskStakeholderManagerClass.Create();
   workflowMgr := TTaskWorkflowManagerClass.Create();
+  optimizerMgr := TTaskResourceOptimizerClass.Create();
   
   try
     { Run core self-tests }
@@ -192,6 +195,9 @@ begin
 
     WriteLn('');
     workflowMgr.SelfTest();
+
+    WriteLn('');
+    optimizerMgr.SelfTest();
     
     WriteLn('');
     WriteLn('========================================');
@@ -208,6 +214,7 @@ begin
     WriteLn('  - Knowledge Base & Best Practices');
     WriteLn('  - Stakeholder Management & Engagement');
     WriteLn('  - Workflow & State Management');
+    WriteLn('  - Resource Optimization & Allocation');
     WriteLn('');
     
   finally
@@ -236,6 +243,7 @@ begin
     knowledgeMgr.Free();
     stakeholderMgr.Free();
     workflowMgr.Free();
+    optimizerMgr.Free();
     if rep <> nil then
       rep.Free();
   end;
