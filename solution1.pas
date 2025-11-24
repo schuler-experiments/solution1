@@ -21,7 +21,11 @@ uses
   TaskTeam,
   TaskBudget,
   TaskRisk,
-  TaskCollaboration;
+  TaskCollaboration,
+  TaskReminders,
+  TaskAnalytics,
+  TaskExport,
+  TaskSearch;
 
 var
   mgr: TTaskManagerClass;
@@ -40,11 +44,15 @@ var
   budgetMgr: TTaskBudgetManagerClass;
   riskMgr: TTaskRiskManagerClass;
   collabMgr: TTaskCollaborationManagerClass;
+  reminderMgr: TTaskReminderManagerClass;
+  analyticsMgr: TTaskAnalyticsClass;
+  exporterMgr: TTaskExporterClass;
+  searchMgr: TTaskSearchClass;
 
 begin
-  WriteLn('╔════════════════════════════════════════╗');
-  WriteLn('║   Free Pascal Advanced Task Manager    ║');
-  WriteLn('╚════════════════════════════════════════╝');
+  WriteLn('========================================');
+  WriteLn('   Free Pascal Advanced Task Manager');
+  WriteLn('========================================');
   WriteLn('');
   
   { Create managers }
@@ -64,6 +72,10 @@ begin
   riskMgr := TTaskRiskManagerClass.Create();
   collabMgr := TTaskCollaborationManagerClass.Create();
   rep := nil;
+  reminderMgr := TTaskReminderManagerClass.Create();
+  analyticsMgr := TTaskAnalyticsClass.Create();
+  exporterMgr := TTaskExporterClass.Create();
+  searchMgr := TTaskSearchClass.Create();
   
   try
     { Run core self-tests }
@@ -127,11 +139,23 @@ begin
         rep := nil;
       end;
     end;
+
+    WriteLn('');
+    reminderMgr.SelfTest();
+
+    WriteLn('');
+    analyticsMgr.SelfTest();
+
+    WriteLn('');
+    exporterMgr.SelfTest();
+
+    WriteLn('');
+    searchMgr.SelfTest();
     
     WriteLn('');
-    WriteLn('╔════════════════════════════════════════╗');
-    WriteLn('║     All Self-Tests Completed!         ║');
-    WriteLn('╚════════════════════════════════════════╝');
+    WriteLn('========================================');
+    WriteLn('     All Self-Tests Completed!');
+    WriteLn('========================================');
     WriteLn('');
     WriteLn('System Status: ✓ All modules operational');
     WriteLn('Ready for integration with UI frameworks.');
@@ -153,6 +177,10 @@ begin
     budgetMgr.Free();
     riskMgr.Free();
     collabMgr.Free();
+    reminderMgr.Free();
+    analyticsMgr.Free();
+    exporterMgr.Free();
+    searchMgr.Free();
     if rep <> nil then
       rep.Free();
   end;
