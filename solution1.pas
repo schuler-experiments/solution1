@@ -40,7 +40,8 @@ uses
   TaskWorkflowApproval,
   TaskTimeTracking,
   TaskResourceOptimization,
-  TaskMetrics;
+  TaskMetrics,
+  TaskTemplates;
 
 var
   mgr: TTaskManagerClass;
@@ -71,6 +72,7 @@ var
   workflowMgr: TTaskWorkflowManagerClass;
   optimizerMgr: TTaskResourceOptimizerClass;
   metricsMgr: TTaskMetricsManagerClass;
+  templateMgr: TTaskTemplateManagerClass;
 
 begin
   WriteLn('========================================');
@@ -107,6 +109,7 @@ begin
   workflowMgr := TTaskWorkflowManagerClass.Create();
   optimizerMgr := TTaskResourceOptimizerClass.Create();
   metricsMgr := TTaskMetricsManagerClass.Create();
+  templateMgr := TTaskTemplateManagerClass.Create();
   
   try
     { Run core self-tests }
@@ -177,6 +180,7 @@ begin
     WriteLn('');
     analyticsMgr.SelfTest();
     metricsMgr.SelfTest();
+    templateMgr.SelfTest();
 
     WriteLn('');
     exporterMgr.SelfTest();
@@ -253,6 +257,7 @@ begin
     workflowMgr.Free();
     optimizerMgr.Free();
     metricsMgr.Free();
+    templateMgr.Free();
     if rep <> nil then
       rep.Free();
   end;
