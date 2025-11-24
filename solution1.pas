@@ -25,7 +25,10 @@ uses
   TaskReminders,
   TaskAnalytics,
   TaskExport,
-  TaskSearch;
+  TaskSearch,
+  TaskAudit,
+  TaskSLA,
+  TaskQuality;
 
 var
   mgr: TTaskManagerClass;
@@ -48,6 +51,9 @@ var
   analyticsMgr: TTaskAnalyticsClass;
   exporterMgr: TTaskExporterClass;
   searchMgr: TTaskSearchClass;
+  auditMgr: TTaskAuditManagerClass;
+  slaMgr: TTaskSLAManagerClass;
+  qualityMgr: TTaskQualityManagerClass;
 
 begin
   WriteLn('========================================');
@@ -76,6 +82,9 @@ begin
   analyticsMgr := TTaskAnalyticsClass.Create();
   exporterMgr := TTaskExporterClass.Create();
   searchMgr := TTaskSearchClass.Create();
+  auditMgr := TTaskAuditManagerClass.Create();
+  slaMgr := TTaskSLAManagerClass.Create();
+  qualityMgr := TTaskQualityManagerClass.Create();
   
   try
     { Run core self-tests }
@@ -151,14 +160,29 @@ begin
 
     WriteLn('');
     searchMgr.SelfTest();
+
+    { Run new feature tests }
+    WriteLn('');
+    auditMgr.SelfTest();
+
+    WriteLn('');
+    slaMgr.SelfTest();
+
+    WriteLn('');
+    qualityMgr.SelfTest();
     
     WriteLn('');
     WriteLn('========================================');
     WriteLn('     All Self-Tests Completed!');
     WriteLn('========================================');
     WriteLn('');
-    WriteLn('System Status: ✓ All modules operational');
+    WriteLn('System Status: All modules operational');
     WriteLn('Ready for integration with UI frameworks.');
+    WriteLn('');
+    WriteLn('New Features Added:');
+    WriteLn('  - Audit Trail Tracking');
+    WriteLn('  - Service Level Agreement (SLA) Management');
+    WriteLn('  - Quality Metrics & Analysis');
     WriteLn('');
     
   finally
@@ -181,6 +205,9 @@ begin
     analyticsMgr.Free();
     exporterMgr.Free();
     searchMgr.Free();
+    auditMgr.Free();
+    slaMgr.Free();
+    qualityMgr.Free();
     if rep <> nil then
       rep.Free();
   end;
