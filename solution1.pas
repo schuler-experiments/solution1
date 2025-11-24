@@ -44,7 +44,8 @@ uses
   TaskTemplates,
   TaskNotifications,
   TaskEscalation,
-  TaskComments;
+  TaskComments,
+  TaskIntegrations;
 
 var
   mgr: TTaskManagerClass;
@@ -79,6 +80,7 @@ var
   notificationMgr: TTaskNotificationManagerClass;
   escalationMgr: TTaskEscalationManagerClass;
   commentMgr: TTaskCommentManagerClass;
+  integrationMgr: TTaskIntegrationManagerClass;
 
 begin
   WriteLn('========================================');
@@ -119,6 +121,7 @@ begin
   notificationMgr := TTaskNotificationManagerClass.Create();
   escalationMgr := TTaskEscalationManagerClass.Create();
   commentMgr := TTaskCommentManagerClass.Create();
+  integrationMgr := TTaskIntegrationManagerClass.Create();
   
   try
     { Run core self-tests }
@@ -231,6 +234,10 @@ begin
     { Run comment tests }
     WriteLn('');
     commentMgr.SelfTest();
+
+    { Run integration tests }
+    WriteLn('');
+    integrationMgr.SelfTest();
     
     WriteLn('');
     WriteLn('========================================');
@@ -250,7 +257,8 @@ begin
     WriteLn('  - Resource Optimization & Allocation');
     WriteLn('  - Notification & Alert System');
     WriteLn('  - Task Escalation & Risk Management');
-    WriteLn('  - Task Comments & Collaboration (NEW!)');
+    WriteLn('  - Task Comments & Collaboration');
+    WriteLn('  - External System Integrations (NEW!)');
     WriteLn('');
     
   finally
@@ -285,6 +293,7 @@ begin
     notificationMgr.Free();
     escalationMgr.Free();
     commentMgr.Free();
+    integrationMgr.Free();
     if rep <> nil then
       rep.Free();
   end;
