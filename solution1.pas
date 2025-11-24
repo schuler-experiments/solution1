@@ -41,7 +41,8 @@ uses
   TaskTimeTracking,
   TaskResourceOptimization,
   TaskMetrics,
-  TaskTemplates;
+  TaskTemplates,
+  TaskNotifications;
 
 var
   mgr: TTaskManagerClass;
@@ -73,6 +74,7 @@ var
   optimizerMgr: TTaskResourceOptimizerClass;
   metricsMgr: TTaskMetricsManagerClass;
   templateMgr: TTaskTemplateManagerClass;
+  notificationMgr: TTaskNotificationManagerClass;
 
 begin
   WriteLn('========================================');
@@ -110,6 +112,7 @@ begin
   optimizerMgr := TTaskResourceOptimizerClass.Create();
   metricsMgr := TTaskMetricsManagerClass.Create();
   templateMgr := TTaskTemplateManagerClass.Create();
+  notificationMgr := TTaskNotificationManagerClass.Create();
   
   try
     { Run core self-tests }
@@ -210,6 +213,10 @@ begin
 
     WriteLn('');
     optimizerMgr.SelfTest();
+
+    { Run notification tests }
+    WriteLn('');
+    notificationMgr.SelfTest();
     
     WriteLn('');
     WriteLn('========================================');
@@ -227,6 +234,7 @@ begin
     WriteLn('  - Stakeholder Management & Engagement');
     WriteLn('  - Workflow & State Management');
     WriteLn('  - Resource Optimization & Allocation');
+    WriteLn('  - Notification & Alert System (NEW!)');
     WriteLn('');
     
   finally
@@ -258,6 +266,7 @@ begin
     optimizerMgr.Free();
     metricsMgr.Free();
     templateMgr.Free();
+    notificationMgr.Free();
     if rep <> nil then
       rep.Free();
   end;
