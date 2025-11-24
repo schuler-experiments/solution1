@@ -11,7 +11,8 @@ uses
   TaskPersistence,
   TaskQuery,
   TaskNotes,
-  TaskScheduling;
+  TaskScheduling,
+  TaskDependencies;
 
 var
   mgr: TTaskManagerClass;
@@ -21,6 +22,7 @@ var
   historyTracker: TTaskHistoryTrackerClass;
   recurringMgr: TRecurringTaskManagerClass;
   timeMgr: TTimeTrackingManagerClass;
+  depMgr: TTaskDependencyManagerClass;
 
 begin
   WriteLn('╔════════════════════════════════════════╗');
@@ -36,6 +38,7 @@ begin
   historyTracker := TTaskHistoryTrackerClass.Create();
   recurringMgr := TRecurringTaskManagerClass.Create();
   timeMgr := TTimeTrackingManagerClass.Create();
+  depMgr := TTaskDependencyManagerClass.Create();
   
   try
     { Run core self-tests }
@@ -64,6 +67,9 @@ begin
     timeMgr.SelfTest();
     
     WriteLn('');
+    depMgr.SelfTest();
+    
+    WriteLn('');
     WriteLn('╔════════════════════════════════════════╗');
     WriteLn('║     All Self-Tests Completed!         ║');
     WriteLn('╚════════════════════════════════════════╝');
@@ -80,5 +86,6 @@ begin
     historyTracker.Free();
     recurringMgr.Free();
     timeMgr.Free();
+    depMgr.Free();
   end;
 end.
