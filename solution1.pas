@@ -20,7 +20,8 @@ uses
   TaskReporting,
   TaskTeam,
   TaskBudget,
-  TaskRisk;
+  TaskRisk,
+  TaskCollaboration;
 
 var
   mgr: TTaskManagerClass;
@@ -38,6 +39,7 @@ var
   teamMgr: TTaskTeamManagerClass;
   budgetMgr: TTaskBudgetManagerClass;
   riskMgr: TTaskRiskManagerClass;
+  collabMgr: TTaskCollaborationManagerClass;
 
 begin
   WriteLn('╔════════════════════════════════════════╗');
@@ -60,6 +62,7 @@ begin
   teamMgr := TTaskTeamManagerClass.Create();
   budgetMgr := TTaskBudgetManagerClass.Create(50000.0);
   riskMgr := TTaskRiskManagerClass.Create();
+  collabMgr := TTaskCollaborationManagerClass.Create();
   rep := nil;
   
   try
@@ -109,6 +112,9 @@ begin
     
     WriteLn('');
     riskMgr.SelfTest();
+
+    WriteLn('');
+    collabMgr.SelfTest();
     
     WriteLn('');
     if Length(mgr.GetAllTasks()) > 0 then
@@ -146,6 +152,7 @@ begin
     teamMgr.Free();
     budgetMgr.Free();
     riskMgr.Free();
+    collabMgr.Free();
     if rep <> nil then
       rep.Free();
   end;
