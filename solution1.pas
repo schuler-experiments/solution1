@@ -42,7 +42,8 @@ uses
   TaskResourceOptimization,
   TaskMetrics,
   TaskTemplates,
-  TaskNotifications;
+  TaskNotifications,
+  TaskEscalation;
 
 var
   mgr: TTaskManagerClass;
@@ -75,6 +76,7 @@ var
   metricsMgr: TTaskMetricsManagerClass;
   templateMgr: TTaskTemplateManagerClass;
   notificationMgr: TTaskNotificationManagerClass;
+  escalationMgr: TTaskEscalationManagerClass;
 
 begin
   WriteLn('========================================');
@@ -113,6 +115,7 @@ begin
   metricsMgr := TTaskMetricsManagerClass.Create();
   templateMgr := TTaskTemplateManagerClass.Create();
   notificationMgr := TTaskNotificationManagerClass.Create();
+  escalationMgr := TTaskEscalationManagerClass.Create();
   
   try
     { Run core self-tests }
@@ -217,6 +220,10 @@ begin
     { Run notification tests }
     WriteLn('');
     notificationMgr.SelfTest();
+
+    { Run escalation tests }
+    WriteLn('');
+    escalationMgr.SelfTest();
     
     WriteLn('');
     WriteLn('========================================');
@@ -234,7 +241,8 @@ begin
     WriteLn('  - Stakeholder Management & Engagement');
     WriteLn('  - Workflow & State Management');
     WriteLn('  - Resource Optimization & Allocation');
-    WriteLn('  - Notification & Alert System (NEW!)');
+    WriteLn('  - Notification & Alert System');
+    WriteLn('  - Task Escalation & Risk Management (NEW!)');
     WriteLn('');
     
   finally
@@ -267,6 +275,7 @@ begin
     metricsMgr.Free();
     templateMgr.Free();
     notificationMgr.Free();
+    escalationMgr.Free();
     if rep <> nil then
       rep.Free();
   end;
