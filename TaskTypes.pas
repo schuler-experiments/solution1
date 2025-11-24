@@ -32,6 +32,16 @@ type
   end;
 
   TTaskArray = array of TTask;
+
+  { Task statistics record }
+  TTaskStats = record
+    totalTasks: integer;
+    completedTasks: integer;
+    inProgressTasks: integer;
+    onHoldTasks: integer;
+    notStartedTasks: integer;
+    overdueTasks: integer;
+  end;
   TTaskArrayRef = ^TTaskArray;
 
   { Helper functions for converting enums to strings }

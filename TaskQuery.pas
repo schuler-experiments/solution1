@@ -6,36 +6,27 @@ unit TaskQuery;
 interface
 
 uses
-  SysUtils, DateUtils, TaskTypes, TaskManager, Math;
+  SysUtils, DateUtils, TaskTypes, TaskManager;
 
 type
-  { Query statistics result }
-  TTaskStats = record
-    totalTasks: integer;
-    completedTasks: integer;
-    pendingTasks: integer;
-    inProgressTasks: integer;
-    onHoldTasks: integer;
-    overdueTasks: integer;
-    completionPercentage: double;
-  end;
-
-  { Advanced query and reporting class }
   TTaskQueryClass = class
   private
     manager: TTaskManagerClass;
+    function CountTasksInList(tasks: TTaskArray; status: TTaskStatus): integer;
   public
     constructor Create(amanager: TTaskManagerClass);
     
-    { Advanced filtering }
+    { Filtering operations }
     function FilterByKeyword(keyword: string): TTaskArray;
     function FilterByDateRange(startDate, endDate: TDateTime): TTaskArray;
+    
+    { Time-based filtering }
     function GetTasksDueToday(): TTaskArray;
     function GetTasksDueTomorrow(): TTaskArray;
     function GetTasksDueThisWeek(): TTaskArray;
     function GetTasksDueThisMonth(): TTaskArray;
     
-    { Status reporting }
+    { Statistics }
     function GetStats(): TTaskStats;
     function GetCompletionRate(): double;
     function GetAverageTasksPerDay(): double;
@@ -49,6 +40,13 @@ type
     function GetTasksCreatedToday(): TTaskArray;
     function GetTasksCompletedToday(): TTaskArray;
     function GetTasksCompletedThisWeek(): TTaskArray;
+    
+    { Advanced filtering }
+    function FilterByPriorityRange(minPriority, maxPriority: TTaskPriority): TTaskArray;
+    function GetTasksWithoutDueDate(): TTaskArray;
+    function GetCompletedTasksThisMonth(): TTaskArray;
+    function GetInProgressTasks(): TTaskArray;
+    function GetOnHoldTasks(): TTaskArray;
     
     { Sorting utilities }
     procedure SortByCompletionStatus(var tasks: TTaskArray);
@@ -67,47 +65,64 @@ begin
   manager := amanager;
 end;
 
-function TTaskQueryClass.FilterByKeyword(keyword: string): TTaskArray;
+function TTaskQueryClass.CountTasksInList(tasks: TTaskArray; status: TTaskStatus): integer;
 var
-  tasks: TTaskArray;
   i, count: integer;
-  searchTerm: string;
 begin
   count := 0;
-  SetLength(result, 0);
-  searchTerm := LowerCase(keyword);
-  tasks := manager.GetAllTasks();
-  
-  for i := 0 to Length(tasks) - 1 do
+  for i := 0 to length(tasks) - 1 do
   begin
-    if (Pos(searchTerm, LowerCase(tasks[i].title)) > 0) or
-       (Pos(searchTerm, LowerCase(tasks[i].description)) > 0) then
+    if tasks[i].status = status then
+      inc(count);
+  end;
+  Result := count;
+end;
+
+function TTaskQueryClass.FilterByKeyword(keyword: string): TTaskArray;
+var
+  i, count: integer;
+  allTasks: TTaskArray;
+  arr: TTaskArray;
+  lowerKeyword: string;
+begin
+  allTasks := manager.GetAllTasks();
+  lowerKeyword := LowerCase(keyword);
+  count := 0;
+  SetLength(arr, 0);
+  
+  for i := 0 to length(allTasks) - 1 do
+  begin
+    if (Pos(lowerKeyword, LowerCase(allTasks[i].title)) > 0) or
+       (Pos(lowerKeyword, LowerCase(allTasks[i].description)) > 0) then
     begin
-      SetLength(result, count + 1);
-      result[count] := tasks[i];
-      Inc(count);
+      SetLength(arr, count + 1);
+      arr[count] := allTasks[i];
+      inc(count);
     end;
   end;
+  Result := arr;
 end;
 
 function TTaskQueryClass.FilterByDateRange(startDate, endDate: TDateTime): TTaskArray;
 var
-  tasks: TTaskArray;
   i, count: integer;
+  allTasks: TTaskArray;
+  arr: TTaskArray;
 begin
+  allTasks := manager.GetAllTasks();
   count := 0;
-  SetLength(result, 0);
-  tasks := manager.GetAllTasks();
+  SetLength(arr, 0);
   
-  for i := 0 to Length(tasks) - 1 do
+  for i := 0 to length(allTasks) - 1 do
   begin
-    if (tasks[i].dueDate >= startDate) and (tasks[i].dueDate <= endDate) then
+    if (allTasks[i].dueDate >= startDate) and (allTasks[i].dueDate <= endDate) then
     begin
-      SetLength(result, count + 1);
-      result[count] := tasks[i];
-      Inc(count);
+      SetLength(arr, count + 1);
+      arr[count] := allTasks[i];
+      inc(count);
     end;
   end;
+  Result := arr;
 end;
 
 function TTaskQueryClass.GetTasksDueToday(): TTaskArray;
@@ -115,7 +130,7 @@ var
   today: TDateTime;
 begin
   today := Trunc(Now());
-  result := FilterByDateRange(today, today + 1);
+  Result := FilterByDateRange(today, today + 1);
 end;
 
 function TTaskQueryClass.GetTasksDueTomorrow(): TTaskArray;
@@ -123,59 +138,40 @@ var
   tomorrow: TDateTime;
 begin
   tomorrow := Trunc(Now()) + 1;
-  result := FilterByDateRange(tomorrow, tomorrow + 1);
+  Result := FilterByDateRange(tomorrow, tomorrow + 1);
 end;
 
 function TTaskQueryClass.GetTasksDueThisWeek(): TTaskArray;
 var
-  today, weekEnd: TDateTime;
+  today, endOfWeek: TDateTime;
 begin
   today := Trunc(Now());
-  weekEnd := today + (7 - DayOfWeek(today));
-  result := FilterByDateRange(today, weekEnd);
+  endOfWeek := today + (7 - DayOfWeek(today));
+  Result := FilterByDateRange(today, endOfWeek);
 end;
 
 function TTaskQueryClass.GetTasksDueThisMonth(): TTaskArray;
 var
-  today, monthEnd: TDateTime;
+  today: TDateTime;
+  startOfMonth, endOfMonth: TDateTime;
 begin
-  today := Trunc(Now());
-  monthEnd := EndOfTheMonth(today);
-  result := FilterByDateRange(today, monthEnd);
+  today := Now();
+  startOfMonth := Trunc(today) - (DayOfTheMonth(today) - 1);
+  endOfMonth := EndOfTheMonth(today);
+  Result := FilterByDateRange(startOfMonth, endOfMonth);
 end;
 
 function TTaskQueryClass.GetStats(): TTaskStats;
 var
-  tasks: TTaskArray;
-  i: integer;
+  allTasks: TTaskArray;
 begin
-  tasks := manager.GetAllTasks();
-  
-  result.totalTasks := Length(tasks);
-  result.completedTasks := 0;
-  result.pendingTasks := 0;
-  result.inProgressTasks := 0;
-  result.onHoldTasks := 0;
-  result.overdueTasks := 0;
-  
-  for i := 0 to Length(tasks) - 1 do
-  begin
-    case tasks[i].status of
-      tsCompleted: Inc(result.completedTasks);
-      tsNotStarted: Inc(result.pendingTasks);
-      tsInProgress: Inc(result.inProgressTasks);
-      tsOnHold: Inc(result.onHoldTasks);
-    end;
-    
-    if (tasks[i].status <> tsCompleted) and (tasks[i].dueDate > 0) and
-       (tasks[i].dueDate < Now()) then
-      Inc(result.overdueTasks);
-  end;
-  
-  if result.totalTasks > 0 then
-    result.completionPercentage := (result.completedTasks / result.totalTasks) * 100
-  else
-    result.completionPercentage := 0;
+  allTasks := manager.GetAllTasks();
+  Result.totalTasks := length(allTasks);
+  Result.completedTasks := CountTasksInList(allTasks, tsCompleted);
+  Result.inProgressTasks := CountTasksInList(allTasks, tsInProgress);
+  Result.onHoldTasks := CountTasksInList(allTasks, tsOnHold);
+  Result.notStartedTasks := CountTasksInList(allTasks, tsNotStarted);
+  Result.overdueTasks := length(manager.GetOverdueTasks());
 end;
 
 function TTaskQueryClass.GetCompletionRate(): double;
@@ -183,126 +179,225 @@ var
   stats: TTaskStats;
 begin
   stats := GetStats();
-  result := stats.completionPercentage;
+  if stats.totalTasks = 0 then
+    Result := 0.0
+  else
+    Result := (stats.completedTasks / stats.totalTasks) * 100.0;
 end;
 
 function TTaskQueryClass.GetAverageTasksPerDay(): double;
 var
-  stats: TTaskStats;
-  tasks: TTaskArray;
+  allTasks: TTaskArray;
+  daysDiff: integer;
   i: integer;
-  totalDays: integer;
-  oldestDate: TDateTime;
+  firstDate, lastDate: TDateTime;
 begin
-  stats := GetStats();
-  tasks := manager.GetAllTasks();
-  
-  if stats.totalTasks <= 1 then
+  allTasks := manager.GetAllTasks();
+  if length(allTasks) = 0 then
   begin
-    result := 0;
-    exit;
+    Result := 0.0;
+    Exit;
   end;
   
-  oldestDate := MaxDouble;
-  for i := 0 to Length(tasks) - 1 do
+  firstDate := allTasks[0].createdDate;
+  lastDate := allTasks[0].createdDate;
+  
+  for i := 0 to length(allTasks) - 1 do
   begin
-    if (tasks[i].createdDate > 0) and (tasks[i].createdDate < oldestDate) then
-      oldestDate := tasks[i].createdDate;
+    if allTasks[i].createdDate < firstDate then
+      firstDate := allTasks[i].createdDate;
+    if allTasks[i].createdDate > lastDate then
+      lastDate := allTasks[i].createdDate;
   end;
   
-  if oldestDate < MaxDouble then
-  begin
-    totalDays := Trunc(Now() - oldestDate) + 1;
-    if totalDays > 0 then
-      result := stats.totalTasks / totalDays
-    else
-      result := 0;
-  end
-  else
-    result := 0;
+  daysDiff := Trunc(lastDate - firstDate) + 1;
+  if daysDiff < 1 then
+    daysDiff := 1;
+  
+  Result := length(allTasks) / daysDiff;
 end;
 
 function TTaskQueryClass.GetHighPriorityCount(): integer;
+var
+  tasks: TTaskArray;
 begin
-  result := Length(manager.GetTasksByPriority(tpHigh));
+  tasks := manager.GetTasksByPriority(tpHigh);
+  Result := length(tasks);
 end;
 
 function TTaskQueryClass.GetMediumPriorityCount(): integer;
+var
+  tasks: TTaskArray;
 begin
-  result := Length(manager.GetTasksByPriority(tpMedium));
+  tasks := manager.GetTasksByPriority(tpMedium);
+  Result := length(tasks);
 end;
 
 function TTaskQueryClass.GetLowPriorityCount(): integer;
+var
+  tasks: TTaskArray;
 begin
-  result := Length(manager.GetTasksByPriority(tpLow));
+  tasks := manager.GetTasksByPriority(tpLow);
+  Result := length(tasks);
 end;
 
 function TTaskQueryClass.GetTasksCreatedToday(): TTaskArray;
 var
-  tasks: TTaskArray;
   i, count: integer;
+  allTasks: TTaskArray;
+  arr: TTaskArray;
   today: TDateTime;
 begin
-  count := 0;
-  SetLength(result, 0);
+  allTasks := manager.GetAllTasks();
   today := Trunc(Now());
-  tasks := manager.GetAllTasks();
+  count := 0;
+  SetLength(arr, 0);
   
-  for i := 0 to Length(tasks) - 1 do
+  for i := 0 to length(allTasks) - 1 do
   begin
-    if Trunc(tasks[i].createdDate) = today then
+    if Trunc(allTasks[i].createdDate) = today then
     begin
-      SetLength(result, count + 1);
-      result[count] := tasks[i];
-      Inc(count);
+      SetLength(arr, count + 1);
+      arr[count] := allTasks[i];
+      inc(count);
     end;
   end;
+  Result := arr;
 end;
 
 function TTaskQueryClass.GetTasksCompletedToday(): TTaskArray;
 var
-  tasks: TTaskArray;
   i, count: integer;
+  allTasks: TTaskArray;
+  arr: TTaskArray;
   today: TDateTime;
 begin
-  count := 0;
-  SetLength(result, 0);
+  allTasks := manager.GetAllTasks();
   today := Trunc(Now());
-  tasks := manager.GetAllTasks();
+  count := 0;
+  SetLength(arr, 0);
   
-  for i := 0 to Length(tasks) - 1 do
+  for i := 0 to length(allTasks) - 1 do
   begin
-    if (tasks[i].status = tsCompleted) and
-       (Trunc(tasks[i].completedDate) = today) then
+    if (allTasks[i].status = tsCompleted) and (Trunc(allTasks[i].completedDate) = today) then
     begin
-      SetLength(result, count + 1);
-      result[count] := tasks[i];
-      Inc(count);
+      SetLength(arr, count + 1);
+      arr[count] := allTasks[i];
+      inc(count);
     end;
   end;
+  Result := arr;
 end;
 
 function TTaskQueryClass.GetTasksCompletedThisWeek(): TTaskArray;
 var
-  tasks: TTaskArray;
   i, count: integer;
-  weekStart: TDateTime;
+  allTasks: TTaskArray;
+  arr: TTaskArray;
+  today, weekStart: TDateTime;
 begin
+  allTasks := manager.GetAllTasks();
+  today := Trunc(Now());
+  weekStart := today - (DayOfWeek(today) - 1);
   count := 0;
-  SetLength(result, 0);
-  weekStart := Trunc(Now()) - (DayOfWeek(Now()) - 1);
-  tasks := manager.GetAllTasks();
+  SetLength(arr, 0);
   
-  for i := 0 to Length(tasks) - 1 do
+  for i := 0 to length(allTasks) - 1 do
   begin
-    if (tasks[i].status = tsCompleted) and
-       (Trunc(tasks[i].completedDate) >= weekStart) then
+    if (allTasks[i].status = tsCompleted) and 
+       (Trunc(allTasks[i].completedDate) >= weekStart) and
+       (Trunc(allTasks[i].completedDate) <= today) then
     begin
-      SetLength(result, count + 1);
-      result[count] := tasks[i];
-      Inc(count);
+      SetLength(arr, count + 1);
+      arr[count] := allTasks[i];
+      inc(count);
     end;
   end;
+  Result := arr;
+end;
+
+function TTaskQueryClass.FilterByPriorityRange(minPriority, maxPriority: TTaskPriority): TTaskArray;
+var
+  i, count: integer;
+  allTasks: TTaskArray;
+  arr: TTaskArray;
+begin
+  allTasks := manager.GetAllTasks();
+  count := 0;
+  SetLength(arr, 0);
+  
+  for i := 0 to length(allTasks) - 1 do
+  begin
+    if (ord(allTasks[i].priority) >= ord(minPriority)) and 
+       (ord(allTasks[i].priority) <= ord(maxPriority)) then
+    begin
+      SetLength(arr, count + 1);
+      arr[count] := allTasks[i];
+      inc(count);
+    end;
+  end;
+  Result := arr;
+end;
+
+function TTaskQueryClass.GetTasksWithoutDueDate(): TTaskArray;
+var
+  i, count: integer;
+  allTasks: TTaskArray;
+  arr: TTaskArray;
+begin
+  allTasks := manager.GetAllTasks();
+  count := 0;
+  SetLength(arr, 0);
+  
+  for i := 0 to length(allTasks) - 1 do
+  begin
+    if allTasks[i].dueDate = 0 then
+    begin
+      SetLength(arr, count + 1);
+      arr[count] := allTasks[i];
+      inc(count);
+    end;
+  end;
+  Result := arr;
+end;
+
+function TTaskQueryClass.GetCompletedTasksThisMonth(): TTaskArray;
+var
+  i, count: integer;
+  allTasks: TTaskArray;
+  arr: TTaskArray;
+  today: TDateTime;
+  startOfMonth, endOfMonth: TDateTime;
+begin
+  allTasks := manager.GetAllTasks();
+  today := Now();
+  startOfMonth := Trunc(today) - (DayOfTheMonth(today) - 1);
+  endOfMonth := EndOfTheMonth(today);
+  count := 0;
+  SetLength(arr, 0);
+  
+  for i := 0 to length(allTasks) - 1 do
+  begin
+    if (allTasks[i].status = tsCompleted) and
+       (Trunc(allTasks[i].completedDate) >= startOfMonth) and
+       (Trunc(allTasks[i].completedDate) <= endOfMonth) then
+    begin
+      SetLength(arr, count + 1);
+      arr[count] := allTasks[i];
+      inc(count);
+    end;
+  end;
+  Result := arr;
+end;
+
+function TTaskQueryClass.GetInProgressTasks(): TTaskArray;
+begin
+  Result := manager.GetTasksByStatus(tsInProgress);
+end;
+
+function TTaskQueryClass.GetOnHoldTasks(): TTaskArray;
+begin
+  Result := manager.GetTasksByStatus(tsOnHold);
 end;
 
 procedure TTaskQueryClass.SortByCompletionStatus(var tasks: TTaskArray);
@@ -310,18 +405,16 @@ var
   i, j: integer;
   temp: TTask;
 begin
-  for i := 0 to Length(tasks) - 2 do
-  begin
-    for j := i + 1 to Length(tasks) - 1 do
+  for i := 0 to length(tasks) - 2 do
+    for j := i + 1 to length(tasks) - 1 do
     begin
-      if (tasks[j].status = tsCompleted) and (tasks[i].status <> tsCompleted) then
+      if ord(tasks[j].status) < ord(tasks[i].status) then
       begin
         temp := tasks[i];
         tasks[i] := tasks[j];
         tasks[j] := temp;
       end;
     end;
-  end;
 end;
 
 procedure TTaskQueryClass.SortByCreationDate(var tasks: TTaskArray);
@@ -329,9 +422,8 @@ var
   i, j: integer;
   temp: TTask;
 begin
-  for i := 0 to Length(tasks) - 2 do
-  begin
-    for j := i + 1 to Length(tasks) - 1 do
+  for i := 0 to length(tasks) - 2 do
+    for j := i + 1 to length(tasks) - 1 do
     begin
       if tasks[j].createdDate < tasks[i].createdDate then
       begin
@@ -340,7 +432,6 @@ begin
         tasks[j] := temp;
       end;
     end;
-  end;
 end;
 
 procedure TTaskQueryClass.SortByCompletionDate(var tasks: TTaskArray);
@@ -348,75 +439,59 @@ var
   i, j: integer;
   temp: TTask;
 begin
-  for i := 0 to Length(tasks) - 2 do
-  begin
-    for j := i + 1 to Length(tasks) - 1 do
+  for i := 0 to length(tasks) - 2 do
+    for j := i + 1 to length(tasks) - 1 do
     begin
-      if (tasks[j].completedDate > 0) and
-         ((tasks[i].completedDate = 0) or (tasks[j].completedDate < tasks[i].completedDate)) then
+      if tasks[j].completedDate < tasks[i].completedDate then
       begin
         temp := tasks[i];
         tasks[i] := tasks[j];
         tasks[j] := temp;
       end;
     end;
-  end;
 end;
 
 procedure TTaskQueryClass.SelfTest();
 var
-  testMgr: TTaskManagerClass;
-  testQuery: TTaskQueryClass;
+  allTasks, filtered, completed: TTaskArray;
   stats: TTaskStats;
-  keywordResults: TTaskArray;
-  thisWeekTasks: TTaskArray;
-  i: integer;
 begin
   WriteLn('=== TaskQuery Self Test ===');
   
-  testMgr := TTaskManagerClass.Create();
-  testQuery := TTaskQueryClass.Create(testMgr);
+  WriteLn('Adding test tasks with various dates...');
+  manager.AddTask('Task 1', 'Test task', tpHigh, Now() + 1);
+  manager.AddTask('Task 2', 'Test task', tpMedium, Now() + 3);
+  manager.AddTask('Task 3', 'Completed test', tpLow, Now() + 5);
+  manager.AddTask('Task 4', 'No due date', tpMedium, 0);
   
-  try
-    { Add test data }
-    WriteLn('Adding test tasks with various dates...');
-    testMgr.AddTask('Urgent bug fix', 'Fix critical issue', tpHigh, IncDay(Now(), -1));
-    testMgr.AddTask('Feature implementation', 'New user dashboard', tpHigh, IncDay(Now(), 2));
-    testMgr.AddTask('Code review', 'Review PR #42', tpMedium, IncDay(Now(), 1));
-    testMgr.AddTask('Update tests', 'Add test coverage', tpLow, IncDay(Now(), 5));
-    testMgr.CompleteTask(testMgr.GetAllTasks()[0].id);
-    
-    { Test keyword filtering }
-    WriteLn('Testing keyword search...');
-    keywordResults := testQuery.FilterByKeyword('review');
-    WriteLn(Format('  Found %d tasks matching "review"', [Length(keywordResults)]));
-    
-    { Test date range filtering }
-    WriteLn('Testing date range filtering...');
-    thisWeekTasks := testQuery.GetTasksDueThisWeek();
-    WriteLn(Format('  Tasks due this week: %d', [Length(thisWeekTasks)]));
-    
-    { Test statistics }
-    WriteLn('Getting task statistics...');
-    stats := testQuery.GetStats();
-    WriteLn(Format('  Total tasks: %d', [stats.totalTasks]));
-    WriteLn(Format('  Completed: %d', [stats.completedTasks]));
-    WriteLn(Format('  In progress: %d', [stats.inProgressTasks]));
-    WriteLn(Format('  Overdue: %d', [stats.overdueTasks]));
-    WriteLn(Format('  Completion rate: %.1f%%', [stats.completionPercentage]));
-    
-    { Test priority counts }
-    WriteLn('Priority breakdown:');
-    WriteLn(Format('  High: %d', [testQuery.GetHighPriorityCount()]));
-    WriteLn(Format('  Medium: %d', [testQuery.GetMediumPriorityCount()]));
-    WriteLn(Format('  Low: %d', [testQuery.GetLowPriorityCount()]));
-    
-    WriteLn('=== TaskQuery Self Test Complete ===');
-    
-  finally
-    testMgr.Free();
-    testQuery.Free();
-  end;
+  WriteLn('Testing keyword search...');
+  filtered := FilterByKeyword('test');
+  WriteLn('  Found ', length(filtered), ' tasks matching "test"');
+  
+  WriteLn('Testing date range filtering...');
+  filtered := GetTasksDueThisWeek();
+  WriteLn('  Tasks due this week: ', length(filtered));
+  
+  WriteLn('Getting task statistics...');
+  stats := GetStats();
+  WriteLn('  Total tasks: ', stats.totalTasks);
+  WriteLn('  Completed: ', stats.completedTasks);
+  WriteLn('  In progress: ', stats.inProgressTasks);
+  WriteLn('  Completion rate: ', GetCompletionRate():5:1, '%');
+  
+  WriteLn('Testing priority filtering...');
+  filtered := FilterByPriorityRange(tpMedium, tpHigh);
+  WriteLn('  Medium to High priority tasks: ', length(filtered));
+  
+  WriteLn('Testing advanced filters...');
+  filtered := GetTasksWithoutDueDate();
+  WriteLn('  Tasks without due date: ', length(filtered));
+  
+  filtered := GetInProgressTasks();
+  WriteLn('  In progress tasks: ', length(filtered));
+  
+  WriteLn('=== TaskQuery Self Test Complete ===');
+  WriteLn('');
 end;
 
 end.

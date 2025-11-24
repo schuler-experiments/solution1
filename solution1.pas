@@ -1,4 +1,3 @@
-
 program TaskManagerApp;
 
 {$mode objfpc}
