@@ -1,5 +1,6 @@
 
 program TaskManagerApp;
+{ Rebuild timestamp: 1763987021.8999279 }
 
 {$mode objfpc}
 
@@ -16,7 +17,10 @@ uses
   TaskValidation,
   TaskCategories,
   TaskPriorityScoring,
-  TaskReporting;
+  TaskReporting,
+  TaskTeam,
+  TaskBudget,
+  TaskRisk;
 
 var
   mgr: TTaskManagerClass;
@@ -31,6 +35,9 @@ var
   catMgr: TTaskCategoryManagerClass;
   priorityScorer: TTaskPriorityScorerClass;
   rep: TTaskReportClass;
+  teamMgr: TTaskTeamManagerClass;
+  budgetMgr: TTaskBudgetManagerClass;
+  riskMgr: TTaskRiskManagerClass;
 
 begin
   WriteLn('╔════════════════════════════════════════╗');
@@ -50,6 +57,9 @@ begin
   validator := TTaskValidatorClass.Create();
   catMgr := TTaskCategoryManagerClass.Create();
   priorityScorer := TTaskPriorityScorerClass.Create();
+  teamMgr := TTaskTeamManagerClass.Create();
+  budgetMgr := TTaskBudgetManagerClass.Create(50000.0);
+  riskMgr := TTaskRiskManagerClass.Create();
   rep := nil;
   
   try
@@ -92,6 +102,15 @@ begin
     priorityScorer.SelfTest();
     
     WriteLn('');
+    teamMgr.SelfTest();
+    
+    WriteLn('');
+    budgetMgr.SelfTest();
+    
+    WriteLn('');
+    riskMgr.SelfTest();
+    
+    WriteLn('');
     if Length(mgr.GetAllTasks()) > 0 then
     begin
       rep := TTaskReportClass.Create(mgr.GetAllTasks());
@@ -124,6 +143,9 @@ begin
     validator.Free();
     catMgr.Free();
     priorityScorer.Free();
+    teamMgr.Free();
+    budgetMgr.Free();
+    riskMgr.Free();
     if rep <> nil then
       rep.Free();
   end;
