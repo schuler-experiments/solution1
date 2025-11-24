@@ -1,3 +1,4 @@
+
 program TaskManagerApp;
 
 {$mode objfpc}
@@ -12,7 +13,10 @@ uses
   TaskNotes,
   TaskScheduling,
   TaskDependencies,
-  TaskValidation;
+  TaskValidation,
+  TaskCategories,
+  TaskPriorityScoring,
+  TaskReporting;
 
 var
   mgr: TTaskManagerClass;
@@ -24,6 +28,9 @@ var
   timeMgr: TTimeTrackingManagerClass;
   depMgr: TTaskDependencyManagerClass;
   validator: TTaskValidatorClass;
+  catMgr: TTaskCategoryManagerClass;
+  priorityScorer: TTaskPriorityScorerClass;
+  rep: TTaskReportClass;
 
 begin
   WriteLn('╔════════════════════════════════════════╗');
@@ -41,6 +48,9 @@ begin
   timeMgr := TTimeTrackingManagerClass.Create();
   depMgr := TTaskDependencyManagerClass.Create();
   validator := TTaskValidatorClass.Create();
+  catMgr := TTaskCategoryManagerClass.Create();
+  priorityScorer := TTaskPriorityScorerClass.Create();
+  rep := nil;
   
   try
     { Run core self-tests }
@@ -74,6 +84,25 @@ begin
     WriteLn('');
     validator.SelfTest();
     
+    { Run new feature self-tests }
+    WriteLn('');
+    catMgr.SelfTest();
+    
+    WriteLn('');
+    priorityScorer.SelfTest();
+    
+    WriteLn('');
+    if Length(mgr.GetAllTasks()) > 0 then
+    begin
+      rep := TTaskReportClass.Create(mgr.GetAllTasks());
+      try
+        rep.SelfTest();
+      finally
+        rep.Free();
+        rep := nil;
+      end;
+    end;
+    
     WriteLn('');
     WriteLn('╔════════════════════════════════════════╗');
     WriteLn('║     All Self-Tests Completed!         ║');
@@ -93,5 +122,9 @@ begin
     timeMgr.Free();
     depMgr.Free();
     validator.Free();
+    catMgr.Free();
+    priorityScorer.Free();
+    if rep <> nil then
+      rep.Free();
   end;
 end.
