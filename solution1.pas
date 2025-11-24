@@ -31,7 +31,9 @@ uses
   TaskSLA,
   TaskSLAAnalysis,
   TaskQuality,
-  TaskQualityAnalysis;
+  TaskQualityAnalysis,
+  TaskKnowledgeBase,
+  TaskStakeholder;
 
 var
   mgr: TTaskManagerClass;
@@ -57,6 +59,8 @@ var
   auditMgr: TTaskAuditManagerClass;
   slaMgr: TTaskSLAManagerClass;
   qualityMgr: TTaskQualityManagerClass;
+  knowledgeMgr: TKnowledgeBaseClass;
+  stakeholderMgr: TTaskStakeholderManagerClass;
 
 begin
   WriteLn('========================================');
@@ -88,6 +92,8 @@ begin
   auditMgr := TTaskAuditManagerClass.Create();
   slaMgr := TTaskSLAManagerClass.Create();
   qualityMgr := TTaskQualityManagerClass.Create();
+  knowledgeMgr := TKnowledgeBaseClass.Create();
+  stakeholderMgr := TTaskStakeholderManagerClass.Create();
   
   try
     { Run core self-tests }
@@ -173,6 +179,13 @@ begin
 
     WriteLn('');
     qualityMgr.SelfTest();
+
+    { Run knowledge base and stakeholder tests }
+    WriteLn('');
+    knowledgeMgr.SelfTest();
+
+    WriteLn('');
+    stakeholderMgr.SelfTest();
     
     WriteLn('');
     WriteLn('========================================');
@@ -186,6 +199,8 @@ begin
     WriteLn('  - Audit Trail Tracking');
     WriteLn('  - Service Level Agreement (SLA) Management');
     WriteLn('  - Quality Metrics & Analysis');
+    WriteLn('  - Knowledge Base & Best Practices');
+    WriteLn('  - Stakeholder Management & Engagement');
     WriteLn('');
     
   finally
@@ -211,6 +226,8 @@ begin
     auditMgr.Free();
     slaMgr.Free();
     qualityMgr.Free();
+    knowledgeMgr.Free();
+    stakeholderMgr.Free();
     if rep <> nil then
       rep.Free();
   end;
