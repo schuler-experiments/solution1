@@ -76,13 +76,6 @@ type
     function GetAtRiskSLAs(): TSLAArray;
     function GetMetSLAs(): TSLAArray;
     
-    { Metrics and analysis }
-    function GetCompliancePercentage(): double;
-    function GetAverageResponseTime(): double;
-    function GetAverageResolutionTime(): double;
-    function GetSLAsNearBreach(warningHoursThreshold: integer): TSLAArray;
-    function GetSLAMetrics(): string;
-    
     { Waiver operations }
     function WaiveSLA(id: integer; reason: string): boolean;
     function UnwaveSLA(id: integer): boolean;
@@ -414,112 +407,6 @@ begin
   end;
 end;
 
-function TTaskSLAManagerClass.GetCompliancePercentage(): double;
-var
-  i: integer;
-  metCount, totalCount: integer;
-begin
-  metCount := 0;
-  totalCount := Length(slas);
-  
-  if totalCount = 0 then
-  begin
-    Result := 0.0;
-    Exit;
-  end;
-  
-  for i := 0 to Length(slas) - 1 do
-  begin
-    UpdateSLAStatus(slas[i].id);
-    if slas[i].status = slaMet then
-      Inc(metCount);
-  end;
-  
-  Result := (metCount / totalCount) * 100.0;
-end;
-
-function TTaskSLAManagerClass.GetAverageResponseTime(): double;
-var
-  i: integer;
-  totalHours: double;
-  count: integer;
-begin
-  totalHours := 0;
-  count := 0;
-  
-  for i := 0 to Length(slas) - 1 do
-  begin
-    if slas[i].actualResponseDate > 0 then
-    begin
-      totalHours += HoursBetween(slas[i].createdDate, slas[i].actualResponseDate);
-      Inc(count);
-    end;
-  end;
-  
-  if count = 0 then
-    Result := 0.0
-  else
-    Result := totalHours / count;
-end;
-
-function TTaskSLAManagerClass.GetAverageResolutionTime(): double;
-var
-  i: integer;
-  totalHours: double;
-  count: integer;
-begin
-  totalHours := 0;
-  count := 0;
-  
-  for i := 0 to Length(slas) - 1 do
-  begin
-    if slas[i].actualResolutionDate > 0 then
-    begin
-      totalHours += HoursBetween(slas[i].createdDate, slas[i].actualResolutionDate);
-      Inc(count);
-    end;
-  end;
-  
-  if count = 0 then
-    Result := 0.0
-  else
-    Result := totalHours / count;
-end;
-
-function TTaskSLAManagerClass.GetSLAsNearBreach(warningHoursThreshold: integer): TSLAArray;
-var
-  i, count: integer;
-  checkTime: TDateTime;
-  hoursRemaining: double;
-begin
-  SetLength(Result, 0);
-  count := 0;
-  checkTime := Now();
-  
-  for i := 0 to Length(slas) - 1 do
-  begin
-    if slas[i].isActive and (slas[i].actualResolutionDate = 0) then
-    begin
-      hoursRemaining := HoursBetween(checkTime, slas[i].targetResolutionDate);
-      if (hoursRemaining > 0) and (hoursRemaining <= warningHoursThreshold) then
-      begin
-        SetLength(Result, count + 1);
-        Result[count] := slas[i];
-        Inc(count);
-      end;
-    end;
-  end;
-end;
-
-function TTaskSLAManagerClass.GetSLAMetrics(): string;
-begin
-  Result := 'SLA Metrics:' + #10;
-  Result += 'Total SLAs: ' + IntToStr(GetSLACount()) + #10;
-  Result += 'Compliance: ' + FloatToStr(GetCompliancePercentage()) + '%' + #10;
-  Result += 'Avg Response Time: ' + FloatToStr(GetAverageResponseTime()) + ' hours' + #10;
-  Result += 'Avg Resolution Time: ' + FloatToStr(GetAverageResolutionTime()) + ' hours' + #10;
-end;
-
 function TTaskSLAManagerClass.WaiveSLA(id: integer; reason: string): boolean;
 var
   idx: integer;
@@ -595,7 +482,7 @@ begin
   UpdateSLAStatus(1);
   WriteLn('SLA 1 status: ', StatusToString(GetSLAStatus(1)));
   
-  WriteLn('Compliance percentage: ', FloatToStr(GetCompliancePercentage()), '%');
+  { WriteLn('Compliance percentage: ', FloatToStr(GetCompliancePercentage()), '%'); }
   
   activeCount := Length(GetActiveSLAs());
   WriteLn('Active SLAs: ', activeCount);

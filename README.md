@@ -1,5 +1,11 @@
 # Free Pascal Advanced Task Manager
 
+## Recent Updates
+
+**Latest Refactoring (Current)**: All files have been refactored to comply with the 500-line maximum per file requirement. See [REFACTORING_STATUS.md](REFACTORING_STATUS.md) for details.
+
+
+
 A comprehensive, feature-rich task management system built entirely in Free Pascal (FPC). This project demonstrates advanced features of Free Pascal including dynamic arrays, class inheritance, file I/O, and modular design spanning 16 specialized modules.
 
 ## Project Overview

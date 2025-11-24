@@ -27,8 +27,11 @@ uses
   TaskExport,
   TaskSearch,
   TaskAudit,
+  TaskAuditAnalysis,
   TaskSLA,
-  TaskQuality;
+  TaskSLAAnalysis,
+  TaskQuality,
+  TaskQualityAnalysis;
 
 var
   mgr: TTaskManagerClass;

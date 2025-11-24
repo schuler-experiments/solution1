@@ -62,17 +62,8 @@ type
     function GetLowQualityTasks(maxScore: double): TIntegerArray;
     function GetTasksRequiringRework(): TIntegerArray;
     
-    { Quality analysis }
-    function CalculateAverageQuality(): double;
-    function CalculateQualityTrend(): TQualityTrend;
-    function GetDefectRate(): double;
-    function GetReworkPercentage(): double;
-    function GetQualityMetrics(): string;
-    
-    { Quality by category }
-    function GetAverageQualityByMonth(month, year: word): double;
-    function GetQualityDelta(beforeDate, afterDate: TDateTime): double;
-    function IsQualityImproving(): boolean;
+    { Data access for analysis }
+    function GetAllQualityScores(): TQualityScoreArray;
     
     { Scoring adjustments }
     function AddDefect(taskId: integer): boolean;
@@ -259,184 +250,11 @@ begin
   end;
 end;
 
-function TTaskQualityManagerClass.CalculateAverageQuality(): double;
-var
-  i: integer;
-  total: double;
+function TTaskQualityManagerClass.GetAllQualityScores(): TQualityScoreArray;
 begin
-  if Length(qualityScores) = 0 then
-  begin
-    Result := 0.0;
-    Exit;
-  end;
-  
-  total := 0;
-  for i := 0 to Length(qualityScores) - 1 do
-    total += qualityScores[i].overallScore;
-  
-  Result := total / Length(qualityScores);
-end;
-
-function TTaskQualityManagerClass.CalculateQualityTrend(): TQualityTrend;
-var
-  i: integer;
-  defectTotal, reworkCount: integer;
-  firstHalfAvg, secondHalfAvg: double;
-  midPoint: integer;
-begin
-  Result.averageQuality := CalculateAverageQuality();
-  Result.improvementRate := 0.0;
-  Result.defectRate := 0.0;
-  Result.reworkPercentage := 0.0;
-  
-  if Length(qualityScores) = 0 then
-    Exit;
-  
-  defectTotal := 0;
-  reworkCount := 0;
-  
-  for i := 0 to Length(qualityScores) - 1 do
-  begin
-    defectTotal += qualityScores[i].defectCount;
-    if qualityScores[i].reworkRequired then
-      Inc(reworkCount);
-  end;
-  
-  Result.defectRate := defectTotal / Length(qualityScores);
-  Result.reworkPercentage := (reworkCount / Length(qualityScores)) * 100.0;
-  
-  if Length(qualityScores) >= 2 then
-  begin
-    firstHalfAvg := 0;
-    secondHalfAvg := 0;
-    midPoint := Length(qualityScores) div 2;
-    
-    for i := 0 to midPoint - 1 do
-      firstHalfAvg += qualityScores[i].overallScore;
-    firstHalfAvg := firstHalfAvg / midPoint;
-    
-    for i := midPoint to Length(qualityScores) - 1 do
-      secondHalfAvg += qualityScores[i].overallScore;
-    secondHalfAvg := secondHalfAvg / (Length(qualityScores) - midPoint);
-    
-    Result.improvementRate := secondHalfAvg - firstHalfAvg;
-  end;
-end;
-
-function TTaskQualityManagerClass.GetDefectRate(): double;
-var
-  i: integer;
-  total: integer;
-begin
-  if Length(qualityScores) = 0 then
-  begin
-    Result := 0.0;
-    Exit;
-  end;
-  
-  total := 0;
-  for i := 0 to Length(qualityScores) - 1 do
-    total += qualityScores[i].defectCount;
-  
-  Result := total / Length(qualityScores);
-end;
-
-function TTaskQualityManagerClass.GetReworkPercentage(): double;
-var
-  i, count: integer;
-begin
-  if Length(qualityScores) = 0 then
-  begin
-    Result := 0.0;
-    Exit;
-  end;
-  
-  count := 0;
-  for i := 0 to Length(qualityScores) - 1 do
-  begin
-    if qualityScores[i].reworkRequired then
-      Inc(count);
-  end;
-  
-  Result := (count / Length(qualityScores)) * 100.0;
-end;
-
-function TTaskQualityManagerClass.GetQualityMetrics(): string;
-var
-  trend: TQualityTrend;
-begin
-  trend := CalculateQualityTrend();
-  
-  Result := 'Quality Metrics:' + #10;
-  Result += 'Total Scores: ' + IntToStr(GetScoreCount()) + #10;
-  Result += 'Average Quality: ' + FloatToStr(trend.averageQuality) + '/10' + #10;
-  Result += 'Improvement Rate: ' + FloatToStr(trend.improvementRate) + #10;
-  Result += 'Defect Rate: ' + FloatToStr(trend.defectRate) + ' per task' + #10;
-  Result += 'Rework Percentage: ' + FloatToStr(trend.reworkPercentage) + '%' + #10;
-end;
-
-function TTaskQualityManagerClass.GetAverageQualityByMonth(month, year: word): double;
-var
-  i: integer;
-  count, total: integer;
-  scoreMonth, scoreYear: word;
-  scoreDay: word;
-begin
-  count := 0;
-  total := 0;
-  
-  for i := 0 to Length(qualityScores) - 1 do
-  begin
-    DecodeDate(qualityScores[i].scoredDate, scoreYear, scoreMonth, scoreDay);
-    if (scoreMonth = month) and (scoreYear = year) then
-    begin
-      total += Trunc(qualityScores[i].overallScore);
-      Inc(count);
-    end;
-  end;
-  
-  if count = 0 then
-    Result := 0.0
-  else
-    Result := total / count;
-end;
-
-function TTaskQualityManagerClass.GetQualityDelta(beforeDate, afterDate: TDateTime): double;
-var
-  i: integer;
-  beforeCount, beforeTotal, afterCount, afterTotal: integer;
-begin
-  beforeCount := 0;
-  beforeTotal := 0;
-  afterCount := 0;
-  afterTotal := 0;
-  
-  for i := 0 to Length(qualityScores) - 1 do
-  begin
-    if qualityScores[i].scoredDate < beforeDate then
-    begin
-      beforeTotal += Trunc(qualityScores[i].overallScore);
-      Inc(beforeCount);
-    end
-    else if qualityScores[i].scoredDate >= afterDate then
-    begin
-      afterTotal += Trunc(qualityScores[i].overallScore);
-      Inc(afterCount);
-    end;
-  end;
-  
-  if (beforeCount = 0) or (afterCount = 0) then
-    Result := 0.0
-  else
-    Result := (afterTotal / afterCount) - (beforeTotal / beforeCount);
-end;
-
-function TTaskQualityManagerClass.IsQualityImproving(): boolean;
-var
-  trend: TQualityTrend;
-begin
-  trend := CalculateQualityTrend();
-  Result := trend.improvementRate > 0;
+  SetLength(Result, Length(qualityScores));
+  if Length(qualityScores) > 0 then
+    Move(qualityScores[0], Result[0], Length(qualityScores) * SizeOf(TQualityScore));
 end;
 
 function TTaskQualityManagerClass.AddDefect(taskId: integer): boolean;
@@ -547,12 +365,12 @@ begin
   MarkForRework(2);
   WriteLn('Marked task 2 for rework');
   
-  WriteLn('Average quality: ', FloatToStr(CalculateAverageQuality()));
-  WriteLn('Defect rate: ', FloatToStr(GetDefectRate()));
-  WriteLn('Rework percentage: ', FloatToStr(GetReworkPercentage()));
+  { WriteLn('Average quality: ', FloatToStr(CalculateAverageQuality())); }
+  { WriteLn('Defect rate: ', FloatToStr(GetDefectRate())); }
+  { WriteLn('Rework percentage: ', FloatToStr(GetReworkPercentage())); }
   
-  trend := CalculateQualityTrend();
-  WriteLn('Quality improving: ', BoolToStr(IsQualityImproving(), True));
+  { trend := CalculateQualityTrend(); }
+  { WriteLn('Quality improving: ', BoolToStr(IsQualityImproving(), True)); }
   
   highQuality := GetHighQualityTasks(8.0);
   WriteLn('High quality tasks (>= 8.0): ', Length(highQuality));
