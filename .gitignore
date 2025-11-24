@@ -1,0 +1,26 @@
+# Binary files
+*.o
+*.ppu
+*.a
+*.so
+*.exe
+task_manager
+bin/*
+!bin/.gitkeep
+
+# Backup files
+*.bak
+*.backup
+*.swp
+*.swo
+*~
+
+# IDE files
+.idea/
+.vscode/
+*.orig
+
+# Generated files
+*.csv
+*.txt
+!README.md
