@@ -12,7 +12,8 @@ uses
   TaskQuery,
   TaskNotes,
   TaskScheduling,
-  TaskDependencies;
+  TaskDependencies,
+  TaskValidation;
 
 var
   mgr: TTaskManagerClass;
@@ -23,6 +24,7 @@ var
   recurringMgr: TRecurringTaskManagerClass;
   timeMgr: TTimeTrackingManagerClass;
   depMgr: TTaskDependencyManagerClass;
+  validator: TTaskValidatorClass;
 
 begin
   WriteLn('╔════════════════════════════════════════╗');
@@ -39,6 +41,7 @@ begin
   recurringMgr := TRecurringTaskManagerClass.Create();
   timeMgr := TTimeTrackingManagerClass.Create();
   depMgr := TTaskDependencyManagerClass.Create();
+  validator := TTaskValidatorClass.Create();
   
   try
     { Run core self-tests }
@@ -70,6 +73,9 @@ begin
     depMgr.SelfTest();
     
     WriteLn('');
+    validator.SelfTest();
+    
+    WriteLn('');
     WriteLn('╔════════════════════════════════════════╗');
     WriteLn('║     All Self-Tests Completed!         ║');
     WriteLn('╚════════════════════════════════════════╝');
@@ -87,5 +93,6 @@ begin
     recurringMgr.Free();
     timeMgr.Free();
     depMgr.Free();
+    validator.Free();
   end;
 end.
