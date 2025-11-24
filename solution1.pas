@@ -38,6 +38,7 @@ uses
   TaskStakeholderExtended,
   TaskWorkflow,
   TaskWorkflowApproval,
+  TaskTimeTracking,
   TaskResourceOptimization;
 
 var
