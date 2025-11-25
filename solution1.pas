@@ -21,6 +21,7 @@ var
   tasks: TTaskArray;
   i: integer;
   dueDate1, dueDate2: TDateTime;
+  tags: TTagArray;
 begin
   writeln('===== TASK MANAGER SELF TEST =====');
   writeln;
@@ -160,6 +161,58 @@ begin
       writeln('Tasks saved successfully to tasks.dat')
     else
       writeln('Failed to save tasks: ', manager.getLastError);
+    writeln;
+
+
+    writeln('Test 18: Adding tags to tasks...');
+    if manager.addTaskTag(taskId1, 'urgent') then
+      writeln('Tag "urgent" added to task 1')
+    else
+      writeln('Failed to add tag: ', manager.getLastError);
+
+    if manager.addTaskTag(taskId1, 'critical') then
+      writeln('Tag "critical" added to task 1')
+    else
+      writeln('Failed to add tag: ', manager.getLastError);
+
+    if manager.addTaskTag(taskId2, 'urgent') then
+      writeln('Tag "urgent" added to task 2')
+    else
+      writeln('Failed to add tag: ', manager.getLastError);
+
+    if manager.addTaskTag(taskId3, 'review') then
+      writeln('Tag "review" added to task 3')
+    else
+      writeln('Failed to add tag: ', manager.getLastError);
+    writeln;
+
+    writeln('Test 19: Checking task tags...');
+    if manager.hasTaskTag(taskId1, 'urgent') then
+      writeln('Task 1 has "urgent" tag')
+    else
+      writeln('Task 1 does NOT have "urgent" tag');
+
+    tags := manager.getTaskTags(taskId1);
+    writeln('Task 1 has ', length(tags), ' tags:');
+    for i := 0 to length(tags) - 1 do
+      writeln('  - ', tags[i]);
+    writeln;
+
+    writeln('Test 20: Getting tasks by tag...');
+    tasks := manager.getTasksByTag('urgent');
+    writeln('Found ', length(tasks), ' tasks with "urgent" tag:');
+    for i := 0 to length(tasks) - 1 do
+      writeln('  - ', tasks[i].name);
+    writeln;
+
+    writeln('Test 21: Removing tags...');
+    if manager.removeTaskTag(taskId1, 'critical') then
+      writeln('Tag "critical" removed from task 1')
+    else
+      writeln('Failed to remove tag: ', manager.getLastError);
+
+    tags := manager.getTaskTags(taskId1);
+    writeln('Task 1 now has ', length(tags), ' tag(s)');
     writeln;
 
     writeln('===== ALL TESTS COMPLETED SUCCESSFULLY =====');

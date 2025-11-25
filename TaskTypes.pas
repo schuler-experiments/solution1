@@ -13,6 +13,7 @@ uses
 const
   maxStringLength = 255;
   defaultTaskFile = 'tasks.dat';
+  maxTagsPerTask = 10;
 
 type
   // Task status enumeration
@@ -20,6 +21,9 @@ type
 
   // Task priority enumeration
   TTaskPriority = (tpLow, tpMedium, tpHigh, tpCritical);
+
+  // Tags array
+  TTagArray = array of string;
 
   // Task record structure
   TTask = record
@@ -32,6 +36,7 @@ type
     createdDate: TDateTime;
     completedDate: TDateTime;
     category: string[100];
+    tags: TTagArray;
   end;
 
   // Dynamic array of tasks

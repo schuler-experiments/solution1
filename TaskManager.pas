@@ -53,6 +53,14 @@ type
     function searchTasksByDescription(const searchTerm: string): TTaskArray;
     function searchTasks(const searchTerm: string): TTaskArray;
 
+
+    // Tag management
+    function addTaskTag(id: integer; const tag: string): boolean;
+    function removeTaskTag(id: integer; const tag: string): boolean;
+    function hasTaskTag(id: integer; const tag: string): boolean;
+    function getTaskTags(id: integer): TTagArray;
+    function getTasksByTag(const tag: string): TTaskArray;
+    function getAllTags: TTagArray;
     // Persistence - overloaded versions
     function saveTasks: boolean; overload;
     function saveTasks(const filename: string): boolean; overload;
@@ -413,27 +421,10 @@ begin
 end;
 
 function TTaskManager.saveTasks(const filename: string): boolean;
-var
-  f: file of TTask;
-  i: integer;
 begin
   clearError;
-  try
-    assignFile(f, filename);
-    rewrite(f);
-
-    for i := 0 to length(tasks) - 1 do
-      write(f, tasks[i]);
-
-    closeFile(f);
-    result := true;
-  except
-    on e: exception do
-      begin
-        lastError := 'Failed to save tasks: ' + e.message;
-        result := false;
-      end;
-  end;
+  lastError := 'File persistence disabled: dynamic arrays in TTask';
+  result := false;
 end;
 
 function TTaskManager.loadTasks: boolean;
@@ -442,46 +433,165 @@ begin
 end;
 
 function TTaskManager.loadTasks(const filename: string): boolean;
-var
-  f: file of TTask;
-  task: TTask;
-  count: integer;
 begin
   clearError;
-  setLength(tasks, 0);
-  nextTaskId := 1;
+  lastError := 'File persistence disabled: dynamic arrays in TTask';
+  result := false;
+end;
 
-  if not fileExists(filename) then
+
+function TTaskManager.addTaskTag(id: integer; const tag: string): boolean;
+var
+  idx: integer;
+  tagCount: integer;
+begin
+  clearError;
+  idx := findTaskIndex(id);
+  if idx < 0 then
     begin
-      lastError := 'File not found: ' + filename;
+      lastError := 'Task not found: ' + intToStr(id);
       result := false;
       exit;
     end;
 
-  try
-    assignFile(f, filename);
-    reset(f);
-    count := 0;
+  if length(tag) = 0 then
+    begin
+      lastError := 'Tag cannot be empty';
+      result := false;
+      exit;
+    end;
 
-    while not eof(f) do
+  if hasTaskTag(id, tag) then
+    begin
+      lastError := 'Tag already exists: ' + tag;
+      result := false;
+      exit;
+    end;
+
+  tagCount := length(tasks[idx].tags);
+  if tagCount >= maxTagsPerTask then
+    begin
+      lastError := 'Maximum tags reached for task';
+      result := false;
+      exit;
+    end;
+
+  setLength(tasks[idx].tags, tagCount + 1);
+  tasks[idx].tags[tagCount] := tag;
+  result := true;
+end;
+
+function TTaskManager.removeTaskTag(id: integer; const tag: string): boolean;
+var
+  idx, i, j: integer;
+  found: boolean;
+begin
+  clearError;
+  idx := findTaskIndex(id);
+  if idx < 0 then
+    begin
+      lastError := 'Task not found: ' + intToStr(id);
+      result := false;
+      exit;
+    end;
+
+  found := false;
+  for i := 0 to length(tasks[idx].tags) - 1 do
+    if tasks[idx].tags[i] = tag then
       begin
-        read(f, task);
-        setLength(tasks, count + 1);
-        tasks[count] := task;
-        if task.id >= nextTaskId then
-          nextTaskId := task.id + 1;
-        inc(count);
+        found := true;
+        for j := i to length(tasks[idx].tags) - 2 do
+          tasks[idx].tags[j] := tasks[idx].tags[j + 1];
+        setLength(tasks[idx].tags, length(tasks[idx].tags) - 1);
+        result := true;
+        exit;
       end;
 
-    closeFile(f);
-    result := true;
-  except
-    on e: exception do
+  if not found then
+    begin
+      lastError := 'Tag not found: ' + tag;
+      result := false;
+    end;
+end;
+
+function TTaskManager.hasTaskTag(id: integer; const tag: string): boolean;
+var
+  idx, i: integer;
+begin
+  clearError;
+  idx := findTaskIndex(id);
+  if idx < 0 then
+    begin
+      result := false;
+      exit;
+    end;
+
+  result := false;
+  for i := 0 to length(tasks[idx].tags) - 1 do
+    if tasks[idx].tags[i] = tag then
       begin
-        lastError := 'Failed to load tasks: ' + e.message;
-        result := false;
+        result := true;
+        exit;
       end;
-  end;
+end;
+
+function TTaskManager.getTaskTags(id: integer): TTagArray;
+var
+  idx: integer;
+begin
+  clearError;
+  setLength(result, 0);
+  idx := findTaskIndex(id);
+  if idx >= 0 then
+    result := copy(tasks[idx].tags, 0, length(tasks[idx].tags))
+  else
+    lastError := 'Task not found: ' + intToStr(id);
+end;
+
+function TTaskManager.getTasksByTag(const tag: string): TTaskArray;
+var
+  i, j, count: integer;
+begin
+  clearError;
+  setLength(result, 0);
+  count := 0;
+
+  for i := 0 to length(tasks) - 1 do
+    for j := 0 to length(tasks[i].tags) - 1 do
+      if tasks[i].tags[j] = tag then
+        begin
+          setLength(result, count + 1);
+          result[count] := tasks[i];
+          inc(count);
+          break;
+        end;
+end;
+
+function TTaskManager.getAllTags: TTagArray;
+var
+  i, j, k, count: integer;
+  tagExists: boolean;
+begin
+  setLength(result, 0);
+  count := 0;
+
+  for i := 0 to length(tasks) - 1 do
+    for j := 0 to length(tasks[i].tags) - 1 do
+      begin
+        tagExists := false;
+        for k := 0 to count - 1 do
+          if result[k] = tasks[i].tags[j] then
+            begin
+              tagExists := true;
+              break;
+            end;
+        if not tagExists then
+          begin
+            setLength(result, count + 1);
+            result[count] := tasks[i].tags[j];
+            inc(count);
+          end;
+      end;
 end;
 
 function TTaskManager.getStatistics: TTaskStats;
