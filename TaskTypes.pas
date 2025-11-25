@@ -18,6 +18,8 @@ const
   maxMilestonesPerManager = 50;
   maxWatchersPerTask = 20;
   maxReferencesPerTask = 10;
+  maxSubtasksPerTask = 50;
+  maxHistoryEntriesPerTask = 100;
 
 type
   // Task status enumeration
@@ -42,6 +44,28 @@ type
     relationshipType: string[50];
   end;
 
+  // Subtask record
+  TSubtask = record
+    id: integer;
+    taskId: integer;
+    title: string[maxStringLength];
+    status: TTaskStatus;
+    createdDate: TDateTime;
+    completedDate: TDateTime;
+    assignedTo: string[100];
+    estimatedHours: double;
+    actualHours: double;
+  end;
+
+  // Task history entry for audit logging
+  TTaskHistoryEntry = record
+    timestamp: TDateTime;
+    fieldName: string[50];
+    oldValue: string[maxStringLength];
+    newValue: string[maxStringLength];
+    changedBy: string[100];
+  end;
+
   // Notes array
   TNoteArray = array of TTaskNote;
 
@@ -56,6 +80,12 @@ type
 
   // References array
   TReferenceArray = array of TTaskReference;
+
+  // Subtasks array
+  TSubtaskArray = array of TSubtask;
+
+  // History array
+  THistoryArray = array of TTaskHistoryEntry;
 
   // Task record structure
   TTask = record
@@ -79,6 +109,8 @@ type
     recurrenceEndDate: TDateTime;
     watchers: TWatcherArray;
     references: TReferenceArray;
+    subtasks: TSubtaskArray;
+    history: THistoryArray;
     storyPoints: integer;
     isBlocked: boolean;
     blockReason: string[maxStringLength];

@@ -10,123 +10,143 @@ uses
   TaskTypes,
   TaskManager,
   TaskManagerExtended,
-  TaskManagerAdvanced;
+  TaskManagerAdvanced,
+  TaskManagerSubtasks,
+  TaskManagerHistory,
+  TaskManagerEnhanced;
 
 var
-  manager: TTaskManagerAdvanced;
+  manager: TTaskManagerEnhanced;
 
 procedure selfTest;
 var
   i: integer;
   tasks: TTaskArray;
   stats: TTaskStats;
-  blocked: TTaskArray;
-  recurring: TTaskArray;
-  watchers: TWatcherArray;
+  subtasks: TSubtaskArray;
+  history: THistoryArray;
   taskId: integer;
+  batchIds: array of integer;
+  audit: string;
+  tempTask: TTask;
 begin
-  WriteLn('===== TASK MANAGER WITH ADVANCED FEATURES TEST =====');
+  WriteLn('===== ENHANCED TASK MANAGER WITH SUBTASKS & HISTORY TEST =====');
   WriteLn;
 
   { Test 1: Create tasks }
   WriteLn('Test 1: Creating tasks...');
   for i := 1 to 5 do
-    WriteLn('Created task ' + intToStr(i) + ' (ID: ' +
-            intToStr(manager.addTask('Task ' + intToStr(i), 'Description', 'Development',
-                                     tpHigh, now + i)) + ')');
+  begin
+    taskId := manager.addTask('Task ' + intToStr(i), 'Description', 'Development',
+                              tpHigh, now + i);
+    WriteLn('Created task ' + intToStr(i) + ' (ID: ' + intToStr(taskId) + ')');
+    manager.recordTaskChange(taskId, 'status', '', 'new', 'system');
+  end;
   WriteLn;
 
-  { Test 2: Task Story Points }
-  WriteLn('Test 2: Setting story points...');
-  if manager.setTaskStoryPoints(1, 8) then
-    WriteLn('Task 1: 8 story points');
-  if manager.setTaskStoryPoints(2, 5) then
-    WriteLn('Task 2: 5 story points');
-  if manager.setTaskStoryPoints(3, 3) then
-    WriteLn('Task 3: 3 story points');
-  WriteLn('Total story points: ' + intToStr(manager.getTotalStoryPoints));
+  { Test 2: Subtasks }
+  WriteLn('Test 2: Adding subtasks...');
+  taskId := manager.addTask('Major Feature', 'Implement authentication', 'Development',
+                           tpCritical, now + 7);
+  manager.recordTaskChange(taskId, 'status', '', 'new', 'system');
+  WriteLn('Created main task ID: ' + intToStr(taskId));
+
+  for i := 1 to 3 do
+  begin
+    manager.addSubtask(taskId, 'Subtask ' + intToStr(i), 2.5);
+    WriteLn('  Added subtask ' + intToStr(i));
+  end;
+
+  WriteLn('Total subtasks: ' + intToStr(manager.getSubtaskCount(taskId)));
+  WriteLn('Completion: ' + FloatToStr(manager.getSubtaskCompletionPercentage(taskId)) + '%');
   WriteLn;
 
-  { Test 3: Task Watchers }
-  WriteLn('Test 3: Adding task watchers...');
-  if manager.addTaskWatcher(1, 'Alice') then
-    WriteLn('Alice is watching Task 1');
-  if manager.addTaskWatcher(1, 'Bob') then
-    WriteLn('Bob is watching Task 1');
-  if manager.addTaskWatcher(2, 'Alice') then
-    WriteLn('Alice is watching Task 2');
-  watchers := manager.getTaskWatchers(1);
-  WriteLn('Task 1 has ' + intToStr(length(watchers)) + ' watchers');
+  { Test 3: Complete some subtasks }
+  WriteLn('Test 3: Completing subtasks...');
+  manager.completeSubtask(taskId, 0);
+  WriteLn('Completed first subtask');
+  WriteLn('New completion: ' + FloatToStr(manager.getSubtaskCompletionPercentage(taskId)) + '%');
   WriteLn;
 
-  { Test 4: Task Blocking }
-  WriteLn('Test 4: Blocking tasks...');
-  if manager.blockTask(2, 'Waiting for API documentation') then
-    WriteLn('Task 2 blocked: Waiting for API documentation');
-  if manager.blockTask(3, 'Dependency not ready') then
-    WriteLn('Task 3 blocked: Dependency not ready');
-  blocked := manager.getBlockedTasks;
-  WriteLn('Total blocked tasks: ' + intToStr(length(blocked)));
+  { Test 4: Task History }
+  WriteLn('Test 4: Task history and audit trail...');
+  manager.recordTaskChange(1, 'status', 'new', 'in_progress', 'alice');
+  manager.recordTaskChange(1, 'priority', 'high', 'critical', 'bob');
+  manager.recordTaskChange(1, 'assignedTo', '', 'alice', 'system');
+
+  history := manager.getTaskHistory(1);
+  WriteLn('Task 1 has ' + intToStr(length(history)) + ' history entries');
+
+  audit := manager.getTaskAuditTrail(1);
+  WriteLn(audit);
   WriteLn;
 
-  { Test 5: Task References/Links }
-  WriteLn('Test 5: Adding task references...');
-  if manager.addTaskReference(1, 2, 'blocks') then
-    WriteLn('Task 1 blocks Task 2');
-  if manager.addTaskReference(3, 1, 'related_to') then
-    WriteLn('Task 3 related to Task 1');
+  { Test 5: Priority Escalation }
+  WriteLn('Test 5: Priority escalation near deadline...');
+  taskId := manager.addTask('Urgent Task', 'Must complete soon', 'Urgent',
+                           tpMedium, now + 2);
+  manager.recordTaskChange(taskId, 'status', '', 'new', 'system');
+  WriteLn('Created task with low priority, due in 2 days');
+
+  manager.escalatePriorityIfDue(taskId);
+  WriteLn('Priority escalated for near-deadline task');
   WriteLn;
 
-  { Test 6: Task Recurrence }
-  WriteLn('Test 6: Setting task recurrence...');
-  if manager.setTaskRecurrence(4, rpWeekly, now + 90) then
-    WriteLn('Task 4 set to recur weekly until 90 days from now');
-  recurring := manager.getRecurringTasks;
-  WriteLn('Total recurring tasks: ' + intToStr(length(recurring)));
+  { Test 6: Batch Operations }
+  WriteLn('Test 6: Batch operations...');
+  setlength(batchIds, 3);
+  batchIds[0] := 1;
+  batchIds[1] := 2;
+  batchIds[2] := 3;
+
+  WriteLn('Batch assigning tasks to alice...');
+  i := manager.batchAssignTasks(batchIds, 'alice');
+  WriteLn('Updated ' + intToStr(i) + ' tasks');
   WriteLn;
 
-  { Test 7: Complete and track velocity }
-  WriteLn('Test 7: Completing tasks and tracking velocity...');
-  manager.completeTask(1);
-  WriteLn('Task 1 completed');
-  WriteLn('Completed story points: ' + intToStr(manager.getCompletedStoryPoints));
-  WriteLn('Velocity (per day): ' + FloatToStr(manager.getVelocity(1)));
+  { Test 7: Tasks near deadline }
+  WriteLn('Test 7: Finding tasks near deadline...');
+  tasks := manager.getTasksNearDeadline(7);
+  WriteLn('Tasks due within 7 days: ' + intToStr(length(tasks)));
   WriteLn;
 
-  { Test 8: Team workload }
-  WriteLn('Test 8: Checking team workload...');
-  manager.assignTaskTo(1, 'Alice');
-  manager.assignTaskTo(2, 'Alice');
-  WriteLn('Alice workload: ' + FloatToStr(manager.getTeamWorkload('Alice')) + ' hours');
+  { Test 8: Subtask assignments }
+  WriteLn('Test 8: Subtask assignments...');
+  taskId := manager.addTask('Project Planning', 'Plan Q1 roadmap', 'Planning',
+                           tpHigh, now + 5);
+  manager.addSubtask(taskId, 'Review requirements', 3.0);
+  manager.addSubtask(taskId, 'Draft timeline', 2.0);
+  manager.addSubtask(taskId, 'Assign resources', 2.5);
+
+  manager.assignSubtaskTo(taskId, 0, 'alice');
+  manager.assignSubtaskTo(taskId, 1, 'bob');
+  manager.assignSubtaskTo(taskId, 2, 'charlie');
+
+  subtasks := manager.getSubtasksForAssignee('alice');
+  WriteLn('Alice has ' + intToStr(length(subtasks)) + ' subtask(s)');
   WriteLn;
 
-  { Test 9: Critical path }
-  WriteLn('Test 9: Getting critical path...');
-  manager.setTaskPriority(5, tpCritical);
-  tasks := manager.getCriticalPath;
-  WriteLn('Critical path tasks: ' + intToStr(length(tasks)));
+  { Test 9: Escalation risk analysis }
+  WriteLn('Test 9: Tasks with escalation risk...');
+  tasks := manager.getTasksByEscalationRisk;
+  WriteLn('Tasks at risk (due within 7 days): ' + intToStr(length(tasks)));
   WriteLn;
 
-  { Test 10: Get tasks watched by person }
-  WriteLn('Test 10: Getting tasks watched by person...');
-  tasks := manager.getTasksWatchedBy('Alice');
-  WriteLn('Alice is watching ' + intToStr(length(tasks)) + ' task(s)');
-  WriteLn;
-
-  { Test 11: Statistics }
-  WriteLn('Test 11: Final statistics...');
-  stats := manager.getStatistics;
+  { Test 10: Statistics }
+  WriteLn('Test 10: Final statistics...');
+  stats := manager.getProductivityMetrics;
   WriteLn('Total tasks: ' + intToStr(stats.totalTasks));
   WriteLn('Completed: ' + intToStr(stats.completedTasks));
-  WriteLn('Blocked: ' + intToStr(stats.blockedTasks));
+  WriteLn('High priority: ' + intToStr(stats.highPriorityCount));
+  WriteLn('Critical priority: ' + intToStr(stats.criticalPriorityCount));
   WriteLn;
 
-  WriteLn('===== ALL TESTS COMPLETED SUCCESSFULLY =====');
+  WriteLn('===== ALL ENHANCED TESTS COMPLETED SUCCESSFULLY =====');
   WriteLn;
 end;
 
 begin
-  manager := TTaskManagerAdvanced.Create;
+  manager := TTaskManagerEnhanced.Create;
   try
     selfTest;
   finally
