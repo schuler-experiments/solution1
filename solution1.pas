@@ -120,6 +120,48 @@ begin
     writeln('Final Completed: ', stats.completedTasks);
     writeln;
 
+    writeln('Test 12: Sorting by due date...');
+    tasks := manager.getTasksSortedByDueDate;
+    writeln('Tasks sorted by due date:');
+    for i := 0 to length(tasks) - 1 do
+      writeln('  - ', tasks[i].name);
+    writeln;
+
+    writeln('Test 13: Sorting by priority...');
+    tasks := manager.getTasksSortedByPriority;
+    writeln('Tasks sorted by priority (highest first):');
+    for i := 0 to length(tasks) - 1 do
+      writeln('  - ', tasks[i].name);
+    writeln;
+
+    writeln('Test 14: Searching by name...');
+    tasks := manager.searchTasksByName('Database');
+    writeln('Found ', length(tasks), ' tasks with "Database" in name:');
+    for i := 0 to length(tasks) - 1 do
+      writeln('  - ', tasks[i].name);
+    writeln;
+
+    writeln('Test 15: Searching by description...');
+    tasks := manager.searchTasksByDescription('comprehensive');
+    writeln('Found ', length(tasks), ' tasks with "comprehensive" in description:');
+    for i := 0 to length(tasks) - 1 do
+      writeln('  - ', tasks[i].name);
+    writeln;
+
+    writeln('Test 16: General search...');
+    tasks := manager.searchTasks('user');
+    writeln('Found ', length(tasks), ' tasks with "user" in name or description:');
+    for i := 0 to length(tasks) - 1 do
+      writeln('  - ', tasks[i].name);
+    writeln;
+
+    writeln('Test 17: Saving tasks to file...');
+    if manager.saveTasks('tasks.dat') then
+      writeln('Tasks saved successfully to tasks.dat')
+    else
+      writeln('Failed to save tasks: ', manager.getLastError);
+    writeln;
+
     writeln('===== ALL TESTS COMPLETED SUCCESSFULLY =====');
 
   finally

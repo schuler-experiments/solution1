@@ -12,6 +12,7 @@ uses
 
 const
   maxStringLength = 255;
+  defaultTaskFile = 'tasks.dat';
 
 type
   // Task status enumeration

@@ -43,6 +43,22 @@ type
     function setTaskPriority(id: integer; newPriority: TTaskPriority): boolean;
     function completeTask(id: integer): boolean;
 
+    // Sorting
+    function getTasksSortedByDueDate: TTaskArray;
+    function getTasksSortedByPriority: TTaskArray;
+    function getTasksSortedByStatus: TTaskArray;
+
+    // Search
+    function searchTasksByName(const searchTerm: string): TTaskArray;
+    function searchTasksByDescription(const searchTerm: string): TTaskArray;
+    function searchTasks(const searchTerm: string): TTaskArray;
+
+    // Persistence - overloaded versions
+    function saveTasks: boolean; overload;
+    function saveTasks(const filename: string): boolean; overload;
+    function loadTasks: boolean; overload;
+    function loadTasks(const filename: string): boolean; overload;
+
     // Statistics
     function getStatistics: TTaskStats;
     function getOverdueTaskCount: integer;
@@ -264,6 +280,208 @@ end;
 function TTaskManager.completeTask(id: integer): boolean;
 begin
   result := setTaskStatus(id, tsCompleted);
+end;
+
+function TTaskManager.getTasksSortedByDueDate: TTaskArray;
+var
+  sorted: TTaskArray;
+  i, j: integer;
+  temp: TTask;
+begin
+  sorted := copy(tasks, 0, length(tasks));
+
+  for i := 0 to length(sorted) - 1 do
+    for j := 0 to length(sorted) - 2 - i do
+      if sorted[j].dueDate > sorted[j + 1].dueDate then
+        begin
+          temp := sorted[j];
+          sorted[j] := sorted[j + 1];
+          sorted[j + 1] := temp;
+        end;
+
+  result := sorted;
+end;
+
+function TTaskManager.getTasksSortedByPriority: TTaskArray;
+var
+  sorted: TTaskArray;
+  i, j: integer;
+  temp: TTask;
+begin
+  sorted := copy(tasks, 0, length(tasks));
+
+  for i := 0 to length(sorted) - 1 do
+    for j := 0 to length(sorted) - 2 - i do
+      if integer(sorted[j].priority) < integer(sorted[j + 1].priority) then
+        begin
+          temp := sorted[j];
+          sorted[j] := sorted[j + 1];
+          sorted[j + 1] := temp;
+        end;
+
+  result := sorted;
+end;
+
+function TTaskManager.getTasksSortedByStatus: TTaskArray;
+var
+  sorted: TTaskArray;
+  i, j: integer;
+  temp: TTask;
+begin
+  sorted := copy(tasks, 0, length(tasks));
+
+  for i := 0 to length(sorted) - 1 do
+    for j := 0 to length(sorted) - 2 - i do
+      if integer(sorted[j].status) > integer(sorted[j + 1].status) then
+        begin
+          temp := sorted[j];
+          sorted[j] := sorted[j + 1];
+          sorted[j + 1] := temp;
+        end;
+
+  result := sorted;
+end;
+
+function TTaskManager.searchTasksByName(const searchTerm: string): TTaskArray;
+var
+  i, count: integer;
+  lowerSearchTerm, lowerName: string;
+begin
+  setLength(result, 0);
+  count := 0;
+  lowerSearchTerm := lowercase(searchTerm);
+
+  for i := 0 to length(tasks) - 1 do
+    begin
+      lowerName := lowercase(tasks[i].name);
+      if pos(lowerSearchTerm, lowerName) > 0 then
+        begin
+          setLength(result, count + 1);
+          result[count] := tasks[i];
+          inc(count);
+        end;
+    end;
+end;
+
+function TTaskManager.searchTasksByDescription(const searchTerm: string): TTaskArray;
+var
+  i, count: integer;
+  lowerSearchTerm, lowerDesc: string;
+begin
+  setLength(result, 0);
+  count := 0;
+  lowerSearchTerm := lowercase(searchTerm);
+
+  for i := 0 to length(tasks) - 1 do
+    begin
+      lowerDesc := lowercase(tasks[i].description);
+      if pos(lowerSearchTerm, lowerDesc) > 0 then
+        begin
+          setLength(result, count + 1);
+          result[count] := tasks[i];
+          inc(count);
+        end;
+    end;
+end;
+
+function TTaskManager.searchTasks(const searchTerm: string): TTaskArray;
+var
+  i, count: integer;
+  lowerSearchTerm, lowerName, lowerDesc: string;
+begin
+  setLength(result, 0);
+  count := 0;
+  lowerSearchTerm := lowercase(searchTerm);
+
+  for i := 0 to length(tasks) - 1 do
+    begin
+      lowerName := lowercase(tasks[i].name);
+      lowerDesc := lowercase(tasks[i].description);
+      if (pos(lowerSearchTerm, lowerName) > 0) or
+         (pos(lowerSearchTerm, lowerDesc) > 0) then
+        begin
+          setLength(result, count + 1);
+          result[count] := tasks[i];
+          inc(count);
+        end;
+    end;
+end;
+
+function TTaskManager.saveTasks: boolean;
+begin
+  result := saveTasks(defaultTaskFile);
+end;
+
+function TTaskManager.saveTasks(const filename: string): boolean;
+var
+  f: file of TTask;
+  i: integer;
+begin
+  clearError;
+  try
+    assignFile(f, filename);
+    rewrite(f);
+
+    for i := 0 to length(tasks) - 1 do
+      write(f, tasks[i]);
+
+    closeFile(f);
+    result := true;
+  except
+    on e: exception do
+      begin
+        lastError := 'Failed to save tasks: ' + e.message;
+        result := false;
+      end;
+  end;
+end;
+
+function TTaskManager.loadTasks: boolean;
+begin
+  result := loadTasks(defaultTaskFile);
+end;
+
+function TTaskManager.loadTasks(const filename: string): boolean;
+var
+  f: file of TTask;
+  task: TTask;
+  count: integer;
+begin
+  clearError;
+  setLength(tasks, 0);
+  nextTaskId := 1;
+
+  if not fileExists(filename) then
+    begin
+      lastError := 'File not found: ' + filename;
+      result := false;
+      exit;
+    end;
+
+  try
+    assignFile(f, filename);
+    reset(f);
+    count := 0;
+
+    while not eof(f) do
+      begin
+        read(f, task);
+        setLength(tasks, count + 1);
+        tasks[count] := task;
+        if task.id >= nextTaskId then
+          nextTaskId := task.id + 1;
+        inc(count);
+      end;
+
+    closeFile(f);
+    result := true;
+  except
+    on e: exception do
+      begin
+        lastError := 'Failed to load tasks: ' + e.message;
+        result := false;
+      end;
+  end;
 end;
 
 function TTaskManager.getStatistics: TTaskStats;
