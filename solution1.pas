@@ -42,7 +42,6 @@ var
   risks: TRiskEntryArray;
   highRiskTasks: TTaskArray;
   predictions: TPredictionArray;
-  slaId: integer;
   slaMetrics: TSLAMetrics;
   atRiskTasks: TTaskArray;
   breachedTasks: TTaskArray;
@@ -70,9 +69,9 @@ begin
 
   { Test 2: Setup SLAs }
   WriteLn('Test 2: Configuring Service Level Agreements...');
-  slaId := slaMonitor.addSLA('Development', tpHigh, 4, 24, 12);
+  slaMonitor.addSLA('Development', tpHigh, 4, 24, 12);
   WriteLn('  Added Development High Priority SLA: 4h response, 24h resolution');
-  slaId := slaMonitor.addSLA('Development', tpMedium, 8, 48, 24);
+  slaMonitor.addSLA('Development', tpMedium, 8, 48, 24);
   WriteLn('  Added Development Medium Priority SLA: 8h response, 48h resolution');
   WriteLn('  Total SLAs configured: ' + intToStr(slaMonitor.getSLACount));
   WriteLn;
@@ -110,7 +109,7 @@ begin
   WriteLn('Test 7: SLA Compliance Report...');
   WriteLn(slaMonitor.getSLAReport);
 
-  { Test 8: Completion Analytics (Original) }
+  { Test 8: Completion Analytics }
   WriteLn('Test 8: Task completion analytics...');
   completionStats := analytics.getCompletionStats;
   WriteLn('  Total tasks: ' + intToStr(completionStats.totalTasks));
@@ -208,7 +207,7 @@ begin
   end;
   WriteLn;
 
-  { Test 18: Final metrics }
+  { Test 21: Final metrics }
   WriteLn('Test 18: Final comprehensive statistics...');
   stats := manager.getStatistics;
   WriteLn('  Total tasks: ' + intToStr(stats.totalTasks));
@@ -234,10 +233,10 @@ begin
     selfTest;
   finally
     slaMonitor.Destroy;
-    analytics.Destroy;
-    scheduler.Destroy;
-    riskAnalysis.Destroy;
     ioManager.Destroy;
+    riskAnalysis.Destroy;
+    scheduler.Destroy;
+    analytics.Destroy;
     manager.Destroy;
   end;
 end.
