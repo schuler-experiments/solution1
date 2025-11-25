@@ -1,3 +1,4 @@
+
 program solution1;
 
 {$mode objfpc}
@@ -8,118 +9,116 @@ uses
   Math,
   TaskTypes,
   TaskManager,
-  TaskManagerExtended;
+  TaskManagerExtended,
+  TaskManagerAdvanced;
 
 var
-  manager: TTaskManagerExtended;
+  manager: TTaskManagerAdvanced;
 
 procedure selfTest;
 var
   i: integer;
   tasks: TTaskArray;
   stats: TTaskStats;
-  noteCount: integer;
-  allMilestones: TMilestoneArray;
-  milestoneTasks: TTaskArray;
-  milestoneId: integer;
-  allTemplates: TTemplateArray;
-  templateId: integer;
+  blocked: TTaskArray;
+  recurring: TTaskArray;
+  watchers: TWatcherArray;
   taskId: integer;
 begin
-  WriteLn('===== TASK MANAGER SELF TEST =====');
+  WriteLn('===== TASK MANAGER WITH ADVANCED FEATURES TEST =====');
   WriteLn;
 
-  { Original tests (abbreviated) }
+  { Test 1: Create tasks }
   WriteLn('Test 1: Creating tasks...');
   for i := 1 to 5 do
-    WriteLn('Created task ' + intToStr(i) + ' (ID: ' + 
+    WriteLn('Created task ' + intToStr(i) + ' (ID: ' +
             intToStr(manager.addTask('Task ' + intToStr(i), 'Description', 'Development',
                                      tpHigh, now + i)) + ')');
   WriteLn;
 
-  { New feature tests }
-
-  WriteLn('Test 2: Adding task notes...');
-  taskId := 1;
-  if manager.addTaskNote(taskId, 'Important: needs database review', true) then
-    WriteLn('Added important note to Task 1');
-  if manager.addTaskNote(taskId, 'First implementation draft completed', false) then
-    WriteLn('Added regular note to Task 1');
-  noteCount := manager.getTaskNoteCount(taskId);
-  WriteLn('Task 1 has ' + intToStr(noteCount) + ' notes');
+  { Test 2: Task Story Points }
+  WriteLn('Test 2: Setting story points...');
+  if manager.setTaskStoryPoints(1, 8) then
+    WriteLn('Task 1: 8 story points');
+  if manager.setTaskStoryPoints(2, 5) then
+    WriteLn('Task 2: 5 story points');
+  if manager.setTaskStoryPoints(3, 3) then
+    WriteLn('Task 3: 3 story points');
+  WriteLn('Total story points: ' + intToStr(manager.getTotalStoryPoints));
   WriteLn;
 
-  WriteLn('Test 3: Assigning tasks...');
-  if manager.assignTaskTo(1, 'Alice') then
-    WriteLn('Task 1 assigned to Alice');
-  if manager.assignTaskTo(2, 'Bob') then
-    WriteLn('Task 2 assigned to Bob');
-  if manager.assignTaskTo(3, 'Alice') then
-    WriteLn('Task 3 assigned to Alice');
+  { Test 3: Task Watchers }
+  WriteLn('Test 3: Adding task watchers...');
+  if manager.addTaskWatcher(1, 'Alice') then
+    WriteLn('Alice is watching Task 1');
+  if manager.addTaskWatcher(1, 'Bob') then
+    WriteLn('Bob is watching Task 1');
+  if manager.addTaskWatcher(2, 'Alice') then
+    WriteLn('Alice is watching Task 2');
+  watchers := manager.getTaskWatchers(1);
+  WriteLn('Task 1 has ' + intToStr(length(watchers)) + ' watchers');
   WriteLn;
 
-  WriteLn('Test 4: Getting tasks assigned to a person...');
-  tasks := manager.getTasksAssignedTo('Alice');
-  WriteLn('Alice has ' + intToStr(length(tasks)) + ' task(s)');
+  { Test 4: Task Blocking }
+  WriteLn('Test 4: Blocking tasks...');
+  if manager.blockTask(2, 'Waiting for API documentation') then
+    WriteLn('Task 2 blocked: Waiting for API documentation');
+  if manager.blockTask(3, 'Dependency not ready') then
+    WriteLn('Task 3 blocked: Dependency not ready');
+  blocked := manager.getBlockedTasks;
+  WriteLn('Total blocked tasks: ' + intToStr(length(blocked)));
   WriteLn;
 
-  WriteLn('Test 5: Creating milestones...');
-  milestoneId := manager.addMilestone('Phase 1', 'Initial development phase', now + 30);
-  WriteLn('Created milestone: Phase 1 (ID: ' + intToStr(milestoneId) + ')');
-  manager.addMilestone('Phase 2', 'Testing and refinement', now + 60);
-  WriteLn('Created milestone: Phase 2');
+  { Test 5: Task References/Links }
+  WriteLn('Test 5: Adding task references...');
+  if manager.addTaskReference(1, 2, 'blocks') then
+    WriteLn('Task 1 blocks Task 2');
+  if manager.addTaskReference(3, 1, 'related_to') then
+    WriteLn('Task 3 related to Task 1');
   WriteLn;
 
-  WriteLn('Test 6: Assigning tasks to milestones...');
-  if manager.assignTaskToMilestone(1, milestoneId) then
-    WriteLn('Task 1 assigned to Phase 1 milestone');
-  if manager.assignTaskToMilestone(2, milestoneId) then
-    WriteLn('Task 2 assigned to Phase 1 milestone');
+  { Test 6: Task Recurrence }
+  WriteLn('Test 6: Setting task recurrence...');
+  if manager.setTaskRecurrence(4, rpWeekly, now + 90) then
+    WriteLn('Task 4 set to recur weekly until 90 days from now');
+  recurring := manager.getRecurringTasks;
+  WriteLn('Total recurring tasks: ' + intToStr(length(recurring)));
   WriteLn;
 
-  WriteLn('Test 7: Getting milestone progress...');
-  stats := manager.getMilestoneProgress(milestoneId);
-  WriteLn('Phase 1 Progress: ' + intToStr(stats.totalTasks) + ' total tasks');
+  { Test 7: Complete and track velocity }
+  WriteLn('Test 7: Completing tasks and tracking velocity...');
+  manager.completeTask(1);
+  WriteLn('Task 1 completed');
+  WriteLn('Completed story points: ' + intToStr(manager.getCompletedStoryPoints));
+  WriteLn('Velocity (per day): ' + FloatToStr(manager.getVelocity(1)));
   WriteLn;
 
-  WriteLn('Test 8: Creating task templates...');
-  templateId := manager.createTemplate('Bug Fix Template', 'Standard bug fix task',
-                                       'Maintenance', tpMedium, 4.0);
-  WriteLn('Created template: Bug Fix Template (ID: ' + intToStr(templateId) + ')');
-  manager.addTagToTemplate(templateId, 'bug');
-  manager.addTagToTemplate(templateId, 'urgent');
-  WriteLn('Added tags to template');
+  { Test 8: Team workload }
+  WriteLn('Test 8: Checking team workload...');
+  manager.assignTaskTo(1, 'Alice');
+  manager.assignTaskTo(2, 'Alice');
+  WriteLn('Alice workload: ' + FloatToStr(manager.getTeamWorkload('Alice')) + ' hours');
   WriteLn;
 
-  WriteLn('Test 9: Creating tasks from templates...');
-  taskId := manager.createTaskFromTemplate(templateId, 'Fix login bug', now + 7);
-  if taskId > 0 then
-    WriteLn('Task created from template (ID: ' + intToStr(taskId) + ')')
-  else
-    WriteLn('Failed to create task from template: ' + manager.getLastError);
+  { Test 9: Critical path }
+  WriteLn('Test 9: Getting critical path...');
+  manager.setTaskPriority(5, tpCritical);
+  tasks := manager.getCriticalPath;
+  WriteLn('Critical path tasks: ' + intToStr(length(tasks)));
   WriteLn;
 
-  WriteLn('Test 10: Getting all templates...');
-  allTemplates := manager.getAllTemplates;
-  WriteLn('Total templates: ' + intToStr(length(allTemplates)));
+  { Test 10: Get tasks watched by person }
+  WriteLn('Test 10: Getting tasks watched by person...');
+  tasks := manager.getTasksWatchedBy('Alice');
+  WriteLn('Alice is watching ' + intToStr(length(tasks)) + ' task(s)');
   WriteLn;
 
-  WriteLn('Test 11: Getting all milestones...');
-  allMilestones := manager.getAllMilestones;
-  WriteLn('Total milestones: ' + intToStr(length(allMilestones)));
-  WriteLn;
-
-  WriteLn('Test 12: Getting tasks in a milestone...');
-  milestoneTasks := manager.getTasksByMilestone(milestoneId);
-  WriteLn('Tasks in Phase 1: ' + intToStr(length(milestoneTasks)));
-  WriteLn;
-
-  WriteLn('Test 13: Task statistics...');
+  { Test 11: Statistics }
+  WriteLn('Test 11: Final statistics...');
   stats := manager.getStatistics;
   WriteLn('Total tasks: ' + intToStr(stats.totalTasks));
-  WriteLn('New tasks: ' + intToStr(stats.newTasks));
-  WriteLn('In progress: ' + intToStr(stats.inProgressTasks));
   WriteLn('Completed: ' + intToStr(stats.completedTasks));
+  WriteLn('Blocked: ' + intToStr(stats.blockedTasks));
   WriteLn;
 
   WriteLn('===== ALL TESTS COMPLETED SUCCESSFULLY =====');
@@ -127,7 +126,7 @@ begin
 end;
 
 begin
-  manager := TTaskManagerExtended.Create;
+  manager := TTaskManagerAdvanced.Create;
   try
     selfTest;
   finally

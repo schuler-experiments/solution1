@@ -1,3 +1,4 @@
+
 unit TaskTypes;
 
 {$mode objfpc}
@@ -15,6 +16,8 @@ const
   maxTagsPerTask = 10;
   maxNotesPerTask = 20;
   maxMilestonesPerManager = 50;
+  maxWatchersPerTask = 20;
+  maxReferencesPerTask = 10;
 
 type
   // Task status enumeration
@@ -23,11 +26,20 @@ type
   // Task priority enumeration
   TTaskPriority = (tpLow, tpMedium, tpHigh, tpCritical);
 
+  // Task recurrence pattern
+  TRecurrencePattern = (rpNone, rpDaily, rpWeekly, rpBiWeekly, rpMonthly, rpQuarterly, rpYearly);
+
   // Task note record
   TTaskNote = record
     text: string[maxStringLength];
     createdDate: TDateTime;
     isImportant: boolean;
+  end;
+
+  // Task reference record (for linking external resources)
+  TTaskReference = record
+    referenceId: integer;
+    relationshipType: string[50];
   end;
 
   // Notes array
@@ -38,6 +50,12 @@ type
 
   // Integer array (for dependency IDs)
   TIntArray = array of integer;
+
+  // Watcher array
+  TWatcherArray = array of string;
+
+  // References array
+  TReferenceArray = array of TTaskReference;
 
   // Task record structure
   TTask = record
@@ -57,6 +75,13 @@ type
     notes: TNoteArray;
     assignedTo: string[100];
     milestoneId: integer;
+    recurrencePattern: TRecurrencePattern;
+    recurrenceEndDate: TDateTime;
+    watchers: TWatcherArray;
+    references: TReferenceArray;
+    storyPoints: integer;
+    isBlocked: boolean;
+    blockReason: string[maxStringLength];
   end;
 
   // Milestone record structure
@@ -77,6 +102,7 @@ type
     category: string[100];
     priority: TTaskPriority;
     estimatedHours: double;
+    storyPoints: integer;
     tags: TTagArray;
   end;
 
@@ -101,6 +127,8 @@ type
     criticalPriorityCount: integer;
     tasksWithNotes: integer;
     averageCompletionTime: double;
+    totalStoryPoints: integer;
+    completedStoryPoints: integer;
   end;
 
 implementation
