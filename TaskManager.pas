@@ -13,7 +13,7 @@ uses
 
 type
   TTaskManager = class
-  private
+  protected
     tasks: TTaskArray;
     nextTaskId: integer;
     lastError: string;
