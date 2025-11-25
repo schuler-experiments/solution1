@@ -28,7 +28,6 @@ var
   taskId: integer;
   batchIds: array of integer;
   audit: string;
-  tempTask: TTask;
 begin
   WriteLn('===== ENHANCED TASK MANAGER WITH SUBTASKS & HISTORY TEST =====');
   WriteLn;
