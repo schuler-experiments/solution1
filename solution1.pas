@@ -21,6 +21,7 @@ var
   tasks: TTaskArray;
   i: integer;
   dueDate1, dueDate2: TDateTime;
+  est, act, overrun: double;
   tags: TTagArray;
 begin
   writeln('===== TASK MANAGER SELF TEST =====');
@@ -213,6 +214,60 @@ begin
 
     tags := manager.getTaskTags(taskId1);
     writeln('Task 1 now has ', length(tags), ' tag(s)');
+    writeln;
+
+
+    writeln('Test 22: Setting estimated hours...');
+    if manager.setTaskEstimatedHours(taskId1, 8.5) then
+      writeln('Task 1 estimated hours set to 8.5')
+    else
+      writeln('Failed to set estimated hours: ', manager.getLastError);
+
+    if manager.setTaskEstimatedHours(taskId2, 5.0) then
+      writeln('Task 2 estimated hours set to 5.0')
+    else
+      writeln('Failed to set estimated hours: ', manager.getLastError);
+
+    if manager.setTaskEstimatedHours(taskId3, 3.0) then
+      writeln('Task 3 estimated hours set to 3.0')
+    else
+      writeln('Failed to set estimated hours: ', manager.getLastError);
+    writeln;
+
+    writeln('Test 23: Adding actual hours worked...');
+    if manager.addTaskActualHours(taskId1, 5.0) then
+      writeln('Added 5.0 hours to Task 1')
+    else
+      writeln('Failed to add hours: ', manager.getLastError);
+
+    if manager.addTaskActualHours(taskId1, 4.5) then
+      writeln('Added 4.5 hours to Task 1 (total: 9.5)')
+    else
+      writeln('Failed to add hours: ', manager.getLastError);
+
+    if manager.addTaskActualHours(taskId2, 4.0) then
+      writeln('Added 4.0 hours to Task 2 (under estimate)')
+    else
+      writeln('Failed to add hours: ', manager.getLastError);
+    writeln;
+
+    writeln('Test 24: Getting time information...');
+    est := manager.getTaskEstimatedHours(taskId1);
+    act := manager.getTaskActualHours(taskId1);
+    overrun := manager.getTaskTimeOverrun(taskId1);
+    writeln('Task 1: Estimated=', est:0:1, ' hours, Actual=', act:0:1, ' hours, Overrun=', overrun:0:1, ' hours');
+
+    est := manager.getTaskEstimatedHours(taskId2);
+    act := manager.getTaskActualHours(taskId2);
+    overrun := manager.getTaskTimeOverrun(taskId2);
+    writeln('Task 2: Estimated=', est:0:1, ' hours, Actual=', act:0:1, ' hours, Overrun=', overrun:0:1, ' hours');
+    writeln;
+
+    writeln('Test 25: Getting tasks over time...');
+    tasks := manager.getTasksOverTime;
+    writeln('Found ', length(tasks), ' task(s) with time overrun:');
+    for i := 0 to length(tasks) - 1 do
+      writeln('  - ', tasks[i].name, ' (Overrun: ', (tasks[i].actualHours - tasks[i].estimatedHours):0:1, ' hours)');
     writeln;
 
     writeln('===== ALL TESTS COMPLETED SUCCESSFULLY =====');

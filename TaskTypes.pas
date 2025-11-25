@@ -37,6 +37,8 @@ type
     completedDate: TDateTime;
     category: string[100];
     tags: TTagArray;
+    estimatedHours: double;
+    actualHours: double;
   end;
 
   // Dynamic array of tasks

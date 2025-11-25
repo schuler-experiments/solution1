@@ -54,6 +54,14 @@ type
     function searchTasks(const searchTerm: string): TTaskArray;
 
 
+
+    // Time tracking
+    function setTaskEstimatedHours(id: integer; hours: double): boolean;
+    function addTaskActualHours(id: integer; hours: double): boolean;
+    function getTaskEstimatedHours(id: integer): double;
+    function getTaskActualHours(id: integer): double;
+    function getTaskTimeOverrun(id: integer): double;
+    function getTasksOverTime: TTaskArray;
     // Tag management
     function addTaskTag(id: integer; const tag: string): boolean;
     function removeTaskTag(id: integer; const tag: string): boolean;
@@ -129,6 +137,9 @@ begin
   newTask.dueDate := dueDate;
   newTask.createdDate := now;
   newTask.completedDate := 0;
+  setLength(newTask.tags, 0);
+  newTask.estimatedHours := 0;
+  newTask.actualHours := 0;
 
   setLength(tasks, length(tasks) + 1);
   tasks[length(tasks) - 1] := newTask;
@@ -437,6 +448,112 @@ begin
   clearError;
   lastError := 'File persistence disabled: dynamic arrays in TTask';
   result := false;
+end;
+
+
+function TTaskManager.setTaskEstimatedHours(id: integer; hours: double): boolean;
+var
+  idx: integer;
+begin
+  clearError;
+  idx := findTaskIndex(id);
+  if idx >= 0 then
+    begin
+      tasks[idx].estimatedHours := hours;
+      result := true;
+    end
+  else
+    begin
+      lastError := 'Task not found: ' + intToStr(id);
+      result := false;
+    end;
+end;
+
+function TTaskManager.addTaskActualHours(id: integer; hours: double): boolean;
+var
+  idx: integer;
+begin
+  clearError;
+  idx := findTaskIndex(id);
+  if idx >= 0 then
+    begin
+      tasks[idx].actualHours := tasks[idx].actualHours + hours;
+      result := true;
+    end
+  else
+    begin
+      lastError := 'Task not found: ' + intToStr(id);
+      result := false;
+    end;
+end;
+
+function TTaskManager.getTaskEstimatedHours(id: integer): double;
+var
+  idx: integer;
+begin
+  clearError;
+  idx := findTaskIndex(id);
+  if idx >= 0 then
+    result := tasks[idx].estimatedHours
+  else
+    begin
+      lastError := 'Task not found: ' + intToStr(id);
+      result := 0;
+    end;
+end;
+
+function TTaskManager.getTaskActualHours(id: integer): double;
+var
+  idx: integer;
+begin
+  clearError;
+  idx := findTaskIndex(id);
+  if idx >= 0 then
+    result := tasks[idx].actualHours
+  else
+    begin
+      lastError := 'Task not found: ' + intToStr(id);
+      result := 0;
+    end;
+end;
+
+function TTaskManager.getTaskTimeOverrun(id: integer): double;
+var
+  idx: integer;
+  overrun: double;
+begin
+  clearError;
+  idx := findTaskIndex(id);
+  if idx >= 0 then
+    begin
+      overrun := tasks[idx].actualHours - tasks[idx].estimatedHours;
+      if overrun < 0 then
+        result := 0
+      else
+        result := overrun;
+    end
+  else
+    begin
+      lastError := 'Task not found: ' + intToStr(id);
+      result := 0;
+    end;
+end;
+
+function TTaskManager.getTasksOverTime: TTaskArray;
+var
+  i, count: integer;
+begin
+  clearError;
+  setLength(result, 0);
+  count := 0;
+
+  for i := 0 to length(tasks) - 1 do
+    if tasks[i].actualHours > tasks[i].estimatedHours then
+      begin
+        setLength(result, count + 1);
+        result[count] := tasks[i];
+        inc(count);
+      end;
 end;
 
 
