@@ -19,7 +19,8 @@ uses
   TaskRiskAnalysis,
   TaskIOManager,
   TaskSLAMonitor,
-  TaskCycleTimeAnalytics;
+  TaskCycleTimeAnalytics,
+  TaskTimeTracking;
 
 var
   manager: TTaskManagerEnhanced;
@@ -29,6 +30,7 @@ var
   ioManager: TTaskIOManager;
   slaMonitor: TTaskSLAMonitor;
   cycleTimeAnalytics: TTaskCycleTimeAnalytics;
+  timeTracking: TTaskTimeTracking;
 
 procedure selfTest;
 var
@@ -51,12 +53,15 @@ var
   recommendations: string;
   assignees: array[0..2] of string;
   assigneeIndex: integer;
+  timeStats: TTimeTrackingStats;
+  sessionId: integer;
+  timeVsEst: string;
 begin
   assignees[0] := 'alice';
   assignees[1] := 'bob';
   assignees[2] := 'charlie';
 
-  WriteLn('===== ADVANCED TASK MANAGER WITH SCHEDULING, RISK ANALYSIS & SLA MONITORING =====');
+  WriteLn('===== ADVANCED TASK MANAGER WITH TIME TRACKING (V7.0) =====');
   WriteLn;
 
   { Test 1: Create and assign tasks }
@@ -216,8 +221,50 @@ begin
   WriteLn(recommendations);
   WriteLn;
 
-  { Test 20: Final metrics }
-  WriteLn('Test 20: Final comprehensive statistics...');
+  { Test 20: NEW - Time Tracking Sessions }
+  WriteLn('Test 20: Time Tracking Sessions (NEW in V7.0)...');
+  WriteLn('  Starting time session for Task 1...');
+  sessionId := timeTracking.startTimeSession(1, 'Initial development work');
+  WriteLn('  Session ' + IntToStr(sessionId) + ' started');
+  WriteLn('  Ending session...');
+  if timeTracking.endTimeSession(sessionId) then
+    WriteLn('  Session ended successfully')
+  else
+    WriteLn('  Error: ' + timeTracking.getLastError);
+  WriteLn;
+
+  { Test 21: Time Statistics }
+  WriteLn('Test 21: Time Tracking Statistics...');
+  timeStats := timeTracking.getTimeTrackingStats;
+  WriteLn('  Total sessions recorded: ' + IntToStr(timeStats.totalSessions));
+  WriteLn('  Total hours tracked: ' + FormatFloat('0.0', timeStats.totalHoursTracked) + ' hours');
+  WriteLn('  Average session duration: ' + FormatFloat('0.0', timeStats.averageSessionDuration) + ' hours');
+  WriteLn('  Sessions this week: ' + IntToStr(timeStats.sessionsThisWeek));
+  WriteLn('  Hours tracked this week: ' + FormatFloat('0.0', timeStats.hoursTrackedThisWeek) + ' hours');
+  WriteLn;
+
+  { Test 22: Time vs Estimate Analysis }
+  WriteLn('Test 22: Time vs Estimate Analysis...');
+  timeVsEst := timeTracking.getTimeVsEstimateAnalysis(1);
+  WriteLn(timeVsEst);
+  WriteLn;
+
+  { Test 23: Productivity Pattern }
+  WriteLn('Test 23: Productivity Pattern Analysis...');
+  WriteLn(timeTracking.getProductivityPattern(7));
+  WriteLn;
+
+  { Test 24: Team Member Tracked Hours }
+  WriteLn('Test 24: Team Member Time Tracking...');
+  for i := 0 to 2 do
+  begin
+    WriteLn('  ' + assignees[i] + ': ' + FormatFloat('0.0',
+            timeTracking.getTeamMemberTrackedHours(assignees[i])) + ' hours');
+  end;
+  WriteLn;
+
+  { Test 25: Final metrics }
+  WriteLn('Test 25: Final comprehensive statistics...');
   stats := manager.getStatistics;
   WriteLn('  Total tasks: ' + intToStr(stats.totalTasks));
   WriteLn('  Completed: ' + intToStr(stats.completedTasks));
@@ -227,7 +274,7 @@ begin
   WriteLn('  High priority: ' + intToStr(stats.highPriorityCount));
   WriteLn;
 
-  WriteLn('===== ALL TESTS COMPLETED SUCCESSFULLY =====');
+  WriteLn('===== ALL TESTS COMPLETED SUCCESSFULLY (V7.0) =====');
 end;
 
 begin
@@ -238,10 +285,12 @@ begin
   ioManager := TTaskIOManager.Create(manager);
   slaMonitor := TTaskSLAMonitor.Create(manager);
   cycleTimeAnalytics := TTaskCycleTimeAnalytics.Create(analytics);
+  timeTracking := TTaskTimeTracking.Create(manager);
 
   try
     selfTest;
   finally
+    timeTracking.Destroy;
     cycleTimeAnalytics.Destroy;
     slaMonitor.Destroy;
     ioManager.Destroy;
