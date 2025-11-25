@@ -45,7 +45,8 @@ uses
   TaskNotifications,
   TaskEscalation,
   TaskComments,
-  TaskIntegrations;
+  TaskIntegrations,
+  TaskAutomation;
 
 var
   mgr: TTaskManagerClass;
@@ -81,6 +82,7 @@ var
   escalationMgr: TTaskEscalationManagerClass;
   commentMgr: TTaskCommentManagerClass;
   integrationMgr: TTaskIntegrationManagerClass;
+  automationMgr: TTaskAutomationManagerClass;
 
 begin
   WriteLn('========================================');
