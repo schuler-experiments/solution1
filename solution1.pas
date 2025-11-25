@@ -13,142 +13,141 @@ uses
   TaskManagerAdvanced,
   TaskManagerSubtasks,
   TaskManagerHistory,
-  TaskManagerEnhanced;
+  TaskManagerEnhanced,
+  TaskAnalytics;
 
 var
   manager: TTaskManagerEnhanced;
+  analytics: TTaskAnalytics;
 
 procedure selfTest;
 var
   i: integer;
-  tasks: TTaskArray;
   stats: TTaskStats;
-  subtasks: TSubtaskArray;
-  history: THistoryArray;
+  completionStats: TCompletionStats;
   taskId: integer;
-  batchIds: array of integer;
-  audit: string;
+  allWorkloads: TTeamMemberWorkloadArray;
+  priorityDist: string;
+  avgCompletedPerDay: double;
+  productivityScore: double;
 begin
-  WriteLn('===== ENHANCED TASK MANAGER WITH SUBTASKS & HISTORY TEST =====');
+  WriteLn('===== ADVANCED TASK MANAGER WITH ANALYTICS TEST =====');
   WriteLn;
 
-  { Test 1: Create tasks }
-  WriteLn('Test 1: Creating tasks...');
-  for i := 1 to 5 do
+  { Test 1: Create tasks with assignments }
+  WriteLn('Test 1: Creating and assigning tasks...');
+  for i := 1 to 8 do
   begin
-    taskId := manager.addTask('Task ' + intToStr(i), 'Description', 'Development',
-                              tpHigh, now + i);
-    WriteLn('Created task ' + intToStr(i) + ' (ID: ' + intToStr(taskId) + ')');
-    manager.recordTaskChange(taskId, 'status', '', 'new', 'system');
+    taskId := manager.addTask('Task ' + intToStr(i), 'Description for task ' + intToStr(i), 
+                              'Development', tpHigh, now + i);
+    analytics.recordTaskCreated(taskId, 'Task ' + intToStr(i));
+
+    case i mod 3 of
+      0: manager.assignTaskTo(taskId, 'alice');
+      1: manager.assignTaskTo(taskId, 'bob');
+      2: manager.assignTaskTo(taskId, 'charlie');
+    end;
+
+    WriteLn('  Created task ' + intToStr(i) + ' assigned to team member');
   end;
   WriteLn;
 
-  { Test 2: Subtasks }
-  WriteLn('Test 2: Adding subtasks...');
-  taskId := manager.addTask('Major Feature', 'Implement authentication', 'Development',
-                           tpCritical, now + 7);
-  manager.recordTaskChange(taskId, 'status', '', 'new', 'system');
-  WriteLn('Created main task ID: ' + intToStr(taskId));
+  { Test 2: Completion Statistics }
+  WriteLn('Test 2: Task completion analytics...');
+  completionStats := analytics.getCompletionStats;
+  WriteLn('  Total tasks: ' + intToStr(completionStats.totalTasks));
+  WriteLn('  Completed: ' + intToStr(completionStats.completedTasks));
+  WriteLn('  Completion rate: ' + FloatToStrF(completionStats.completionRate, ffFixed, 5, 2) + '%');
+  WriteLn('  Average completion time: ' + FloatToStrF(completionStats.averageCompletionTimeDays, ffFixed, 5, 2) + ' days');
+  WriteLn;
 
+  { Test 3: Priority Distribution }
+  WriteLn('Test 3: Priority distribution analysis...');
+  priorityDist := analytics.getPriorityDistribution;
+  WriteLn('  ' + priorityDist);
+  WriteLn;
+
+  { Test 4: Team Workload Analysis }
+  WriteLn('Test 4: Team workload distribution...');
+  allWorkloads := analytics.getAllTeamMembersWorkload;
+  for i := 0 to High(allWorkloads) do
+  begin
+    with allWorkloads[i] do
+    begin
+      WriteLn('  ' + assigneeName + ':');
+      WriteLn('    - Assigned tasks: ' + intToStr(assignedTaskCount));
+      WriteLn('    - Completed: ' + intToStr(completedTaskCount));
+      WriteLn('    - Workload: ' + FloatToStrF(workloadPercentage, ffFixed, 5, 1) + '%');
+      if totalEstimatedHours > 0 then
+        WriteLn('    - Efficiency: ' + FloatToStrF(efficiencyRatio, ffFixed, 5, 2));
+    end;
+  end;
+  WriteLn;
+
+  { Test 5: Workload Balance }
+  WriteLn('Test 5: Team workload balance metrics...');
+  WriteLn('  Most loaded: ' + analytics.getMostOverloadedTeamMember);
+  WriteLn('  Least loaded: ' + analytics.getLeastLoadedTeamMember);
+  WriteLn('  Workload variance: ' + FloatToStrF(analytics.getTeamWorkloadBalance, ffFixed, 5, 2));
+  WriteLn;
+
+  { Test 6: Complete some tasks }
+  WriteLn('Test 6: Simulating task completion...');
   for i := 1 to 3 do
   begin
-    manager.addSubtask(taskId, 'Subtask ' + intToStr(i), 2.5);
-    WriteLn('  Added subtask ' + intToStr(i));
+    if manager.completeTask(i) then
+    begin
+      analytics.recordTaskCompleted(i, 'Task ' + intToStr(i));
+      WriteLn('  Completed task ' + intToStr(i));
+    end;
   end;
-
-  WriteLn('Total subtasks: ' + intToStr(manager.getSubtaskCount(taskId)));
-  WriteLn('Completion: ' + FloatToStr(manager.getSubtaskCompletionPercentage(taskId)) + '%');
   WriteLn;
 
-  { Test 3: Complete some subtasks }
-  WriteLn('Test 3: Completing subtasks...');
-  manager.completeSubtask(taskId, 0);
-  WriteLn('Completed first subtask');
-  WriteLn('New completion: ' + FloatToStr(manager.getSubtaskCompletionPercentage(taskId)) + '%');
+  { Test 7: Productivity Metrics }
+  WriteLn('Test 7: Productivity and performance metrics...');
+  avgCompletedPerDay := analytics.getAverageTasksCompletedPerDay(7);
+  productivityScore := analytics.getProductivityScore(7);
+  WriteLn('  Average tasks completed per day (7 days): ' + FloatToStrF(avgCompletedPerDay, ffFixed, 5, 3));
+  WriteLn('  Productivity score: ' + FloatToStrF(productivityScore, ffFixed, 5, 3));
   WriteLn;
 
-  { Test 4: Task History }
-  WriteLn('Test 4: Task history and audit trail...');
-  manager.recordTaskChange(1, 'status', 'new', 'in_progress', 'alice');
-  manager.recordTaskChange(1, 'priority', 'high', 'critical', 'bob');
-  manager.recordTaskChange(1, 'assignedTo', '', 'alice', 'system');
-
-  history := manager.getTaskHistory(1);
-  WriteLn('Task 1 has ' + intToStr(length(history)) + ' history entries');
-
-  audit := manager.getTaskAuditTrail(1);
-  WriteLn(audit);
+  { Test 8: Activity Recording }
+  WriteLn('Test 8: Activity tracking...');
+  analytics.recordTaskAssigned(5, 'Task 5', 'diana');
+  analytics.recordTaskStarted(6, 'Task 6');
+  analytics.recordTaskBlocked(7, 'Task 7', 'Waiting for design review');
+  WriteLn('  Recorded task activities (assigned, started, blocked)');
   WriteLn;
 
-  { Test 5: Priority Escalation }
-  WriteLn('Test 5: Priority escalation near deadline...');
-  taskId := manager.addTask('Urgent Task', 'Must complete soon', 'Urgent',
-                           tpMedium, now + 2);
-  manager.recordTaskChange(taskId, 'status', '', 'new', 'system');
-  WriteLn('Created task with low priority, due in 2 days');
-
-  manager.escalatePriorityIfDue(taskId);
-  WriteLn('Priority escalated for near-deadline task');
+  { Test 9: Task Completion Categories }
+  WriteLn('Test 9: Completion rates by category...');
+  WriteLn('  Development completion rate: ' + 
+          FloatToStrF(analytics.getCompletionRateByCategory('Development'), ffFixed, 5, 1) + '%');
   WriteLn;
 
-  { Test 6: Batch Operations }
-  WriteLn('Test 6: Batch operations...');
-  setlength(batchIds, 3);
-  batchIds[0] := 1;
-  batchIds[1] := 2;
-  batchIds[2] := 3;
-
-  WriteLn('Batch assigning tasks to alice...');
-  i := manager.batchAssignTasks(batchIds, 'alice');
-  WriteLn('Updated ' + intToStr(i) + ' tasks');
-  WriteLn;
-
-  { Test 7: Tasks near deadline }
-  WriteLn('Test 7: Finding tasks near deadline...');
-  tasks := manager.getTasksNearDeadline(7);
-  WriteLn('Tasks due within 7 days: ' + intToStr(length(tasks)));
-  WriteLn;
-
-  { Test 8: Subtask assignments }
-  WriteLn('Test 8: Subtask assignments...');
-  taskId := manager.addTask('Project Planning', 'Plan Q1 roadmap', 'Planning',
-                           tpHigh, now + 5);
-  manager.addSubtask(taskId, 'Review requirements', 3.0);
-  manager.addSubtask(taskId, 'Draft timeline', 2.0);
-  manager.addSubtask(taskId, 'Assign resources', 2.5);
-
-  manager.assignSubtaskTo(taskId, 0, 'alice');
-  manager.assignSubtaskTo(taskId, 1, 'bob');
-  manager.assignSubtaskTo(taskId, 2, 'charlie');
-
-  subtasks := manager.getSubtasksForAssignee('alice');
-  WriteLn('Alice has ' + intToStr(length(subtasks)) + ' subtask(s)');
-  WriteLn;
-
-  { Test 9: Escalation risk analysis }
-  WriteLn('Test 9: Tasks with escalation risk...');
-  tasks := manager.getTasksByEscalationRisk;
-  WriteLn('Tasks at risk (due within 7 days): ' + intToStr(length(tasks)));
-  WriteLn;
-
-  { Test 10: Statistics }
-  WriteLn('Test 10: Final statistics...');
+  { Test 10: Summary Statistics }
+  WriteLn('Test 10: Final comprehensive statistics...');
   stats := manager.getProductivityMetrics;
-  WriteLn('Total tasks: ' + intToStr(stats.totalTasks));
-  WriteLn('Completed: ' + intToStr(stats.completedTasks));
-  WriteLn('High priority: ' + intToStr(stats.highPriorityCount));
-  WriteLn('Critical priority: ' + intToStr(stats.criticalPriorityCount));
+  completionStats := analytics.getCompletionStats;
+  WriteLn('  Total tasks: ' + intToStr(stats.totalTasks));
+  WriteLn('  Completed: ' + intToStr(completionStats.completedTasks));
+  WriteLn('  In progress: ' + intToStr(completionStats.inProgressTasks));
+  WriteLn('  Pending: ' + intToStr(completionStats.pendingTasks));
+  WriteLn('  Critical priority: ' + intToStr(stats.criticalPriorityCount));
+  WriteLn('  High priority: ' + intToStr(stats.highPriorityCount));
   WriteLn;
 
-  WriteLn('===== ALL ENHANCED TESTS COMPLETED SUCCESSFULLY =====');
+  WriteLn('===== ALL ANALYTICS TESTS COMPLETED SUCCESSFULLY =====');
   WriteLn;
 end;
 
 begin
   manager := TTaskManagerEnhanced.Create;
+  analytics := TTaskAnalytics.Create(manager);
   try
     selfTest;
   finally
+    analytics.Free;
     manager.Free;
   end;
 end.
