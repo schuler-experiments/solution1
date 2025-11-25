@@ -16,13 +16,15 @@ uses
   TaskManagerEnhanced,
   TaskAnalytics,
   TaskScheduler,
-  TaskRiskAnalysis;
+  TaskRiskAnalysis,
+  TaskIOManager;
 
 var
   manager: TTaskManagerEnhanced;
   analytics: TTaskAnalytics;
   scheduler: TTaskScheduler;
   riskAnalysis: TTaskRiskAnalysis;
+  ioManager: TTaskIOManager;
 
 procedure selfTest;
 var
@@ -209,6 +211,7 @@ begin
   analytics := TTaskAnalytics.Create(manager);
   scheduler := TTaskScheduler.Create(manager);
   riskAnalysis := TTaskRiskAnalysis.Create(manager, analytics);
+  ioManager := TTaskIOManager.Create(manager);
 
   try
     selfTest;
@@ -216,6 +219,7 @@ begin
     analytics.Destroy;
     scheduler.Destroy;
     riskAnalysis.Destroy;
+    ioManager.Destroy;
     manager.Destroy;
   end;
 end.
