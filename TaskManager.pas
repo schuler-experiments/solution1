@@ -75,6 +75,13 @@ type
     function loadTasks: boolean; overload;
     function loadTasks(const filename: string): boolean; overload;
 
+    // Task dependencies
+    function addTaskDependency(taskId, dependencyTaskId: integer): boolean;
+    function removeTaskDependency(taskId, dependencyTaskId: integer): boolean;
+    function getTaskDependencies(taskId: integer): TIntArray;
+    function getTasksDependingOn(taskId: integer): TTaskArray;
+    function canCompleteTask(taskId: integer): boolean;
+
     // Statistics
     function getStatistics: TTaskStats;
     function getOverdueTaskCount: integer;
@@ -138,6 +145,7 @@ begin
   newTask.createdDate := now;
   newTask.completedDate := 0;
   setLength(newTask.tags, 0);
+  setLength(newTask.dependencyIds, 0);
   newTask.estimatedHours := 0;
   newTask.actualHours := 0;
 
@@ -710,6 +718,133 @@ begin
           end;
       end;
 end;
+
+function TTaskManager.addTaskDependency(taskId, dependencyTaskId: integer): boolean;
+var
+  idx, depIdx, count: integer;
+begin
+  clearError;
+  idx := findTaskIndex(taskId);
+  depIdx := findTaskIndex(dependencyTaskId);
+  
+  if idx < 0 then
+    begin
+      lastError := 'Task not found: ' + intToStr(taskId);
+      result := false;
+      exit;
+    end;
+  
+  if depIdx < 0 then
+    begin
+      lastError := 'Dependency task not found: ' + intToStr(dependencyTaskId);
+      result := false;
+      exit;
+    end;
+  
+  if taskId = dependencyTaskId then
+    begin
+      lastError := 'A task cannot depend on itself';
+      result := false;
+      exit;
+    end;
+  
+  count := length(tasks[idx].dependencyIds);
+  setLength(tasks[idx].dependencyIds, count + 1);
+  tasks[idx].dependencyIds[count] := dependencyTaskId;
+  result := true;
+end;
+
+function TTaskManager.removeTaskDependency(taskId, dependencyTaskId: integer): boolean;
+var
+  idx, i, j: integer;
+  found: boolean;
+begin
+  clearError;
+  idx := findTaskIndex(taskId);
+  if idx < 0 then
+    begin
+      lastError := 'Task not found: ' + intToStr(taskId);
+      result := false;
+      exit;
+    end;
+  
+  found := false;
+  for i := 0 to length(tasks[idx].dependencyIds) - 1 do
+    if tasks[idx].dependencyIds[i] = dependencyTaskId then
+      begin
+        found := true;
+        for j := i to length(tasks[idx].dependencyIds) - 2 do
+          tasks[idx].dependencyIds[j] := tasks[idx].dependencyIds[j + 1];
+        setLength(tasks[idx].dependencyIds, length(tasks[idx].dependencyIds) - 1);
+        result := true;
+        exit;
+      end;
+  
+  if not found then
+    begin
+      lastError := 'Dependency not found';
+      result := false;
+    end;
+end;
+
+function TTaskManager.getTaskDependencies(taskId: integer): TIntArray;
+var
+  idx: integer;
+begin
+  clearError;
+  setLength(result, 0);
+  idx := findTaskIndex(taskId);
+  if idx >= 0 then
+    result := copy(tasks[idx].dependencyIds, 0, length(tasks[idx].dependencyIds))
+  else
+    lastError := 'Task not found: ' + intToStr(taskId);
+end;
+
+function TTaskManager.getTasksDependingOn(taskId: integer): TTaskArray;
+var
+  i, j, count: integer;
+begin
+  clearError;
+  setLength(result, 0);
+  count := 0;
+  
+  for i := 0 to length(tasks) - 1 do
+    for j := 0 to length(tasks[i].dependencyIds) - 1 do
+      if tasks[i].dependencyIds[j] = taskId then
+        begin
+          setLength(result, count + 1);
+          result[count] := tasks[i];
+          inc(count);
+          break;
+        end;
+end;
+
+function TTaskManager.canCompleteTask(taskId: integer): boolean;
+var
+  idx, i, depIdx: integer;
+begin
+  clearError;
+  idx := findTaskIndex(taskId);
+  if idx < 0 then
+    begin
+      lastError := 'Task not found: ' + intToStr(taskId);
+      result := false;
+      exit;
+    end;
+  
+  result := true;
+  for i := 0 to length(tasks[idx].dependencyIds) - 1 do
+    begin
+      depIdx := findTaskIndex(tasks[idx].dependencyIds[i]);
+      if depIdx >= 0 then
+        if tasks[depIdx].status <> tsCompleted then
+          begin
+            result := false;
+            exit;
+          end;
+    end;
+end;
+
 
 function TTaskManager.getStatistics: TTaskStats;
 var

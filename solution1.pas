@@ -270,6 +270,33 @@ begin
       writeln('  - ', tasks[i].name, ' (Overrun: ', (tasks[i].actualHours - tasks[i].estimatedHours):0:1, ' hours)');
     writeln;
 
+
+    writeln('Test 26: Adding task dependencies...');
+    if manager.addTaskDependency(taskId4, taskId1) then
+      writeln('Task 4 now depends on Task 1')
+    else
+      writeln('Failed to add dependency: ', manager.getLastError);
+
+    if manager.addTaskDependency(taskId4, taskId2) then
+      writeln('Task 4 now depends on Tasks 1 and 2')
+    else
+      writeln('Failed to add dependency: ', manager.getLastError);
+    writeln;
+
+    writeln('Test 27: Checking if task can be completed...');
+    if manager.canCompleteTask(taskId4) then
+      writeln('Task 4 can be completed (all dependencies done)')
+    else
+      writeln('Task 4 cannot be completed yet (has pending dependencies)');
+    writeln;
+
+    writeln('Test 28: Getting tasks that depend on a task...');
+    tasks := manager.getTasksDependingOn(taskId1);
+    writeln('Found ', length(tasks), ' task(s) that depend on Task 1:');
+    for i := 0 to length(tasks) - 1 do
+      writeln('  - ', tasks[i].name);
+    writeln;
+
     writeln('===== ALL TESTS COMPLETED SUCCESSFULLY =====');
 
   finally

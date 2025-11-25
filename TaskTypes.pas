@@ -25,6 +25,9 @@ type
   // Tags array
   TTagArray = array of string;
 
+  // Integer array (for dependency IDs)
+  TIntArray = array of integer;
+
   // Task record structure
   TTask = record
     id: integer;
@@ -39,6 +42,7 @@ type
     tags: TTagArray;
     estimatedHours: double;
     actualHours: double;
+    dependencyIds: array of integer;
   end;
 
   // Dynamic array of tasks
