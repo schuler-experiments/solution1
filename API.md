@@ -1,384 +1,407 @@
-# Task Manager - API Reference
+# Task Manager - Complete API Reference
 
-## Core Classes
+## Overview
+
+The Task Manager system is a comprehensive task management framework built in Object Pascal (Free Pascal). It provides a complete suite of classes for managing tasks, workflows, automation, persistence, analytics, and more.
+
+## Core Task Management
 
 ### TTaskManagerClass
 
-Main interface for task management operations.
+Primary interface for task management operations.
 
-#### Methods
-
-**AddTask**
+**AddTask** - Creates a new task. Returns task ID.
 ```pascal
 function AddTask(title, description: string; priority: TTaskPriority;
                  dueDate: TDateTime): integer;
 ```
-Creates a new task and returns its ID.
+- Parameters: title (non-empty), description, priority (enum), dueDate (must be future)
+- Returns: Positive integer task ID
+- Behavior: Task status initialized to tsNotStarted
 
-**GetTask**
-```pascal
-function GetTask(id: integer): TTask;
-```
-Retrieves a task by ID.
-
-**UpdateTask**
-```pascal
-procedure UpdateTask(id: integer; newTask: TTask);
-```
-Updates an existing task.
-
-**DeleteTask**
-```pascal
-procedure DeleteTask(id: integer);
-```
-Removes a task from the system.
-
-**GetTaskCount**
-```pascal
-function GetTaskCount(): integer;
-```
-Returns the total number of tasks.
-
-**SetTaskStatus**
-```pascal
-procedure SetTaskStatus(id: integer; newStatus: TTaskStatus);
-```
-Changes the status of a task.
-
-**CompleteTask**
-```pascal
-procedure CompleteTask(id: integer);
-```
-Marks a task as completed.
+**GetTask** - Retrieves a task by ID
+**UpdateTask** - Modifies an existing task
+**DeleteTask** - Removes a task from the system
+**GetTaskCount** - Returns total number of tasks
+**SetTaskStatus** - Changes task status
+**CompleteTask** - Marks task as completed
+**GetAllTasks** - Returns all tasks as array
 
 ### TTaskQueryClass
 
-Advanced querying and filtering.
+Advanced querying and filtering capabilities.
 
-#### Methods
+**FilterByKeyword** - Full-text search across titles and descriptions
+**FilterByDateRange** - Returns tasks within date range (inclusive)
+**GetTasksByStatus** - Gets all tasks with specific status
+**GetTasksByPriority** - Gets all tasks with specific priority
+**GetOverdueTasks** - Returns overdue tasks not yet completed
+**GetStats** - Returns comprehensive task statistics
+**FilterByCategory** - Returns tasks in specified category
+**FilterByAssignee** - Returns tasks assigned to person
 
-**FilterByKeyword**
+## Workflow Management
+
+### TTaskWorkflowManagerClass
+
+Manages workflow states, transitions, and approval workflows.
+
+**AddRule** - Creates workflow transition rule
 ```pascal
-function FilterByKeyword(keyword: string): TTaskArray;
+function AddRule(fromState, toState: TWorkflowState; action: TWorkflowAction;
+                 requiresApproval, requiresComment: boolean;
+                 description: string): integer;
 ```
-Full-text search across all tasks.
+- requiresApproval: Transition needs approval before completion
+- requiresComment: Transition requires explanatory comment
+- Returns: Rule ID
 
-**FilterByDateRange**
-```pascal
-function FilterByDateRange(startDate, endDate: TDateTime): TTaskArray;
-```
-Get tasks within a date range.
+**IsValidTransition** - Validates if transition is allowed
 
-**GetTasksByStatus**
+**PerformTransition** - Executes state transition
 ```pascal
-function GetTasksByStatus(status: TTaskStatus): TTaskArray;
+function PerformTransition(taskId: integer; action: TWorkflowAction;
+                          performedBy, comment: string): integer;
 ```
-Get all tasks with a specific status.
+- Returns: Transition ID if successful, -1 if invalid
 
-**GetOverdueTasks**
-```pascal
-function GetOverdueTasks(): TTaskArray;
-```
-Get all overdue tasks.
+**GetTaskTransitions** - Returns complete transition history for task
+**ApproveTransition** - Approves a transition requiring approval
+**RejectTransition** - Rejects a transition, rolling back state
+**GetAverageTimeInState** - Calculates average time in state (identifies bottlenecks)
+**GetStateDistribution** - Returns report of task distribution across states
 
-**GetStats**
+## Automation
+
+### TTaskAutomationManagerClass
+
+Manages automated rules triggered by task events.
+
+**CreateRule** - Creates automation rule
 ```pascal
-function GetStats(): TTaskStats;
+function CreateRule(name, description: string; trigger: TAutomationTrigger;
+                   triggerCondition: string; action: TAutomationAction;
+                   actionParameter: string): integer;
 ```
-Get comprehensive statistics about all tasks.
+- trigger: Event triggering rule (atTaskCompleted, atTaskOverdue, etc.)
+- triggerCondition: Additional refinement condition
+- action: Action to execute (aaCreateTask, aaUpdateStatus, aaEscalate, etc.)
+- actionParameter: Parameter for action
+- Returns: Rule ID
+
+**UpdateRule** - Modifies existing automation rule
+**DeleteRule** - Removes automation rule
+**EnableRule** - Enables disabled rule
+**DisableRule** - Disables rule temporarily
+**ExecuteRule** - Manually executes specific rule
+**ExecuteRulesByTrigger** - Executes all rules matching trigger event
+**GetRulesByTrigger** - Returns rules associated with trigger type
+**GetExecutionLog** - Returns complete execution history
+**GetRuleExecutionCount** - Returns execution count for rule
+**GetLastExecutionDate** - Returns when rule was last executed
+
+## Task Templates
+
+### TTaskTemplateManagerClass
+
+Manages reusable task templates and template instances.
+
+**CreateTemplate** - Creates task template with default values
+```pascal
+function CreateTemplate(name, description: string; priority: TTaskPriority;
+                       assignee: string; estimatedHours: double;
+                       category: string): integer;
+```
+- Returns: Template ID
+
+**GetTemplate** - Retrieves template by ID
+**GetAllTemplates** - Returns all defined templates
+**DeleteTemplate** - Removes template (existing instances unaffected)
+**UpdateTemplate** - Modifies existing template
+**GetTemplatesByCategory** - Returns templates in category
+**SearchTemplates** - Searches templates by keyword
+
+**AddFieldToTemplate** - Adds custom field to template
+```pascal
+function AddFieldToTemplate(templateId: integer; fieldName, fieldType: string;
+                           defaultValue: string; isRequired: boolean): boolean;
+```
+- fieldType: Type of field (string, integer, boolean, date, etc.)
+- isRequired: Field must be populated when creating instances
+
+**RemoveFieldFromTemplate** - Removes custom field from template
+**GetTemplateFields** - Returns custom fields for template
+
+**CreateTaskFromTemplate** - Creates task from template
+```pascal
+function CreateTaskFromTemplate(templateId: integer; title: string;
+                               dueDate: TDateTime; taskId: integer): integer;
+```
+- Returns: ID of created task
+
+**GetInstancesForTemplate** - Returns all tasks created from template
+**GetAllInstances** - Returns all template instances
+**GetTemplateUsageCount** - Returns times template used
+**GetMostUsedTemplate** - Returns most frequently used template
+**GetTemplateStatistics** - Returns usage statistics
+**CloneTemplate** - Creates copy of template with new name
+
+## Time Tracking
+
+### TTaskTimeTrackingClass
+
+Manages time entries and productivity analysis.
+
+**StartTimeTracking** - Starts time tracking session
+```pascal
+function StartTimeTracking(taskId: integer; description: string): integer;
+```
+- description: Description of work being performed
+- Returns: Entry ID
+
+**StopTimeTracking** - Stops tracking session, calculates elapsed time
+**GetTimeEntry** - Retrieves time entry details
+**GetTaskTimeEntries** - Returns all entries for task
+**GetAllTimeEntries** - Returns all time entries
+**DeleteTimeEntry** - Removes time entry
+
+**GetTaskTimeSummary** - Calculates task hours and variance
+**GetTotalTimeSummary** - Calculates aggregate time metrics
+**GetDailyTimeSummary** - Returns daily summary (hours, tasks completed)
+**GetWeeklyTimeSummary** - Calculates week metrics
+**GetMonthlyTimeSummary** - Calculates month metrics
+
+**GetAverageTimePerTask** - Returns mean hours per task
+**GetMostTimeSpentTask** - Returns task with most time invested
+**GetTimeVariance** - Calculates variance from estimate
+**GetProductivityTrend** - Returns tracking data for N days
+**GetTotalTimeTracked** - Returns total hours tracked
+**GetTimeEntryCount** - Returns total entries
+**GetAverageTaskDuration** - Returns mean duration of completed tasks
+
+## Validation
+
+### TTaskValidatorClass
+
+Provides data validation and business rule enforcement.
+
+**ValidateTaskTitle** - Validates title (non-empty, length, characters)
+**ValidateTaskDescription** - Validates description format
+**ValidateDueDate** - Validates date is after creation date
+**ValidateTaskData** - Comprehensive validation of all fields
+**ValidatePriority** - Validates priority is valid enum
+**ValidateAssignee** - Validates assignee exists
+**ValidateTimeEstimate** - Validates hours are positive and reasonable
+**ValidateCategory** - Validates category is recognized
+
+All validation methods return TValidationResult with isValid flag and error message.
+
+**CanDeleteTask** - Determines if task can be deleted
+**CanChangeStatus** - Validates status transition is allowed
+
+## Data Persistence
 
 ### TTaskPersistenceClass
 
-File I/O and persistence.
+Handles file I/O and backup operations.
 
-#### Methods
+**SaveAsCSV** - Exports tasks to CSV format with headers
+**SaveAsText** - Exports tasks to human-readable text
+**CreateBackup** - Creates timestamped backup of data
+**LoadFromCSV** - Imports tasks from CSV file
+**LoadFromFile** - Loads tasks from specified file
 
-**SaveAsCSV**
-```pascal
-procedure SaveAsCSV(mgr: TTaskManagerClass);
-```
-Export tasks to CSV format.
-
-**LoadFromCSV**
-```pascal
-procedure LoadFromCSV(mgr: TTaskManagerClass);
-```
-Import tasks from CSV format.
-
-**SaveAsText**
-```pascal
-procedure SaveAsText(mgr: TTaskManagerClass);
-```
-Export tasks to text format.
-
-**CreateBackup**
-```pascal
-procedure CreateBackup();
-```
-Create a backup of the current data file.
+## Advanced Search
 
 ### TTaskSearchClass
 
-Advanced search capabilities.
+Sophisticated search with criteria and saved searches.
 
-#### Methods
-
-**SearchTasks**
+**SearchTasks** - Searches using advanced criteria
 ```pascal
 function SearchTasks(tasks: TTaskArray; criteria: TSearchCriteria): TTaskArray;
 ```
-Search with advanced criteria.
+- Supports keyword, date range, status, priority filters
+- Returns: Array of matching tasks
 
-**FullTextSearch**
-```pascal
-function FullTextSearch(tasks: TTaskArray; keyword: string): TTaskArray;
-```
-Quick full-text search.
+**FullTextSearch** - Quick full-text search in titles and descriptions
+**SaveSearch** - Saves search configuration for reuse
+**ExecuteSavedSearch** - Executes previously saved search
+**FindDuplicates** - Identifies similar tasks by title/description
 
-**SaveSearch**
-```pascal
-function SaveSearch(name: string; criteria: TSearchCriteria): integer;
-```
-Save a search for reuse.
-
-**FindDuplicates**
-```pascal
-function FindDuplicates(tasks: TTaskArray): TTaskArray;
-```
-Find duplicate tasks.
+## Multi-Format Export
 
 ### TTaskExporterClass
 
-Multi-format export.
+Exports tasks to multiple formats for integration.
 
-#### Methods
+**ExportTasksAsJSON** - Exports to JSON (web services/APIs)
+**ExportTasksAsXML** - Exports to XML (enterprise integration)
+**ExportTasksAsCSV** - Exports to CSV (spreadsheet apps)
+**ExportTasksAsHTML** - Exports to HTML (web viewing)
+**ExportToFormat** - Generic export supporting all formats
 
-**ExportTasksAsJSON**
-```pascal
-function ExportTasksAsJSON(tasks: TTaskArray; filename: string): boolean;
-```
-Export to JSON format.
-
-**ExportTasksAsXML**
-```pascal
-function ExportTasksAsXML(tasks: TTaskArray; filename: string): boolean;
-```
-Export to XML format.
-
-**ExportTasksAsCSV**
-```pascal
-function ExportTasksAsCSV(tasks: TTaskArray; filename: string): boolean;
-```
-Export to CSV format.
-
-**ExportTasksAsHTML**
-```pascal
-function ExportTasksAsHTML(tasks: TTaskArray; filename: string): boolean;
-```
-Export to HTML format.
-
-**ExportToFormat**
-```pascal
-function ExportToFormat(tasks: TTaskArray; filename: string;
-                       format: TExportFormat): boolean;
-```
-Export to specified format.
+## Analytics and Metrics
 
 ### TTaskAnalyticsClass
 
-Analytics and metrics.
+Provides analytics, metrics, and predictive analysis.
 
-#### Methods
-
-**CalculateProductivity**
+**CalculateProductivity** - Calculates tasks per day
 ```pascal
 function CalculateProductivity(totalTasks, completedTasks: integer;
                                days: integer): double;
 ```
-Calculate tasks per day.
+- Formula: completedTasks / days
 
-**CalculateVelocity**
-```pascal
-function CalculateVelocity(completedCount: integer;
-                           sprintDays: integer): double;
-```
-Calculate velocity metrics.
+**CalculateVelocity** - Calculates velocity (tasks/sprint period)
+**GetProductivityMetrics** - Generates detailed metrics from daily counts
+**EstimateCompletionDays** - Predicts days to complete remaining tasks
+**PredictDeadlineMiss** - Predicts if deadline will be missed
 
-**EstimateCompletionDays**
-```pascal
-function EstimateCompletionDays(remainingTasks: integer;
-                                currentVelocity: double): integer;
-```
-Predict project completion date.
-
-**PredictDeadlineMiss**
-```pascal
-function PredictDeadlineMiss(tasksRemaining: integer;
-                             daysRemaining: integer;
-                             velocity: double): boolean;
-```
-Predict if deadline will be missed.
-
-**CalculateRiskScore**
+**CalculateRiskScore** - Calculates risk score (0.0 to 1.0)
 ```pascal
 function CalculateRiskScore(overdueCount: integer;
                             blockedCount: integer;
                             totalCount: integer): double;
 ```
-Calculate project risk score.
+- Formula: (overdueCount + blockedCount) / totalCount
+- Returns: 0.0 (no risk) to 1.0 (high risk)
+
+**CalculateTaskComplexity** - Calculates complexity from estimation accuracy
+**GetAccuracyScore** - Scores estimation accuracy
+**CalculateTeamCapacity** - Calculates total team capacity
+**AnalyzeTrend** - Analyzes metric trends (increasing/decreasing/stable)
+**CalculateBurndownData** - Generates burndown chart data
+**CalculateStandardDeviation** - Calculates statistical standard deviation
+
+## Audit and Compliance
+
+### TTaskAuditManagerClass
+
+Maintains complete audit trail for compliance.
+
+**LogAction** - Logs task action with timestamp
+```pascal
+function LogAction(taskId: integer; action: TAuditActionType;
+                  changedBy: string; description: string): integer;
+```
+- action: Created, Modified, Deleted, StatusChanged, etc.
+- Returns: Audit entry ID
+
+**LogChange** - Logs field change with before/after values
+
+**GetTaskAuditLog** - Returns audit history for task
+**GetAuditEntriesByType** - Returns entries of specific action type
+**GetAuditEntriesByUser** - Returns entries created by user
+**GetAuditEntriesInDateRange** - Returns entries in date range
+**GetAllAuditEntries** - Returns complete audit log
+**GetAuditCount** - Returns total audit entries
+**GetAuditCountForTask** - Returns entries for task
+**ClearAuditLog** - Removes all entries (use with caution)
+**DeleteTaskAuditLog** - Removes entries for task
+**DeleteOldEntries** - Removes entries before date
+
+### TTaskAuditAnalysisClass
+
+Analyzes audit data for reporting.
+
+**GetLastModificationDate** - When task was last modified
+**GetLastModificationBy** - Who last modified task
+**GetModificationCount** - Total modifications for task
+**GetMostActiveTasks** - Returns task IDs with most activity
+**GetMostActiveUsers** - Returns users with most system activity
+**GetAuditSummary** - Returns formatted audit history summary
+
+## Reminders and Notifications
 
 ### TTaskReminderManagerClass
 
-Notification and reminders.
+Manages task reminders and notifications.
 
-#### Methods
-
-**AddReminder**
+**AddReminder** - Creates reminder for task
 ```pascal
 function AddReminder(taskId: integer; reminderType: TReminderType;
                     timing: TReminderTiming; dueDate: TDateTime): integer;
 ```
-Add a reminder for a task.
+- reminderType: Email, Notification, SMS, Popup
+- timing: Before5Min, Before15Min, Before1Hour, Before1Day, Before1Week, Custom
+- Returns: Reminder ID
 
-**GetPendingReminders**
+**GetPendingReminders** - Returns unsent/unacknowledged reminders
+**AcknowledgeReminder** - Marks reminder as acknowledged
+**GetReminderStats** - Returns reminder statistics
+
+## Team and Resource Management
+
+### TTaskTeamManagerClass
+
+Manages team members, skills, and workload.
+
+**AddTeamMember** - Registers team member with skills
 ```pascal
-function GetPendingReminders(): TReminderArray;
+function AddTeamMember(name: string; skills: array of string; 
+                      available: boolean): integer;
 ```
-Get all pending reminders.
+- Returns: Member ID
 
-**AcknowledgeReminder**
+**GetTeamMember** - Retrieves member information
+**RemoveTeamMember** - Removes member from system
+**GetAllTeamMembers** - Returns all team members
+**UpdateMemberAvailability** - Updates availability status
+
+**AssignTaskToMember** - Assigns task with allocation
 ```pascal
-function AcknowledgeReminder(id: integer): boolean;
+function AssignTaskToMember(taskId, memberId: integer; 
+                           hoursAllocated: double; hourlyRate: double): integer;
 ```
-Mark a reminder as acknowledged.
+- Returns: Assignment ID
 
-**GetReminderStats**
-```pascal
-function GetReminderStats(): TReminderStats;
-```
-Get reminder statistics.
+**GetMemberAssignments** - Returns tasks assigned to member
+**GetTaskAssignment** - Returns task assignment details
+**RemoveAssignment** - Removes task assignment
 
-## Usage Example
+**GetMemberWorkload** - Calculates member allocated hours
+**IsMemberAvailable** - Checks if member available for work
+**GetTeamCapacity** - Calculates total team capacity
+**GetTeamUtilization** - Calculates utilization percentage
+**GetMemberSkillMatch** - Returns skill match count
+**FindBestMemberForTask** - Returns best qualified member for skills
 
-```pascal
-program Example;
-uses TaskManager, TaskTypes, TaskQuery, TaskExporter;
-
-var
-  mgr: TTaskManagerClass;
-  query: TTaskQueryClass;
-  exporter: TTaskExporterClass;
-  taskId: integer;
-  stats: TTaskStats;
-
-begin
-  { Initialize managers }
-  mgr := TTaskManagerClass.Create();
-  query := TTaskQueryClass.Create(mgr);
-  exporter := TTaskExporterClass.Create();
-  
-  try
-    { Add tasks }
-    taskId := mgr.AddTask('Important Task', 'Description', tpHigh, Date + 7);
-    mgr.AddTask('Another Task', 'More work', tpMedium, Date + 14);
-    
-    { Query tasks }
-    stats := query.GetStats();
-    WriteLn('Total tasks: ', stats.totalTasks);
-    
-    { Export data }
-    exporter.ExportTasksAsJSON(mgr.GetAllTasks(), 'tasks.json');
-    
-  finally
-    mgr.Free();
-    query.Free();
-    exporter.Free();
-  end;
-end.
-```
-
-## Type Reference
+## Type Definitions
 
 ### Enumerations
 
-**TTaskStatus**
-- tsNotStarted
-- tsInProgress
-- tsCompleted
-- tsOnHold
-
-**TTaskPriority**
-- tpLow
-- tpMedium
-- tpHigh
-- tpCritical
-
-**TExportFormat**
-- efJSON
-- efXML
-- efCSV
-- efHTML
-
-**TReminderType**
-- rtEmail
-- rtNotification
-- rtPopup
-- rtSMS
-
-**TReminderTiming**
-- rtBefore5Min
-- rtBefore15Min
-- rtBefore1Hour
-- rtBefore1Day
-- rtBefore1Week
-- rtCustom
+**TTaskStatus**: tsNotStarted, tsInProgress, tsCompleted, tsOnHold
+**TTaskPriority**: tpLow, tpMedium, tpHigh, tpCritical
+**TWorkflowState**: wsCreated, wsAssigned, wsInProgress, wsBlocked, wsReview, wsCompleted, wsCancelled
+**TWorkflowAction**: waStart, waProgress, waBlock, waUnblock, waRequestReview, waApprove, waReject, waCancel, waReopen
+**TAutomationTrigger**: atTaskCreated, atTaskCompleted, atTaskOverdue, atDateReached, atStatusChanged, atPriorityChanged, atAssigneeChanged, atCustom
+**TAutomationAction**: aaCreateTask, aaUpdateStatus, aaUpdatePriority, aaAddNote, aaAssignTo, aaSetDueDate, aaSendNotification, aaEscalate, aaAddTag
+**TExportFormat**: efJSON, efXML, efCSV, efHTML
 
 ### Records
 
-**TTask**
-- id: integer
-- title: string
-- description: string
-- priority: TTaskPriority
-- status: TTaskStatus
-- dueDate: TDateTime
-- createdDate: TDateTime
-- completedDate: TDateTime
-- category: string
-- assignee: string
-- estimatedHours: double
-- tags: array of string
+**TTask**: id, title, description, priority, status, dueDate, createdDate, completedDate, category, assignee, estimatedHours, tags
+**TTaskStats**: totalTasks, completedTasks, inProgressTasks, overdueTasks, completionRate
+**TSearchCriteria**: keyword, searchTitle, searchDescription, statusFilter, priorityFilter, startDate, endDate, useDateRange, caseSensitive
+**TValidationResult**: isValid, errorMessage, errorCode
+**TReminderStats**: totalReminders, pendingReminders, acknowledgedReminders, overdueReminders, emailReminders, notificationReminders
 
-**TTaskStats**
-- totalTasks: integer
-- completedTasks: integer
-- inProgressTasks: integer
-- overdueTasks: integer
-- completionRate: double
+## Error Handling
 
-**TSearchCriteria**
-- keyword: string
-- searchTitle: boolean
-- searchDescription: boolean
-- statusFilter: TTaskStatus
-- priorityFilter: TTaskPriority
-- startDate: TDateTime
-- endDate: TDateTime
-- useDateRange: boolean
-- caseSensitive: boolean
+- **Boolean returns**: Check value before proceeding
+- **Validation methods**: Return TValidationResult with isValid flag
+- **Array returns**: Empty arrays indicate no matches
+- **ID returns**: -1 or 0 indicate failure
 
-**TExportOptions**
-- includeNotes: boolean
-- includeDependencies: boolean
-- includeHistory: boolean
-- includeComments: boolean
-- compressOutput: boolean
-- prettyPrint: boolean
+Implement appropriate error handling rather than relying on exceptions.
 
-**TReminderStats**
-- totalReminders: integer
-- pendingReminders: integer
-- acknowledgedReminders: integer
-- overdueReminders: integer
-- emailReminders: integer
-- notificationReminders: integer
+## Implementation Notes
+
+1. **Thread Safety**: Not thread-safe; add locking for multi-threaded use
+2. **Persistence**: Save work regularly using TTaskPersistenceClass
+3. **Audit Trail**: Enable logging for compliance operations
+4. **Validation**: Always validate input with TTaskValidatorClass
+5. **Performance**: Use indexed queries for large task lists (>1000 tasks)
+6. **Workflow**: Define rules before transitions to prevent invalid states
