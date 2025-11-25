@@ -1,3 +1,7 @@
+# Pascal Task Manager - Version 5
+
+**✨ NEW in v5**: Task Scheduling Engine & Risk Analysis System! See [V5_QUICKSTART.md](V5_QUICKSTART.md) and [VERSION_5_NEW_FEATURES.md](VERSION_5_NEW_FEATURES.md)
+
 # Pascal Task Manager
 
 A comprehensive task management system written in Free Pascal (FPC) with support for creating, organizing, tracking, and managing task dependencies.
