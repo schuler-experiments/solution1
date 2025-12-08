@@ -34,10 +34,12 @@ type
     function AddTask(const ATitle, ADescription: String): Integer;
     function GetTaskCount: Integer;
     function GetTask(const Index: Integer): TTask;
-    
-    // New methods for Cycle 2
-    function FindTaskByID(const ID: Integer): Integer; // Returns index or -1
+    function FindTaskByID(const ID: Integer): Integer;
     function FindTasksByStatus(const Status: TTaskStatus): TTaskArray;
+    
+    // New methods for Cycle 3
+    function UpdateTaskStatus(const ID: Integer; NewStatus: TTaskStatus): Boolean;
+    function DeleteTask(const ID: Integer): Boolean;
   end;
 
 implementation
@@ -106,7 +108,7 @@ function TTaskManager.FindTasksByStatus(const Status: TTaskStatus): TTaskArray;
 var
   i, Count: Integer;
 begin
-  SetLength(Result, 0);
+  SetLength(Result, 0); // Initialize to silence warning
   Count := 0;
   for i := 0 to High(FTasks) do
   begin
@@ -117,6 +119,39 @@ begin
       Result[Count - 1] := FTasks[i];
     end;
   end;
+end;
+
+function TTaskManager.UpdateTaskStatus(const ID: Integer; NewStatus: TTaskStatus): Boolean;
+var
+  Index: Integer;
+begin
+  Index := FindTaskByID(ID);
+  if Index <> -1 then
+  begin
+    FTasks[Index].Status := NewStatus;
+    Result := True;
+  end
+  else
+    Result := False;
+end;
+
+function TTaskManager.DeleteTask(const ID: Integer): Boolean;
+var
+  Index, i: Integer;
+begin
+  Index := FindTaskByID(ID);
+  if Index <> -1 then
+  begin
+    // Shift elements down
+    for i := Index to High(FTasks) - 1 do
+      FTasks[i] := FTasks[i + 1];
+    
+    // Reduce size
+    SetLength(FTasks, Length(FTasks) - 1);
+    Result := True;
+  end
+  else
+    Result := False;
 end;
 
 end.
