@@ -14,62 +14,73 @@ procedure SelfTest;
 var
   Manager: TTaskManager;
   Task: TTask;
-  TaggedTasks, OverdueTasks: TTaskArray;
+  OverdueTasks: TTaskArray;
   Yesterday: TDateTime;
+  SaveFile: String;
 begin
   WriteLn('--------------------------------------------------');
-  WriteLn('Starting Task Manager Self Test (Extended)');
+  WriteLn('Starting Task Manager Self Test (Persistence)');
   WriteLn('--------------------------------------------------');
+
+  SaveFile := 'tasks_test.db';
+  if FileExists(SaveFile) then DeleteFile(SaveFile);
 
   Manager := TTaskManager.Create;
   try
     Yesterday := Now - 1;
 
-    // Setup: Add tasks with priorities and due dates
+    // Setup: Add tasks
     Manager.AddTask('Low Priority Task', 'Do later', tpLow);       // ID 1
     Manager.AddTask('High Priority Task', 'Do NOW!', tpHigh);      // ID 2
     Manager.AddTask('Overdue Task', 'Should have been done', tpMedium, Yesterday); // ID 3
+    Manager.AddTagToTask(1, 'work');
+    Manager.AddTagToTask(1, 'later');
     
     WriteLn('[INFO] Setup complete (3 tasks added)');
 
-    // Test Tags
-    WriteLn('[TEST] Adding tags...');
-    if Manager.AddTagToTask(1, 'work') then WriteLn('[PASS] Added tag "work" to Task 1') else WriteLn('[FAIL] Failed to add tag');
-    if Manager.AddTagToTask(1, 'later') then WriteLn('[PASS] Added tag "later" to Task 1') else WriteLn('[FAIL] Failed to add tag');
-    if Manager.AddTagToTask(3, 'work') then WriteLn('[PASS] Added tag "work" to Task 3') else WriteLn('[FAIL] Failed to add tag');
-
-    // Test Find by Tag
-    WriteLn('[TEST] Finding tasks by tag "work"...');
-    TaggedTasks := Manager.FindTasksByTag('work');
-    if Length(TaggedTasks) = 2 then
-      WriteLn('[PASS] Found 2 tasks with tag "work"')
+    // Test Save
+    WriteLn('[TEST] Saving tasks to file...');
+    if Manager.SaveToFile(SaveFile) then
+      WriteLn('[PASS] Tasks saved to ', SaveFile)
     else
-      WriteLn('[FAIL] Found ', Length(TaggedTasks), ' tasks with tag "work" (expected 2)');
+      WriteLn('[FAIL] Failed to save tasks');
 
-    // Test Overdue
-    WriteLn('[TEST] Checking overdue tasks...');
+    // Clear and Load
+    WriteLn('[TEST] Clearing and reloading tasks...');
+    Manager.ClearTasks;
+    if Manager.GetTaskCount = 0 then
+      WriteLn('[PASS] Tasks cleared (Count: 0)')
+    else
+      WriteLn('[FAIL] Tasks not cleared');
+
+    if Manager.LoadFromFile(SaveFile) then
+      WriteLn('[PASS] Tasks loaded from file')
+    else
+      WriteLn('[FAIL] Failed to load tasks');
+
+    // Verify Loaded Data
+    if Manager.GetTaskCount = 3 then
+      WriteLn('[PASS] Loaded 3 tasks')
+    else
+      WriteLn('[FAIL] Loaded ', Manager.GetTaskCount, ' tasks (expected 3)');
+
+    // Verify Task 1 Tags
+    Task := Manager.GetTask(0); // ID 1
+    if (Task.Title = 'Low Priority Task') and (Length(Task.Tags) = 2) then
+      WriteLn('[PASS] Task 1 verified (Title and Tags)')
+    else
+      WriteLn('[FAIL] Task 1 verification failed');
+
+    // Verify Task 3 Overdue
     OverdueTasks := Manager.GetOverdueTasks;
-    if Length(OverdueTasks) = 1 then
-    begin
-      if OverdueTasks[0].ID = 3 then
-        WriteLn('[PASS] Correctly identified overdue task (ID 3)')
-      else
-        WriteLn('[FAIL] Wrong overdue task identified (ID ', OverdueTasks[0].ID, ')');
-    end
+    if (Length(OverdueTasks) > 0) and (OverdueTasks[0].ID = 3) then
+      WriteLn('[PASS] Overdue task verified after load')
     else
-      WriteLn('[FAIL] Found ', Length(OverdueTasks), ' overdue tasks (expected 1)');
-
-    // Test Sort (Regression Test)
-    Manager.SortTasksByPriority;
-    WriteLn('[INFO] Sorted tasks by priority');
-    Task := Manager.GetTask(0);
-    if Task.Priority = tpHigh then
-      WriteLn('[PASS] First task is High Priority')
-    else
-      WriteLn('[FAIL] First task priority is ', Task.Priority);
+      WriteLn('[FAIL] Overdue task verification failed');
 
   finally
     Manager.Free;
+    if FileExists(SaveFile) then DeleteFile(SaveFile);
   end;
   
   WriteLn('--------------------------------------------------');

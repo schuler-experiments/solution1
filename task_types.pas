@@ -7,7 +7,7 @@ unit task_types;
 interface
 
 uses
-  SysUtils, DateUtils, Math;
+  SysUtils, DateUtils, Math, Classes;
 
 type
   TTaskStatus = (tsPending, tsInProgress, tsCompleted);
@@ -21,8 +21,8 @@ type
     Status: TTaskStatus;
     Priority: TTaskPriority;
     CreatedAt: TDateTime;
-    DueDate: TDateTime;    // New: 0 means no due date
-    Tags: TTagArray;       // New: Dynamic array of tags
+    DueDate: TDateTime;    // 0 means no due date
+    Tags: TTagArray;       // Dynamic array of tags
   end;
 
   TTaskArray = array of TTask;
@@ -34,10 +34,16 @@ type
     FTasks: TTaskArray;
     FLastID: Integer;
     function HasTag(const Task: TTask; const Tag: String): Boolean;
+    function TagsToString(const Tags: TTagArray): String;
+    function StringToTags(const TagString: String): TTagArray;
+    function StatusToString(Status: TTaskStatus): String;
+    function StringToStatus(const S: String): TTaskStatus;
+    function PriorityToString(Priority: TTaskPriority): String;
+    function StringToPriority(const S: String): TTaskPriority;
   public
     constructor Create;
     destructor Destroy; override;
-    // Updated AddTask with DueDate
+    
     function AddTask(const ATitle, ADescription: String; APriority: TTaskPriority = tpMedium; ADueDate: TDateTime = 0): Integer;
     function GetTaskCount: Integer;
     function GetTask(const Index: Integer): TTask;
@@ -47,10 +53,14 @@ type
     function DeleteTask(const ID: Integer): Boolean;
     procedure SortTasksByPriority;
     
-    // New Methods
     function AddTagToTask(const ID: Integer; const Tag: String): Boolean;
     function FindTasksByTag(const Tag: String): TTaskArray;
     function GetOverdueTasks: TTaskArray;
+    
+    // Persistence
+    function SaveToFile(const Filename: String): Boolean;
+    function LoadFromFile(const Filename: String): Boolean;
+    procedure ClearTasks; // Helper for testing load
   end;
 
 implementation
@@ -70,6 +80,12 @@ begin
   inherited Destroy;
 end;
 
+procedure TTaskManager.ClearTasks;
+begin
+  SetLength(FTasks, 0);
+  FLastID := 0;
+end;
+
 function TTaskManager.AddTask(const ATitle, ADescription: String; APriority: TTaskPriority = tpMedium; ADueDate: TDateTime = 0): Integer;
 var
   NewIndex: Integer;
@@ -85,7 +101,7 @@ begin
   FTasks[NewIndex].Priority := APriority;
   FTasks[NewIndex].CreatedAt := Now;
   FTasks[NewIndex].DueDate := ADueDate;
-  SetLength(FTasks[NewIndex].Tags, 0); // Initialize tags
+  SetLength(FTasks[NewIndex].Tags, 0);
   
   Result := FLastID;
 end;
@@ -122,7 +138,7 @@ function TTaskManager.FindTasksByStatus(const Status: TTaskStatus): TTaskArray;
 var
   i, Count: Integer;
 begin
-  Result := nil; // Explicit initialization to silence warning
+  Result := nil;
   SetLength(Result, 0);
   Count := 0;
   for i := 0 to High(FTasks) do
@@ -185,8 +201,6 @@ begin
     end;
 end;
 
-// New Methods Implementation
-
 function TTaskManager.AddTagToTask(const ID: Integer; const Tag: String): Boolean;
 var
   Index, TagIndex: Integer;
@@ -194,10 +208,9 @@ begin
   Index := FindTaskByID(ID);
   if Index <> -1 then
   begin
-    // Check if tag already exists
     if HasTag(FTasks[Index], Tag) then
     begin
-      Result := True; // Already exists, consider success
+      Result := True;
       Exit;
     end;
 
@@ -216,7 +229,7 @@ var
 begin
   Result := False;
   for i := 0 to High(Task.Tags) do
-    if CompareText(Task.Tags[i], Tag) = 0 then // Case insensitive
+    if CompareText(Task.Tags[i], Tag) = 0 then
     begin
       Result := True;
       Exit;
@@ -227,7 +240,7 @@ function TTaskManager.FindTasksByTag(const Tag: String): TTaskArray;
 var
   i, Count: Integer;
 begin
-  Result := nil; // Explicit initialization
+  Result := nil;
   SetLength(Result, 0);
   Count := 0;
   for i := 0 to High(FTasks) do
@@ -245,12 +258,11 @@ function TTaskManager.GetOverdueTasks: TTaskArray;
 var
   i, Count: Integer;
 begin
-  Result := nil; // Explicit initialization
+  Result := nil;
   SetLength(Result, 0);
   Count := 0;
   for i := 0 to High(FTasks) do
   begin
-    // Check if DueDate is set (not 0) and is before Now, and task is not completed
     if (FTasks[i].DueDate <> 0) and (FTasks[i].DueDate < Now) and (FTasks[i].Status <> tsCompleted) then
     begin
       Inc(Count);
@@ -258,6 +270,143 @@ begin
       Result[Count - 1] := FTasks[i];
     end;
   end;
+end;
+
+// Helper methods for persistence
+
+function TTaskManager.TagsToString(const Tags: TTagArray): String;
+var
+  i: Integer;
+begin
+  Result := '';
+  for i := 0 to High(Tags) do
+  begin
+    if i > 0 then Result := Result + ',';
+    Result := Result + Tags[i];
+  end;
+end;
+
+function TTaskManager.StringToTags(const TagString: String): TTagArray;
+var
+  List: TStringList;
+  i: Integer;
+begin
+  Result := nil;
+  SetLength(Result, 0);
+  if TagString = '' then Exit;
+  
+  List := TStringList.Create;
+  try
+    List.Delimiter := ',';
+    List.StrictDelimiter := True;
+    List.DelimitedText := TagString;
+    SetLength(Result, List.Count);
+    for i := 0 to List.Count - 1 do
+      Result[i] := List[i];
+  finally
+    List.Free;
+  end;
+end;
+
+function TTaskManager.StatusToString(Status: TTaskStatus): String;
+begin
+  WriteStr(Result, Status);
+end;
+
+function TTaskManager.StringToStatus(const S: String): TTaskStatus;
+begin
+  ReadStr(S, Result);
+end;
+
+function TTaskManager.PriorityToString(Priority: TTaskPriority): String;
+begin
+  WriteStr(Result, Priority);
+end;
+
+function TTaskManager.StringToPriority(const S: String): TTaskPriority;
+begin
+  ReadStr(S, Result);
+end;
+
+function TTaskManager.SaveToFile(const Filename: String): Boolean;
+var
+  List: TStringList;
+  i: Integer;
+  Line: String;
+begin
+  List := TStringList.Create;
+  try
+    for i := 0 to High(FTasks) do
+    begin
+      // Format: ID|Title|Description|Status|Priority|CreatedAt|DueDate|Tags
+      Line := Format('%d|%s|%s|%s|%s|%f|%f|%s', [
+        FTasks[i].ID,
+        FTasks[i].Title,
+        FTasks[i].Description,
+        StatusToString(FTasks[i].Status),
+        PriorityToString(FTasks[i].Priority),
+        FTasks[i].CreatedAt,
+        FTasks[i].DueDate,
+        TagsToString(FTasks[i].Tags)
+      ]);
+      List.Add(Line);
+    end;
+    List.SaveToFile(Filename);
+    Result := True;
+  except
+    Result := False;
+  end;
+  List.Free;
+end;
+
+function TTaskManager.LoadFromFile(const Filename: String): Boolean;
+var
+  List: TStringList;
+  Parts: TStringList;
+  i: Integer;
+  Line: String;
+  NewTask: TTask;
+begin
+  if not FileExists(Filename) then Exit(False);
+  
+  ClearTasks;
+  List := TStringList.Create;
+  Parts := TStringList.Create;
+  Parts.Delimiter := '|';
+  Parts.StrictDelimiter := True;
+  
+  try
+    List.LoadFromFile(Filename);
+    for i := 0 to List.Count - 1 do
+    begin
+      Line := List[i];
+      Parts.DelimitedText := Line;
+      if Parts.Count >= 8 then
+      begin
+        NewTask.ID := StrToIntDef(Parts[0], 0);
+        NewTask.Title := Parts[1];
+        NewTask.Description := Parts[2];
+        NewTask.Status := StringToStatus(Parts[3]);
+        NewTask.Priority := StringToPriority(Parts[4]);
+        NewTask.CreatedAt := StrToFloatDef(Parts[5], 0);
+        NewTask.DueDate := StrToFloatDef(Parts[6], 0);
+        NewTask.Tags := StringToTags(Parts[7]);
+        
+        // Add to array
+        SetLength(FTasks, Length(FTasks) + 1);
+        FTasks[High(FTasks)] := NewTask;
+        
+        // Update LastID to ensure uniqueness for new tasks
+        if NewTask.ID > FLastID then FLastID := NewTask.ID;
+      end;
+    end;
+    Result := True;
+  except
+    Result := False;
+  end;
+  
+  List.Free;
+  Parts.Free;
 end;
 
 end.
