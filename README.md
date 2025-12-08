@@ -9,6 +9,7 @@ A robust, feature-rich Task Manager written in Free Pascal.
 *   **Tagging System:** Add multiple tags to tasks for categorization.
 *   **Search:** Filter tasks by title or description.
 *   **Dependencies:** Link tasks (Task B depends on Task A). Includes circular dependency protection and "Can Start" logic.
+*   **Time Tracking:** Track time spent on tasks (Start/Stop timer).
 *   **Statistics:** View real-time stats (Total, Pending, Completed, Overdue, Blocked).
 *   **HTML Export:** Generate a styled HTML report of all tasks.
 *   **Persistence:** Save and load tasks from a custom pipe-delimited file format.

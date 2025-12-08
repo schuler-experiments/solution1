@@ -25,6 +25,9 @@ type
     DueDate: TDateTime;    // 0 means no due date
     Tags: TTagArray;       // Dynamic array of tags
     Dependencies: TDepArray; // IDs of tasks that must be completed before this one
+    TimeSpent: Double;       // Total time spent in seconds
+    LastStartTime: TDateTime; // When the timer was last started
+    IsTiming: Boolean;       // Is the timer currently running?
   end;
 
   TTaskArray = array of TTask;
@@ -85,6 +88,11 @@ type
     // Export
     function ExportToHTML(const Filename: String): Boolean;
 
+    // Time Tracking
+    function StartTaskTimer(const ID: Integer): Boolean;
+    function StopTaskTimer(const ID: Integer): Boolean;
+    function GetTaskTimeSpent(const ID: Integer): Double;
+
     // Persistence
     function SaveToFile(const Filename: String): Boolean;
     function LoadFromFile(const Filename: String): Boolean;
@@ -131,6 +139,9 @@ begin
   FTasks[NewIndex].DueDate := ADueDate;
   SetLength(FTasks[NewIndex].Tags, 0);
   SetLength(FTasks[NewIndex].Dependencies, 0);
+  FTasks[NewIndex].TimeSpent := 0.0;
+  FTasks[NewIndex].LastStartTime := 0.0;
+  FTasks[NewIndex].IsTiming := False;
   
   Result := FLastID;
 end;
@@ -563,6 +574,56 @@ begin
   List.Free;
 end;
 
+// Time Tracking Implementation
+
+function TTaskManager.StartTaskTimer(const ID: Integer): Boolean;
+var
+  Index: Integer;
+begin
+  Index := FindTaskByID(ID);
+  if (Index <> -1) and (not FTasks[Index].IsTiming) then
+  begin
+    FTasks[Index].IsTiming := True;
+    FTasks[Index].LastStartTime := Now;
+    if FTasks[Index].Status = tsPending then
+      FTasks[Index].Status := tsInProgress;
+    Result := True;
+  end
+  else
+    Result := False;
+end;
+
+function TTaskManager.StopTaskTimer(const ID: Integer): Boolean;
+var
+  Index: Integer;
+begin
+  Index := FindTaskByID(ID);
+  if (Index <> -1) and (FTasks[Index].IsTiming) then
+  begin
+    FTasks[Index].TimeSpent := FTasks[Index].TimeSpent + SecondSpan(Now, FTasks[Index].LastStartTime);
+    FTasks[Index].IsTiming := False;
+    FTasks[Index].LastStartTime := 0;
+    Result := True;
+  end
+  else
+    Result := False;
+end;
+
+function TTaskManager.GetTaskTimeSpent(const ID: Integer): Double;
+var
+  Index: Integer;
+begin
+  Index := FindTaskByID(ID);
+  if Index <> -1 then
+  begin
+    Result := FTasks[Index].TimeSpent;
+    if FTasks[Index].IsTiming then
+      Result := Result + SecondSpan(Now, FTasks[Index].LastStartTime);
+  end
+  else
+    Result := 0.0;
+end;
+
 // Persistence Helpers
 
 function TTaskManager.TagsToString(const Tags: TTagArray): String;
@@ -663,8 +724,8 @@ begin
   try
     for i := 0 to High(FTasks) do
     begin
-      // Format: ID|Title|Description|Status|Priority|CreatedAt|DueDate|Tags|Dependencies
-      Line := Format('%d|%s|%s|%s|%s|%f|%f|%s|%s', [
+      // Format: ID|Title|Description|Status|Priority|CreatedAt|DueDate|Tags|Dependencies|TimeSpent|LastStartTime|IsTiming
+      Line := Format('%d|%s|%s|%s|%s|%f|%f|%s|%s|%f|%f|%s', [
         FTasks[i].ID,
         FTasks[i].Title,
         FTasks[i].Description,
@@ -673,7 +734,10 @@ begin
         FTasks[i].CreatedAt,
         FTasks[i].DueDate,
         TagsToString(FTasks[i].Tags),
-        DepsToString(FTasks[i].Dependencies)
+        DepsToString(FTasks[i].Dependencies),
+        FTasks[i].TimeSpent,
+        FTasks[i].LastStartTime,
+        BoolToStr(FTasks[i].IsTiming, True)
       ]);
       List.Add(Line);
     end;
@@ -722,6 +786,19 @@ begin
           NewTask.Dependencies := StringToDeps(Parts[8])
         else
           SetLength(NewTask.Dependencies, 0);
+
+        if Parts.Count >= 12 then
+        begin
+          NewTask.TimeSpent := StrToFloatDef(Parts[9], 0.0);
+          NewTask.LastStartTime := StrToFloatDef(Parts[10], 0.0);
+          NewTask.IsTiming := StrToBoolDef(Parts[11], False);
+        end
+        else
+        begin
+          NewTask.TimeSpent := 0.0;
+          NewTask.LastStartTime := 0.0;
+          NewTask.IsTiming := False;
+        end;
         
         // Add to array
         SetLength(FTasks, Length(FTasks) + 1);

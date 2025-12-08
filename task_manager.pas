@@ -143,6 +143,45 @@ begin
     else
       WriteLn('[FAIL] HTML report generation failed');
 
+    // 7. Test Time Tracking
+    WriteLn('[TEST] Testing Time Tracking...');
+    // Use Task C (ID: TaskC) which is pending/blocked but let's just use it.
+    // Start Timer
+    if Manager.StartTaskTimer(TaskC) then
+      WriteLn('[PASS] Timer started for Task C')
+    else
+      WriteLn('[FAIL] Failed to start timer');
+      
+    Task := Manager.GetTask(Manager.FindTaskByID(TaskC));
+    if (Task.IsTiming) and (Task.Status = tsInProgress) then
+      WriteLn('[PASS] Task status updated to InProgress and IsTiming is True')
+    else
+      WriteLn('[FAIL] Task status/timing mismatch');
+      
+    // Simulate time passing (we can't easily sleep in self-test without delay, 
+    // but we can check if GetTaskTimeSpent returns > 0 after a tiny delay or just check logic)
+    // Since we can't wait seconds, we will just stop it and check logic.
+    // Actually, let's force a small sleep if possible, or just trust the logic.
+    // Pascal's Sleep is in SysUtils.
+    Sleep(1100); // Wait 1.1 seconds
+    
+    if Manager.GetTaskTimeSpent(TaskC) > 1.0 then
+      WriteLn('[PASS] GetTaskTimeSpent returns > 1.0s while running')
+    else
+      WriteLn('[FAIL] GetTaskTimeSpent failed (returned ', Manager.GetTaskTimeSpent(TaskC):0:2, ')');
+      
+    // Stop Timer
+    if Manager.StopTaskTimer(TaskC) then
+      WriteLn('[PASS] Timer stopped')
+    else
+      WriteLn('[FAIL] Failed to stop timer');
+      
+    Task := Manager.GetTask(Manager.FindTaskByID(TaskC));
+    if (not Task.IsTiming) and (Task.TimeSpent >= 1.0) then
+      WriteLn('[PASS] Timer stopped correctly, TimeSpent accumulated')
+    else
+      WriteLn('[FAIL] Timer stop verification failed');
+
     // --- Test Persistence (Existing Tests) ---
 
     // Test Save
