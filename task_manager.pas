@@ -8,7 +8,8 @@ uses
   SysUtils, 
   DateUtils, 
   Math,
-  task_types;
+  task_types,
+  task_json_utils; // Added JSON unit
 
 procedure SelfTest;
 var
@@ -16,7 +17,7 @@ var
   Task: TTask;
   OverdueTasks, FoundTasks: TTaskArray;
   Yesterday: TDateTime;
-  SaveFile, HTMLFile: String;
+  SaveFile, HTMLFile, JSONFile: String;
   CloneID, CompletedCount, TaskA, TaskB, TaskC: Integer;
   Stats: TTaskStats;
 begin
@@ -26,8 +27,11 @@ begin
 
   SaveFile := 'tasks_test.db';
   HTMLFile := 'tasks_report.html';
+  JSONFile := 'tasks_test.json';
+  
   if FileExists(SaveFile) then DeleteFile(SaveFile);
   if FileExists(HTMLFile) then DeleteFile(HTMLFile);
+  if FileExists(JSONFile) then DeleteFile(JSONFile);
 
   Manager := TTaskManager.Create;
   try
@@ -237,9 +241,36 @@ begin
     else
       WriteLn('[FAIL] Overdue task verification failed');
 
+    // --- Test JSON Persistence ---
+    WriteLn('[TEST] Exporting tasks to JSON...');
+    if ExportTasksToJSON(Manager, JSONFile) then
+      WriteLn('[PASS] Tasks exported to ', JSONFile)
+    else
+      WriteLn('[FAIL] Failed to export tasks to JSON');
+      
+    WriteLn('[TEST] Clearing and importing tasks from JSON...');
+    Manager.ClearTasks;
+    if ImportTasksFromJSON(Manager, JSONFile) then
+      WriteLn('[PASS] Tasks imported from JSON')
+    else
+      WriteLn('[FAIL] Failed to import tasks from JSON');
+      
+    if Manager.GetTaskCount = 7 then
+      WriteLn('[PASS] Loaded 7 tasks from JSON')
+    else
+      WriteLn('[FAIL] Loaded ', Manager.GetTaskCount, ' tasks from JSON (expected 7)');
+      
+    // Verify Task 1 Tags again
+    Task := Manager.GetTask(0); // ID 1
+    if (Task.Title = 'Low Priority Task') and (Length(Task.Tags) = 2) then
+      WriteLn('[PASS] Task 1 verified from JSON (Title and Tags)')
+    else
+      WriteLn('[FAIL] Task 1 verification failed from JSON');
+
   finally
     Manager.Free;
     if FileExists(SaveFile) then DeleteFile(SaveFile);
+    if FileExists(JSONFile) then DeleteFile(JSONFile);
     // if FileExists(HTMLFile) then DeleteFile(HTMLFile); // Keep HTML for inspection if needed
   end;
   

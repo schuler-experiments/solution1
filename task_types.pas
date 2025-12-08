@@ -48,14 +48,6 @@ type
     FTasks: TTaskArray;
     FLastID: Integer;
     function HasTag(const Task: TTask; const Tag: String): Boolean;
-    function TagsToString(const Tags: TTagArray): String;
-    function StringToTags(const TagString: String): TTagArray;
-    function DepsToString(const Deps: TDepArray): String;
-    function StringToDeps(const DepString: String): TDepArray;
-    function StatusToString(Status: TTaskStatus): String;
-    function StringToStatus(const S: String): TTaskStatus;
-    function PriorityToString(Priority: TTaskPriority): String;
-    function StringToPriority(const S: String): TTaskPriority;
     function CheckCircularDependency(TaskID, DepID: Integer): Boolean;
   public
     constructor Create;
@@ -97,9 +89,111 @@ type
     function SaveToFile(const Filename: String): Boolean;
     function LoadFromFile(const Filename: String): Boolean;
     procedure ClearTasks;
+    procedure RestoreTask(const Task: TTask); // Added for JSON Import
   end;
 
+// Helper functions exposed for other units (e.g. JSON)
+// Moved OUTSIDE the type block
+function StatusToString(Status: TTaskStatus): String;
+function StringToStatus(const S: String): TTaskStatus;
+function PriorityToString(Priority: TTaskPriority): String;
+function StringToPriority(const S: String): TTaskPriority;
+function TagsToString(const Tags: TTagArray): String;
+function StringToTags(const TagString: String): TTagArray;
+function DepsToString(const Deps: TDepArray): String;
+function StringToDeps(const DepString: String): TDepArray;
+
 implementation
+
+// Helper Implementations
+
+function StatusToString(Status: TTaskStatus): String;
+begin
+  WriteStr(Result, Status);
+end;
+
+function StringToStatus(const S: String): TTaskStatus;
+begin
+  ReadStr(S, Result);
+end;
+
+function PriorityToString(Priority: TTaskPriority): String;
+begin
+  WriteStr(Result, Priority);
+end;
+
+function StringToPriority(const S: String): TTaskPriority;
+begin
+  ReadStr(S, Result);
+end;
+
+function TagsToString(const Tags: TTagArray): String;
+var
+  i: Integer;
+begin
+  Result := '';
+  for i := 0 to High(Tags) do
+  begin
+    if i > 0 then Result := Result + ',';
+    Result := Result + Tags[i];
+  end;
+end;
+
+function StringToTags(const TagString: String): TTagArray;
+var
+  List: TStringList;
+  i: Integer;
+begin
+  Result := nil;
+  SetLength(Result, 0);
+  if TagString = '' then Exit;
+  
+  List := TStringList.Create;
+  try
+    List.Delimiter := ',';
+    List.StrictDelimiter := True;
+    List.DelimitedText := TagString;
+    SetLength(Result, List.Count);
+    for i := 0 to List.Count - 1 do
+      Result[i] := List[i];
+  finally
+    List.Free;
+  end;
+end;
+
+function DepsToString(const Deps: TDepArray): String;
+var
+  i: Integer;
+begin
+  Result := '';
+  for i := 0 to High(Deps) do
+  begin
+    if i > 0 then Result := Result + ',';
+    Result := Result + IntToStr(Deps[i]);
+  end;
+end;
+
+function StringToDeps(const DepString: String): TDepArray;
+var
+  List: TStringList;
+  i: Integer;
+begin
+  Result := nil;
+  SetLength(Result, 0);
+  if DepString = '' then Exit;
+  
+  List := TStringList.Create;
+  try
+    List.Delimiter := ',';
+    List.StrictDelimiter := True;
+    List.DelimitedText := DepString;
+    SetLength(Result, List.Count);
+    for i := 0 to List.Count - 1 do
+      Result[i] := StrToIntDef(List[i], 0);
+  finally
+    List.Free;
+  end;
+end;
 
 { TTaskManager }
 
@@ -120,6 +214,13 @@ procedure TTaskManager.ClearTasks;
 begin
   SetLength(FTasks, 0);
   FLastID := 0;
+end;
+
+procedure TTaskManager.RestoreTask(const Task: TTask);
+begin
+  SetLength(FTasks, Length(FTasks) + 1);
+  FTasks[High(FTasks)] := Task;
+  if Task.ID > FLastID then FLastID := Task.ID;
 end;
 
 function TTaskManager.AddTask(const ATitle, ADescription: String; APriority: TTaskPriority = tpMedium; ADueDate: TDateTime = 0): Integer;
@@ -204,8 +305,6 @@ begin
     begin
       // Allow moving to pending, but prevent progress if blocked? 
       // For now, we allow status change but CanStart returns false.
-      // Ideally, we might want to block 'InProgress' if CanStart is false.
-      // But let's keep it simple: CanStart is a query, UpdateTaskStatus just updates.
     end;
     
     FTasks[Index].Status := NewStatus;
@@ -383,6 +482,10 @@ begin
   for i := 0 to High(FTasks[Index].Dependencies) do
     FTasks[NewIndex].Dependencies[i] := FTasks[Index].Dependencies[i];
     
+  FTasks[NewIndex].TimeSpent := 0.0;
+  FTasks[NewIndex].LastStartTime := 0.0;
+  FTasks[NewIndex].IsTiming := False;
+  
   Result := FLastID;
 end;
 
@@ -400,7 +503,6 @@ begin
   for i := 0 to High(FTasks) do
   begin
     Inc(Result.Total);
-    
     case FTasks[i].Status of
       tsPending: Inc(Result.Pending);
       tsInProgress: Inc(Result.InProgress);
@@ -424,22 +526,17 @@ begin
   begin
     if (FTasks[i].Status <> tsCompleted) and HasTag(FTasks[i], Tag) then
     begin
-      FTasks[i].Status := tsCompleted;
-      Inc(Result);
+      if UpdateTaskStatus(FTasks[i].ID, tsCompleted) then
+        Inc(Result);
     end;
   end;
 end;
-
-// Dependencies Implementation
 
 function TTaskManager.CheckCircularDependency(TaskID, DepID: Integer): Boolean;
 var
   DepIndex, i: Integer;
   DepTask: TTask;
 begin
-  // Simple DFS or recursive check could be expensive.
-  // For now, check if DepID depends on TaskID (direct or 1-level indirect)
-  // Real implementation should be more robust.
   if TaskID = DepID then Exit(True);
   
   DepIndex := FindTaskByID(DepID);
@@ -449,7 +546,6 @@ begin
   for i := 0 to High(DepTask.Dependencies) do
   begin
     if DepTask.Dependencies[i] = TaskID then Exit(True);
-    // Recursive check could go here
     if CheckCircularDependency(TaskID, DepTask.Dependencies[i]) then Exit(True);
   end;
   Result := False;
@@ -466,11 +562,9 @@ begin
   
   if (Index = -1) or (DepIndex = -1) then Exit(False);
   
-  // Check if already exists
   for i := 0 to High(FTasks[Index].Dependencies) do
     if FTasks[Index].Dependencies[i] = DepID then Exit(True);
     
-  // Check circular
   if CheckCircularDependency(TaskID, DepID) then Exit(False);
   
   SetLength(FTasks[Index].Dependencies, Length(FTasks[Index].Dependencies) + 1);
@@ -514,8 +608,6 @@ begin
     end;
   end;
 end;
-
-// Export
 
 function TTaskManager.ExportToHTML(const Filename: String): Boolean;
 var
@@ -574,8 +666,6 @@ begin
   List.Free;
 end;
 
-// Time Tracking Implementation
-
 function TTaskManager.StartTaskTimer(const ID: Integer): Boolean;
 var
   Index: Integer;
@@ -624,96 +714,6 @@ begin
     Result := 0.0;
 end;
 
-// Persistence Helpers
-
-function TTaskManager.TagsToString(const Tags: TTagArray): String;
-var
-  i: Integer;
-begin
-  Result := '';
-  for i := 0 to High(Tags) do
-  begin
-    if i > 0 then Result := Result + ',';
-    Result := Result + Tags[i];
-  end;
-end;
-
-function TTaskManager.StringToTags(const TagString: String): TTagArray;
-var
-  List: TStringList;
-  i: Integer;
-begin
-  Result := nil;
-  SetLength(Result, 0);
-  if TagString = '' then Exit;
-  
-  List := TStringList.Create;
-  try
-    List.Delimiter := ',';
-    List.StrictDelimiter := True;
-    List.DelimitedText := TagString;
-    SetLength(Result, List.Count);
-    for i := 0 to List.Count - 1 do
-      Result[i] := List[i];
-  finally
-    List.Free;
-  end;
-end;
-
-function TTaskManager.DepsToString(const Deps: TDepArray): String;
-var
-  i: Integer;
-begin
-  Result := '';
-  for i := 0 to High(Deps) do
-  begin
-    if i > 0 then Result := Result + ',';
-    Result := Result + IntToStr(Deps[i]);
-  end;
-end;
-
-function TTaskManager.StringToDeps(const DepString: String): TDepArray;
-var
-  List: TStringList;
-  i: Integer;
-begin
-  Result := nil;
-  SetLength(Result, 0);
-  if DepString = '' then Exit;
-  
-  List := TStringList.Create;
-  try
-    List.Delimiter := ',';
-    List.StrictDelimiter := True;
-    List.DelimitedText := DepString;
-    SetLength(Result, List.Count);
-    for i := 0 to List.Count - 1 do
-      Result[i] := StrToIntDef(List[i], 0);
-  finally
-    List.Free;
-  end;
-end;
-
-function TTaskManager.StatusToString(Status: TTaskStatus): String;
-begin
-  WriteStr(Result, Status);
-end;
-
-function TTaskManager.StringToStatus(const S: String): TTaskStatus;
-begin
-  ReadStr(S, Result);
-end;
-
-function TTaskManager.PriorityToString(Priority: TTaskPriority): String;
-begin
-  WriteStr(Result, Priority);
-end;
-
-function TTaskManager.StringToPriority(const S: String): TTaskPriority;
-begin
-  ReadStr(S, Result);
-end;
-
 function TTaskManager.SaveToFile(const Filename: String): Boolean;
 var
   List: TStringList;
@@ -724,7 +724,6 @@ begin
   try
     for i := 0 to High(FTasks) do
     begin
-      // Format: ID|Title|Description|Status|Priority|CreatedAt|DueDate|Tags|Dependencies|TimeSpent|LastStartTime|IsTiming
       Line := Format('%d|%s|%s|%s|%s|%f|%f|%s|%s|%f|%f|%s', [
         FTasks[i].ID,
         FTasks[i].Title,
@@ -800,11 +799,9 @@ begin
           NewTask.IsTiming := False;
         end;
         
-        // Add to array
         SetLength(FTasks, Length(FTasks) + 1);
         FTasks[High(FTasks)] := NewTask;
         
-        // Update LastID
         if NewTask.ID > FLastID then FLastID := NewTask.ID;
       end;
     end;
