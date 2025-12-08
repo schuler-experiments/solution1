@@ -11,12 +11,14 @@ uses
 
 type
   TTaskStatus = (tsPending, tsInProgress, tsCompleted);
+  TTaskPriority = (tpLow, tpMedium, tpHigh);
 
   TTask = record
     ID: Integer;
     Title: String;
     Description: String;
     Status: TTaskStatus;
+    Priority: TTaskPriority;
     CreatedAt: TDateTime;
   end;
 
@@ -31,15 +33,16 @@ type
   public
     constructor Create;
     destructor Destroy; override;
-    function AddTask(const ATitle, ADescription: String): Integer;
+    function AddTask(const ATitle, ADescription: String; APriority: TTaskPriority = tpMedium): Integer;
     function GetTaskCount: Integer;
     function GetTask(const Index: Integer): TTask;
     function FindTaskByID(const ID: Integer): Integer;
     function FindTasksByStatus(const Status: TTaskStatus): TTaskArray;
-    
-    // New methods for Cycle 3
     function UpdateTaskStatus(const ID: Integer; NewStatus: TTaskStatus): Boolean;
     function DeleteTask(const ID: Integer): Boolean;
+    
+    // New method for Cycle 4
+    procedure SortTasksByPriority; // High to Low
   end;
 
 implementation
@@ -59,7 +62,7 @@ begin
   inherited Destroy;
 end;
 
-function TTaskManager.AddTask(const ATitle, ADescription: String): Integer;
+function TTaskManager.AddTask(const ATitle, ADescription: String; APriority: TTaskPriority = tpMedium): Integer;
 var
   NewIndex: Integer;
 begin
@@ -71,6 +74,7 @@ begin
   FTasks[NewIndex].Title := ATitle;
   FTasks[NewIndex].Description := ADescription;
   FTasks[NewIndex].Status := tsPending;
+  FTasks[NewIndex].Priority := APriority;
   FTasks[NewIndex].CreatedAt := Now;
   
   Result := FLastID;
@@ -108,7 +112,7 @@ function TTaskManager.FindTasksByStatus(const Status: TTaskStatus): TTaskArray;
 var
   i, Count: Integer;
 begin
-  SetLength(Result, 0); // Initialize to silence warning
+  SetLength(Result, 0);
   Count := 0;
   for i := 0 to High(FTasks) do
   begin
@@ -142,16 +146,34 @@ begin
   Index := FindTaskByID(ID);
   if Index <> -1 then
   begin
-    // Shift elements down
     for i := Index to High(FTasks) - 1 do
       FTasks[i] := FTasks[i + 1];
-    
-    // Reduce size
     SetLength(FTasks, Length(FTasks) - 1);
     Result := True;
   end
   else
     Result := False;
+end;
+
+procedure TTaskManager.SortTasksByPriority;
+var
+  i, j: Integer;
+  Temp: TTask;
+begin
+  // Bubble sort: High Priority (tpHigh) first
+  if Length(FTasks) < 2 then Exit;
+  
+  for i := 0 to High(FTasks) - 1 do
+    for j := 0 to High(FTasks) - i - 1 do
+    begin
+      // If current is less than next, swap (Descending order)
+      if FTasks[j].Priority < FTasks[j + 1].Priority then
+      begin
+        Temp := FTasks[j];
+        FTasks[j] := FTasks[j + 1];
+        FTasks[j + 1] := Temp;
+      end;
+    end;
 end;
 
 end.

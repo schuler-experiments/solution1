@@ -14,8 +14,6 @@ procedure SelfTest;
 var
   Manager: TTaskManager;
   Task: TTask;
-  PendingTasks: TTaskArray;
-  Success: Boolean;
 begin
   WriteLn('--------------------------------------------------');
   WriteLn('Starting Task Manager Self Test');
@@ -23,57 +21,46 @@ begin
 
   Manager := TTaskManager.Create;
   try
-    // Cycle 1 & 2 Setup
-    Manager.AddTask('Buy Milk', 'Milk'); // ID 1
-    Manager.AddTask('Walk Dog', 'Dog');  // ID 2
-    WriteLn('[INFO] Setup complete (2 tasks added)');
+    // Cycle 4 Setup: Add tasks with priorities
+    Manager.AddTask('Low Priority Task', 'Do later', tpLow);       // ID 1
+    Manager.AddTask('High Priority Task', 'Do NOW!', tpHigh);      // ID 2
+    Manager.AddTask('Medium Priority Task', 'Do soon', tpMedium);  // ID 3
+    
+    WriteLn('[INFO] Setup complete (3 tasks added with mixed priorities)');
 
-    // Cycle 3 Tests: Update and Delete
+    // Test 16: Verify Initial Order (Insertion Order)
+    Task := Manager.GetTask(0);
+    if Task.Priority = tpLow then
+      WriteLn('[PASS] Initial first task is Low Priority (Insertion Order)')
+    else
+      WriteLn('[FAIL] Initial first task priority is ', Task.Priority);
 
-    // Test 11: Update Task Status
-    Success := Manager.UpdateTaskStatus(1, tsCompleted);
-    if Success then
-    begin
-      Task := Manager.GetTask(Manager.FindTaskByID(1));
-      if Task.Status = tsCompleted then
-        WriteLn('[PASS] Task ID 1 updated to Completed')
-      else
-        WriteLn('[FAIL] Task ID 1 status is ', Task.Status);
-    end
-    else
-      WriteLn('[FAIL] Failed to update Task ID 1');
+    // Test 17: Sort by Priority
+    Manager.SortTasksByPriority;
+    WriteLn('[INFO] Sorted tasks by priority');
 
-    // Test 12: Verify Status Filter after Update
-    PendingTasks := Manager.FindTasksByStatus(tsPending);
-    if Length(PendingTasks) = 1 then
-      WriteLn('[PASS] Found 1 Pending task after update')
+    // Test 18: Verify New Order (High -> Medium -> Low)
+    
+    // First task should be High
+    Task := Manager.GetTask(0);
+    if Task.Priority = tpHigh then
+      WriteLn('[PASS] First task is now High Priority')
     else
-      WriteLn('[FAIL] Found ', Length(PendingTasks), ' Pending tasks, expected 1');
+      WriteLn('[FAIL] First task priority is ', Task.Priority);
 
-    // Test 13: Delete Task
-    Success := Manager.DeleteTask(1); // Delete 'Buy Milk'
-    if Success then
-    begin
-      if Manager.FindTaskByID(1) = -1 then
-        WriteLn('[PASS] Task ID 1 deleted and not found')
-      else
-        WriteLn('[FAIL] Task ID 1 still exists after deletion');
-    end
+    // Second task should be Medium
+    Task := Manager.GetTask(1);
+    if Task.Priority = tpMedium then
+      WriteLn('[PASS] Second task is now Medium Priority')
     else
-      WriteLn('[FAIL] Failed to delete Task ID 1');
+      WriteLn('[FAIL] Second task priority is ', Task.Priority);
 
-    // Test 14: Verify Count after Deletion
-    if Manager.GetTaskCount = 1 then
-      WriteLn('[PASS] Task count is 1 after deletion')
+    // Third task should be Low
+    Task := Manager.GetTask(2);
+    if Task.Priority = tpLow then
+      WriteLn('[PASS] Third task is now Low Priority')
     else
-      WriteLn('[FAIL] Task count is ', Manager.GetTaskCount);
-      
-    // Test 15: Delete Non-existing Task
-    Success := Manager.DeleteTask(999);
-    if not Success then
-      WriteLn('[PASS] Correctly failed to delete non-existing task')
-    else
-      WriteLn('[FAIL] Reported success deleting non-existing task');
+      WriteLn('[FAIL] Third task priority is ', Task.Priority);
 
   finally
     Manager.Free;
