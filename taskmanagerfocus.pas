@@ -1,214 +1,250 @@
 
 unit taskmanagerfocus;
+
 {$mode objfpc}{$H+}
 
 interface
 
 uses
-  SysUtils, DateUtils, Math,
-  taskmanager, taskmanagerext, taskmanageradvanced,
-  taskmanagerenhanced, taskmanagerteam, taskmanagergamify,
-  taskmanagersmart;
+  SysUtils, DateUtils, Math, Classes,
+  taskmanager, taskmanageradvanced;
 
 type
-  // Focus session states
-  TFocusState = (fsIdle, fsFocusing, fsBreaking, fsPaused);
+  // Focus session types
+  TFocusType = (ftDeepWork, ftShallowWork, ftAdministrative, ftMeeting, 
+                ftCreative, ftLearning, ftCommunication);
   
-  // Pomodoro technique durations
-  TPomodoroSettings = record
-    FocusDuration: Integer;      // minutes
-    ShortBreakDuration: Integer; // minutes
-    LongBreakDuration: Integer;  // minutes
-    SessionsBeforeLongBreak: Integer;
-  end;
+  // Distraction types
+  TDistractionType = (dtNotification, dtInterruption, dtContextSwitch, 
+                      dtNoise, dtTechnical, dtPersonal, dtOther);
   
-  // Focus session record
-  TFocusSession = record
+  // Flow state indicators
+  TFlowState = (fsNoFlow, fsLowFlow, fsModerateFlow, fsHighFlow, fsPeakFlow);
+  
+  // Focus quality assessment
+  TFocusQuality = (fqPoor, fqFair, fqGood, fqExcellent);
+  
+  // Pomodoro session record
+  TPomodoroSession = record
     ID: Integer;
     TaskID: Integer;
     StartTime: TDateTime;
     EndTime: TDateTime;
-    PlannedDuration: Integer;    // minutes
-    ActualDuration: Integer;     // minutes
-    Interruptions: Integer;
-    EnergyLevelStart: Integer;   // 1-10
-    EnergyLevelEnd: Integer;     // 1-10
-    DeepWork: Boolean;           // true = deep work, false = shallow
-    CompletedPomodoros: Integer;
+    PlannedMinutes: Integer;
+    ActualMinutes: Integer;
+    Completed: Boolean;
+    InterruptionCount: Integer;
+    FocusQuality: TFocusQuality;
+    Notes: string;
+    Created: TDateTime;
+  end;
+  
+  TPomodoroSessionArray = array of TPomodoroSession;
+  
+  // Focus session with detailed tracking
+  TFocusSession = record
+    ID: Integer;
+    TaskID: Integer;
+    FocusType: TFocusType;
+    StartTime: TDateTime;
+    EndTime: TDateTime;
+    DurationMinutes: Integer;
+    FlowState: TFlowState;
+    FlowStateScore: Integer; // 0-100
+    DistractionCount: Integer;
+    ContextSwitchCount: Integer;
+    ProductivityRating: Integer; // 1-10
+    EnergyBefore: Integer; // 1-10
+    EnergyAfter: Integer; // 1-10
     Notes: string;
     Completed: Boolean;
+    Created: TDateTime;
   end;
+  
   TFocusSessionArray = array of TFocusSession;
   
-  // Context switching event
+  // Distraction log entry
+  TDistraction = record
+    ID: Integer;
+    SessionID: Integer;
+    TaskID: Integer;
+    DistractType: TDistractionType;
+    OccurredAt: TDateTime;
+    DurationSeconds: Integer;
+    Source: string;
+    ImpactScore: Integer; // 1-10
+    WasAvoidable: Boolean;
+    Notes: string;
+  end;
+  
+  TDistractionArray = array of TDistraction;
+  
+  // Context switch record
   TContextSwitch = record
     ID: Integer;
     FromTaskID: Integer;
     ToTaskID: Integer;
     SwitchTime: TDateTime;
+    RecoveryTimeMinutes: Integer;
+    CostScore: Integer; // 1-10, cost of switching
+    WasPlanned: Boolean;
     Reason: string;
-    ProductivityImpact: Integer; // -5 to 5
   end;
+  
   TContextSwitchArray = array of TContextSwitch;
   
-  // Distraction record
-  TDistraction = record
+  // Deep work block - protected time
+  TDeepWorkBlock = record
     ID: Integer;
-    TaskID: Integer;
-    DistractionTime: TDateTime;
-    DistractionType: string;     // 'email', 'chat', 'phone', 'meeting', 'other'
-    Duration: Integer;           // minutes
-    Impact: Integer;             // 1-10 (how much it affected focus)
+    Title: string;
+    StartTime: TDateTime;
+    EndTime: TDateTime;
+    TaskIDs: array of Integer;
+    ProtectionLevel: Integer; // 1-10, how strictly to protect
+    ActualFocusMinutes: Integer;
+    InterruptionsAllowed: Integer;
+    ActualInterruptions: Integer;
+    Success: Boolean;
     Notes: string;
   end;
-  TDistractionArray = array of TDistraction;
   
-  // Energy tracking
-  TEnergyLog = record
-    ID: Integer;
-    LogTime: TDateTime;
-    EnergyLevel: Integer;        // 1-10
-    MentalClarity: Integer;      // 1-10
-    Motivation: Integer;         // 1-10
-    PhysicalState: string;       // 'rested', 'tired', 'energetic'
-    Notes: string;
-  end;
-  TEnergyLogArray = array of TEnergyLog;
+  TDeepWorkBlockArray = array of TDeepWorkBlock;
   
-  // Focus analytics
-  TFocusAnalytics = record
-    TotalFocusTime: Integer;     // minutes
-    AverageFocusDuration: Double;
-    DeepWorkPercentage: Double;
-    ShallowWorkPercentage: Double;
-    InterruptionRate: Double;    // per hour
-    ContextSwitches: Integer;
-    BestFocusHour: Integer;      // 0-23
-    WorstFocusHour: Integer;
-    AverageEnergyLevel: Double;
-    ProductivityScore: Double;   // 0-100
+  // Focus statistics
+  TFocusStats = record
+    TotalFocusMinutes: Integer;
+    DeepWorkMinutes: Integer;
+    ShallowWorkMinutes: Integer;
+    AverageFlowScore: Double;
+    AverageProductivity: Double;
+    TotalDistractions: Integer;
+    TotalContextSwitches: Integer;
+    AverageRecoveryTime: Double;
+    FocusEfficiency: Double; // % of time in actual focus
+    BestFocusTime: Integer; // Hour of day
+    WorstFocusTime: Integer;
   end;
-  
-  // Focus recommendation
-  TFocusRecommendation = record
-    ID: Integer;
-    RecommendationType: string;  // 'break', 'switch_task', 'deep_work', 'shallow_work'
-    Priority: Integer;           // 1-10
-    Reason: string;
-    Suggestion: string;
-    CreatedAt: TDateTime;
-    Applied: Boolean;
-  end;
-  TFocusRecommendationArray = array of TFocusRecommendation;
 
-type
-  { TFocusTaskManager - Adds focus and context management }
-  TFocusTaskManager = class(TSmartTaskManager)
+  // Flow state pattern
+  TFlowPattern = record
+    TimeOfDay: Integer; // Hour 0-23
+    FocusType: TFocusType;
+    AverageFlowScore: Double;
+    SuccessRate: Double;
+    SampleCount: Integer;
+  end;
+  
+  TFlowPatternArray = array of TFlowPattern;
+
+  TFocusTaskManager = class(TAdvancedTaskManager)
   private
+    FPomodoroSessions: TPomodoroSessionArray;
     FFocusSessions: TFocusSessionArray;
-    FContextSwitches: TContextSwitchArray;
     FDistractions: TDistractionArray;
-    FEnergyLogs: TEnergyLogArray;
-    FRecommendations: TFocusRecommendationArray;
-    FNextFocusSessionID: Integer;
-    FNextContextSwitchID: Integer;
+    FContextSwitches: TContextSwitchArray;
+    FDeepWorkBlocks: TDeepWorkBlockArray;
+    FNextPomodoroID: Integer;
+    FNextFocusID: Integer;
     FNextDistractionID: Integer;
-    FNextEnergyLogID: Integer;
-    FNextRecommendationID: Integer;
-    FCurrentFocusSession: Integer;
-    FCurrentState: TFocusState;
-    FPomodoroSettings: TPomodoroSettings;
-    FPomodorosCompleted: Integer;
-    FAutoBreakReminders: Boolean;
-    FTrackContextSwitches: Boolean;
+    FNextSwitchID: Integer;
+    FNextBlockID: Integer;
+    FCurrentPomodoroID: Integer;
+    FCurrentFocusID: Integer;
+    FCurrentBlockID: Integer;
     
-    function FindFocusSessionIndex(ASessionID: Integer): Integer;
-    function CalculateFocusScore(const ASession: TFocusSession): Double;
-    function GetOptimalTaskForCurrentEnergy: Integer;
-    procedure GenerateBreakRecommendation;
-    procedure GenerateTaskSwitchRecommendation;
+    // Default settings
+    FPomodoroLength: Integer; // Default 25 minutes
+    FShortBreakLength: Integer; // Default 5 minutes
+    FLongBreakLength: Integer; // Default 15 minutes
+    FPomodorosUntilLongBreak: Integer; // Default 4
+    FFlowThreshold: Integer; // Minimum minutes for flow state
+    
+    function FindPomodoroIndex(AID: Integer): Integer;
+    function FindFocusIndex(AID: Integer): Integer;
+    function FindDistractionIndex(AID: Integer): Integer;
+    function FindSwitchIndex(AID: Integer): Integer;
+    function FindBlockIndex(AID: Integer): Integer;
+    function CalculateFlowScore(const ASession: TFocusSession): Integer;
+    function AnalyzeFlowState(AFocusMinutes, ADistractions, ASwitches: Integer): TFlowState;
+    
   public
     constructor Create;
     destructor Destroy; override;
     
-    // Pomodoro settings
-    procedure SetPomodoroSettings(AFocus, AShortBreak, ALongBreak, ASessions: Integer);
-    function GetPomodoroSettings: TPomodoroSettings;
+    // Pomodoro timer management
+    function StartPomodoro(ATaskID, AMinutes: Integer): Integer;
+    function CompletePomodoro(APomodoroID: Integer; AQuality: TFocusQuality; 
+      const ANotes: string): Boolean;
+    function AbandonPomodoro(APomodoroID: Integer; const AReason: string): Boolean;
+    function GetCurrentPomodoro: TPomodoroSession;
+    function GetPomodoroHistory(ADays: Integer): TPomodoroSessionArray;
+    function GetPomodoroStats(ADays: Integer): string;
     
     // Focus session management
-    function StartFocusSession(ATaskID: Integer; APlannedMinutes: Integer;
-      AEnergyLevel: Integer; AIsDeepWork: Boolean): Integer;
-    function EndFocusSession(ASessionID: Integer; AEnergyLevel: Integer;
+    function StartFocusSession(ATaskID: Integer; AFocusType: TFocusType; 
+      AEnergyBefore: Integer): Integer;
+    function EndFocusSession(ASessionID, AProductivity, AEnergyAfter: Integer; 
       const ANotes: string): Boolean;
-    function PauseFocusSession(ASessionID: Integer): Boolean;
-    function ResumeFocusSession(ASessionID: Integer): Boolean;
     function GetCurrentFocusSession: TFocusSession;
-    function GetFocusState: TFocusState;
-    
-    // Pomodoro technique
-    function StartPomodoro(ATaskID: Integer): Integer;
-    function CompletePomodoro(ASessionID: Integer): Boolean;
-    function TakeBreak(AIsLongBreak: Boolean): Boolean;
-    function GetPomodoroCount: Integer;
-    
-    // Interruption management
-    function LogInterruption(ASessionID: Integer; const AReason: string): Boolean;
-    function GetSessionInterruptions(ASessionID: Integer): Integer;
-    
-    // Context switching
-    function LogContextSwitch(AFromTaskID, AToTaskID: Integer;
-      const AReason: string; AImpact: Integer): Integer;
-    function GetContextSwitches(ATaskID: Integer): TContextSwitchArray;
-    function GetAllContextSwitches: TContextSwitchArray;
-    function GetContextSwitchCost: Integer; // total minutes lost
+    function GetFocusSessions(ADays: Integer): TFocusSessionArray;
+    function GetFocusStats(ADays: Integer): TFocusStats;
     
     // Distraction tracking
-    function LogDistraction(ATaskID: Integer; const AType: string;
-      ADuration, AImpact: Integer; const ANotes: string): Integer;
-    function GetDistractions(ATaskID: Integer): TDistractionArray;
-    function GetDistractionsByType(const AType: string): TDistractionArray;
-    function GetTotalDistractionTime: Integer;
+    function LogDistraction(ASessionID, ATaskID: Integer; AType: TDistractionType;
+      const ASource: string; AImpact: Integer; AAvoidable: Boolean): Integer;
+    function GetDistractions(ASessionID: Integer): TDistractionArray;
+    function GetDistractionStats(ADays: Integer): string;
+    function GetMostCommonDistractions: string;
+    function GetAvoidableDistractionRate(ADays: Integer): Double;
     
-    // Energy tracking
-    function LogEnergyLevel(AEnergy, AClarity, AMotivation: Integer;
-      const APhysicalState, ANotes: string): Integer;
-    function GetEnergyLogs(AStartDate, AEndDate: TDateTime): TEnergyLogArray;
-    function GetAverageEnergyLevel: Double;
-    function GetCurrentEnergyTrend: string;
-    function GetBestEnergyHours: string;
+    // Context switching analysis
+    function LogContextSwitch(AFromTask, AToTask: Integer; 
+      const AReason: string; APlanned: Boolean): Integer;
+    function UpdateSwitchRecovery(ASwitchID, AMinutes, ACost: Integer): Boolean;
+    function GetContextSwitches(ADays: Integer): TContextSwitchArray;
+    function GetSwitchingCost(ADays: Integer): string;
+    function GetAverageSwitchCost: Double;
     
-    // Focus analytics
-    function GetFocusAnalytics(AStartDate, AEndDate: TDateTime): TFocusAnalytics;
-    function GetFocusTrend(ADays: Integer): string;
-    function GetDeepWorkStats: string;
-    function GetProductivityHeatmap: string;
-    function GetOptimalFocusTimes: string;
+    // Deep work block management
+    function ScheduleDeepWorkBlock(const ATitle: string; AStart, AEnd: TDateTime;
+      AProtectionLevel: Integer): Integer;
+    function AddTaskToBlock(ABlockID, ATaskID: Integer): Boolean;
+    function StartDeepWorkBlock(ABlockID: Integer): Boolean;
+    function EndDeepWorkBlock(ABlockID: Integer; const ANotes: string): Boolean;
+    function GetUpcomingBlocks: TDeepWorkBlockArray;
+    function GetBlockEffectiveness: string;
     
-    // Recommendations
-    function GenerateRecommendations: Integer;
-    function GetActiveRecommendations: TFocusRecommendationArray;
-    function ApplyRecommendation(ARecommendationID: Integer): Boolean;
-    function DismissRecommendation(ARecommendationID: Integer): Boolean;
+    // Flow state analysis
+    function IdentifyFlowPatterns: TFlowPatternArray;
+    function GetBestTimeForDeepWork: Integer;
+    function GetFlowStateRecommendations: string;
+    function PredictFlowPotential(ATaskID, AHour: Integer): Double;
     
-    // Task classification
-    function ClassifyTaskAsDeepWork(ATaskID: Integer): Boolean;
-    function ClassifyTaskAsShallowWork(ATaskID: Integer): Boolean;
-    function GetDeepWorkTasks: TTaskArray;
-    function GetShallowWorkTasks: TTaskArray;
-    function SuggestNextTask: Integer;
+    // Focus optimization
+    function GetFocusEfficiency(ADays: Integer): Double;
+    function GetDeepWorkRatio(ADays: Integer): Double;
+    function GetInterruptionImpact(ADays: Integer): string;
+    function SuggestFocusImprovements: string;
     
-    // Settings
-    procedure EnableAutoBreakReminders(AEnabled: Boolean);
-    procedure EnableContextSwitchTracking(AEnabled: Boolean);
-    function GetFocusSettings: string;
+    // Reporting
+    function GenerateFocusReport(ADays: Integer): string;
+    function GetProductivityByTimeOfDay: string;
+    function GetEnergyCorrelation: string;
+    
+    // Configuration
+    procedure SetPomodoroSettings(AWorkMinutes, AShortBreak, ALongBreak, ACycleCount: Integer);
+    procedure SetFlowThreshold(AMinutes: Integer);
+    function GetSettings: string;
+    
+    // Conversion helpers
+    function FocusTypeToString(AFType: TFocusType): string;
+    function FlowStateToString(AState: TFlowState): string;
+    function FocusQualityToString(AQuality: TFocusQuality): string;
+    function DistractionTypeToString(AType: TDistractionType): string;
     
     // Persistence
     function SaveFocusDataToFile(const AFilename: string): Boolean;
     function LoadFocusDataFromFile(const AFilename: string): Boolean;
-    
-    // Utilities
-    function FocusStateToString(AState: TFocusState): string;
-    function FocusSessionToString(const ASession: TFocusSession): string;
   end;
 
 implementation
@@ -218,756 +254,1117 @@ implementation
 constructor TFocusTaskManager.Create;
 begin
   inherited Create;
+  SetLength(FPomodoroSessions, 0);
   SetLength(FFocusSessions, 0);
-  SetLength(FContextSwitches, 0);
   SetLength(FDistractions, 0);
-  SetLength(FEnergyLogs, 0);
-  SetLength(FRecommendations, 0);
-  FNextFocusSessionID := 1;
-  FNextContextSwitchID := 1;
+  SetLength(FContextSwitches, 0);
+  SetLength(FDeepWorkBlocks, 0);
+  FNextPomodoroID := 1;
+  FNextFocusID := 1;
   FNextDistractionID := 1;
-  FNextEnergyLogID := 1;
-  FNextRecommendationID := 1;
-  FCurrentFocusSession := -1;
-  FCurrentState := fsIdle;
-  FPomodorosCompleted := 0;
-  FAutoBreakReminders := True;
-  FTrackContextSwitches := True;
+  FNextSwitchID := 1;
+  FNextBlockID := 1;
+  FCurrentPomodoroID := -1;
+  FCurrentFocusID := -1;
+  FCurrentBlockID := -1;
   
-  // Default Pomodoro settings (classic technique)
-  FPomodoroSettings.FocusDuration := 25;
-  FPomodoroSettings.ShortBreakDuration := 5;
-  FPomodoroSettings.LongBreakDuration := 15;
-  FPomodoroSettings.SessionsBeforeLongBreak := 4;
+  // Default Pomodoro settings
+  FPomodoroLength := 25;
+  FShortBreakLength := 5;
+  FLongBreakLength := 15;
+  FPomodorosUntilLongBreak := 4;
+  FFlowThreshold := 20; // Need 20+ minutes for flow state
 end;
 
 destructor TFocusTaskManager.Destroy;
 begin
+  SetLength(FPomodoroSessions, 0);
   SetLength(FFocusSessions, 0);
-  SetLength(FContextSwitches, 0);
   SetLength(FDistractions, 0);
-  SetLength(FEnergyLogs, 0);
-  SetLength(FRecommendations, 0);
+  SetLength(FContextSwitches, 0);
+  SetLength(FDeepWorkBlocks, 0);
   inherited Destroy;
 end;
 
-function TFocusTaskManager.FindFocusSessionIndex(ASessionID: Integer): Integer;
+function TFocusTaskManager.FindPomodoroIndex(AID: Integer): Integer;
+var
+  i: Integer;
+begin
+  Result := -1;
+  for i := 0 to High(FPomodoroSessions) do
+    if FPomodoroSessions[i].ID = AID then
+      Exit(i);
+end;
+
+function TFocusTaskManager.FindFocusIndex(AID: Integer): Integer;
 var
   i: Integer;
 begin
   Result := -1;
   for i := 0 to High(FFocusSessions) do
-    if FFocusSessions[i].ID = ASessionID then
-    begin
-      Result := i;
-      Exit;
-    end;
+    if FFocusSessions[i].ID = AID then
+      Exit(i);
 end;
 
-function TFocusTaskManager.CalculateFocusScore(const ASession: TFocusSession): Double;
+function TFocusTaskManager.FindDistractionIndex(AID: Integer): Integer;
 var
-  DurationScore, EnergyScore, InterruptionPenalty: Double;
+  i: Integer;
 begin
-  // Duration score (0-40 points)
-  if ASession.ActualDuration > 0 then
-    DurationScore := Min(40, (ASession.ActualDuration / ASession.PlannedDuration) * 40)
-  else
-    DurationScore := 0;
-  
-  // Energy maintenance (0-30 points)
-  EnergyScore := ((ASession.EnergyLevelStart + ASession.EnergyLevelEnd) / 20) * 30;
-  
-  // Interruption penalty (0-30 points penalty)
-  if ASession.Interruptions = 0 then
-    InterruptionPenalty := 0
-  else
-    InterruptionPenalty := Min(30, ASession.Interruptions * 5);
-  
-  Result := DurationScore + EnergyScore - InterruptionPenalty;
-  if Result < 0 then Result := 0;
-  if Result > 100 then Result := 100;
+  Result := -1;
+  for i := 0 to High(FDistractions) do
+    if FDistractions[i].ID = AID then
+      Exit(i);
 end;
 
-procedure TFocusTaskManager.SetPomodoroSettings(AFocus, AShortBreak, ALongBreak, ASessions: Integer);
-begin
-  FPomodoroSettings.FocusDuration := AFocus;
-  FPomodoroSettings.ShortBreakDuration := AShortBreak;
-  FPomodoroSettings.LongBreakDuration := ALongBreak;
-  FPomodoroSettings.SessionsBeforeLongBreak := ASessions;
-end;
-
-function TFocusTaskManager.GetPomodoroSettings: TPomodoroSettings;
-begin
-  Result := FPomodoroSettings;
-end;
-
-function TFocusTaskManager.StartFocusSession(ATaskID, APlannedMinutes, AEnergyLevel: Integer;
-  AIsDeepWork: Boolean): Integer;
+function TFocusTaskManager.FindSwitchIndex(AID: Integer): Integer;
 var
-  Session: TFocusSession;
+  i: Integer;
 begin
-  Session.ID := FNextFocusSessionID;
-  Inc(FNextFocusSessionID);
-  Session.TaskID := ATaskID;
-  Session.StartTime := Now;
-  Session.EndTime := 0;
-  Session.PlannedDuration := APlannedMinutes;
-  Session.ActualDuration := 0;
-  Session.Interruptions := 0;
-  Session.EnergyLevelStart := AEnergyLevel;
-  Session.EnergyLevelEnd := 0;
-  Session.DeepWork := AIsDeepWork;
-  Session.CompletedPomodoros := 0;
-  Session.Notes := '';
-  Session.Completed := False;
-  
-  SetLength(FFocusSessions, Length(FFocusSessions) + 1);
-  FFocusSessions[High(FFocusSessions)] := Session;
-  
-  FCurrentFocusSession := Session.ID;
-  FCurrentState := fsFocusing;
-  
-  Result := Session.ID;
+  Result := -1;
+  for i := 0 to High(FContextSwitches) do
+    if FContextSwitches[i].ID = AID then
+      Exit(i);
 end;
 
-function TFocusTaskManager.EndFocusSession(ASessionID, AEnergyLevel: Integer;
-  const ANotes: string): Boolean;
+function TFocusTaskManager.FindBlockIndex(AID: Integer): Integer;
+var
+  i: Integer;
+begin
+  Result := -1;
+  for i := 0 to High(FDeepWorkBlocks) do
+    if FDeepWorkBlocks[i].ID = AID then
+      Exit(i);
+end;
+
+function TFocusTaskManager.CalculateFlowScore(const ASession: TFocusSession): Integer;
+var
+  score: Double;
+begin
+  // Calculate flow score based on multiple factors
+  score := 50.0; // Base score
+  
+  // Duration bonus (longer sessions more likely to achieve flow)
+  if ASession.DurationMinutes >= 60 then
+    score := score + 20
+  else if ASession.DurationMinutes >= 30 then
+    score := score + 10
+  else if ASession.DurationMinutes >= FFlowThreshold then
+    score := score + 5;
+  
+  // Distraction penalty
+  score := score - (ASession.DistractionCount * 5);
+  
+  // Context switch penalty (heavier)
+  score := score - (ASession.ContextSwitchCount * 10);
+  
+  // Productivity bonus
+  if ASession.ProductivityRating > 0 then
+    score := score + (ASession.ProductivityRating * 2);
+  
+  // Energy correlation
+  if (ASession.EnergyBefore > 0) and (ASession.EnergyAfter > 0) then
+  begin
+    if ASession.EnergyBefore >= 7 then
+      score := score + 10;
+  end;
+  
+  // Clamp to 0-100
+  if score < 0 then score := 0;
+  if score > 100 then score := 100;
+  
+  Result := Round(score);
+end;
+
+function TFocusTaskManager.AnalyzeFlowState(AFocusMinutes, ADistractions, 
+  ASwitches: Integer): TFlowState;
+var
+  flowScore: Integer;
+begin
+  flowScore := 50;
+  
+  if AFocusMinutes >= 60 then
+    flowScore := flowScore + 30
+  else if AFocusMinutes >= 30 then
+    flowScore := flowScore + 20
+  else if AFocusMinutes >= FFlowThreshold then
+    flowScore := flowScore + 10
+  else
+    flowScore := flowScore - 20;
+  
+  flowScore := flowScore - (ADistractions * 8);
+  flowScore := flowScore - (ASwitches * 15);
+  
+  if flowScore >= 80 then
+    Result := fsPeakFlow
+  else if flowScore >= 60 then
+    Result := fsHighFlow
+  else if flowScore >= 40 then
+    Result := fsModerateFlow
+  else if flowScore >= 20 then
+    Result := fsLowFlow
+  else
+    Result := fsNoFlow;
+end;
+
+function TFocusTaskManager.StartPomodoro(ATaskID, AMinutes: Integer): Integer;
 var
   idx: Integer;
-  Duration: Integer;
+begin
+  if FCurrentPomodoroID <> -1 then
+    Exit(-1); // Already have active pomodoro
+  
+  idx := Length(FPomodoroSessions);
+  SetLength(FPomodoroSessions, idx + 1);
+  
+  with FPomodoroSessions[idx] do
+  begin
+    ID := FNextPomodoroID;
+    TaskID := ATaskID;
+    StartTime := Now;
+    EndTime := 0;
+    PlannedMinutes := AMinutes;
+    ActualMinutes := 0;
+    Completed := False;
+    InterruptionCount := 0;
+    FocusQuality := fqFair;
+    Notes := '';
+    Created := Now;
+  end;
+  
+  FCurrentPomodoroID := FNextPomodoroID;
+  Result := FNextPomodoroID;
+  Inc(FNextPomodoroID);
+end;
+
+function TFocusTaskManager.CompletePomodoro(APomodoroID: Integer; 
+  AQuality: TFocusQuality; const ANotes: string): Boolean;
+var
+  idx: Integer;
 begin
   Result := False;
-  idx := FindFocusSessionIndex(ASessionID);
-  if idx < 0 then Exit;
+  idx := FindPomodoroIndex(APomodoroID);
+  if idx = -1 then Exit;
   
-  FFocusSessions[idx].EndTime := Now;
-  Duration := MinutesBetween(FFocusSessions[idx].EndTime, FFocusSessions[idx].StartTime);
-  FFocusSessions[idx].ActualDuration := Duration;
-  FFocusSessions[idx].EnergyLevelEnd := AEnergyLevel;
-  FFocusSessions[idx].Notes := ANotes;
-  FFocusSessions[idx].Completed := True;
-  
-  if FCurrentFocusSession = ASessionID then
+  with FPomodoroSessions[idx] do
   begin
-    FCurrentFocusSession := -1;
-    FCurrentState := fsIdle;
+    EndTime := Now;
+    ActualMinutes := MinutesBetween(EndTime, StartTime);
+    Completed := True;
+    FocusQuality := AQuality;
+    Notes := ANotes;
   end;
+  
+  if FCurrentPomodoroID = APomodoroID then
+    FCurrentPomodoroID := -1;
   
   Result := True;
 end;
 
-function TFocusTaskManager.PauseFocusSession(ASessionID: Integer): Boolean;
+function TFocusTaskManager.AbandonPomodoro(APomodoroID: Integer; 
+  const AReason: string): Boolean;
+var
+  idx: Integer;
 begin
   Result := False;
-  if FCurrentFocusSession = ASessionID then
+  idx := FindPomodoroIndex(APomodoroID);
+  if idx = -1 then Exit;
+  
+  with FPomodoroSessions[idx] do
   begin
-    FCurrentState := fsPaused;
-    Result := True;
+    EndTime := Now;
+    ActualMinutes := MinutesBetween(EndTime, StartTime);
+    Completed := False;
+    Notes := 'Abandoned: ' + AReason;
+  end;
+  
+  if FCurrentPomodoroID = APomodoroID then
+    FCurrentPomodoroID := -1;
+  
+  Result := True;
+end;
+
+function TFocusTaskManager.GetCurrentPomodoro: TPomodoroSession;
+var
+  idx: Integer;
+  emptySession: TPomodoroSession;
+begin
+  if FCurrentPomodoroID = -1 then
+  begin
+    FillChar(emptySession, SizeOf(TPomodoroSession), 0);
+    emptySession.ID := -1;
+    Exit(emptySession);
+  end;
+  
+  idx := FindPomodoroIndex(FCurrentPomodoroID);
+  if idx <> -1 then
+    Result := FPomodoroSessions[idx]
+  else
+  begin
+    FillChar(emptySession, SizeOf(TPomodoroSession), 0);
+    emptySession.ID := -1;
+    Result := emptySession;
   end;
 end;
 
-function TFocusTaskManager.ResumeFocusSession(ASessionID: Integer): Boolean;
+function TFocusTaskManager.GetPomodoroHistory(ADays: Integer): TPomodoroSessionArray;
+var
+  i, count: Integer;
+  cutoffDate: TDateTime;
+begin
+  cutoffDate := Now - ADays;
+  count := 0;
+  
+  for i := 0 to High(FPomodoroSessions) do
+    if FPomodoroSessions[i].StartTime >= cutoffDate then
+      Inc(count);
+  
+  SetLength(Result, count);
+  count := 0;
+  
+  for i := 0 to High(FPomodoroSessions) do
+    if FPomodoroSessions[i].StartTime >= cutoffDate then
+    begin
+      Result[count] := FPomodoroSessions[i];
+      Inc(count);
+    end;
+end;
+
+function TFocusTaskManager.GetPomodoroStats(ADays: Integer): string;
+var
+  sessions: TPomodoroSessionArray;
+  i, completed, total, totalMinutes: Integer;
+  avgMinutes: Double;
+begin
+  sessions := GetPomodoroHistory(ADays);
+  total := Length(sessions);
+  completed := 0;
+  totalMinutes := 0;
+  
+  for i := 0 to High(sessions) do
+  begin
+    if sessions[i].Completed then
+      Inc(completed);
+    totalMinutes := totalMinutes + sessions[i].ActualMinutes;
+  end;
+  
+  if total > 0 then
+    avgMinutes := totalMinutes / total
+  else
+    avgMinutes := 0;
+  
+  Result := Format('Pomodoro Stats (Past %d days):'#13#10 +
+                   'Total sessions: %d'#13#10 +
+                   'Completed: %d (%.1f%%)'#13#10 +
+                   'Total focus time: %d minutes'#13#10 +
+                   'Average session: %.1f minutes',
+                   [ADays, total, completed, 
+                    (completed / Max(1, total)) * 100,
+                    totalMinutes, avgMinutes]);
+end;
+
+function TFocusTaskManager.StartFocusSession(ATaskID: Integer; 
+  AFocusType: TFocusType; AEnergyBefore: Integer): Integer;
+var
+  idx: Integer;
+begin
+  idx := Length(FFocusSessions);
+  SetLength(FFocusSessions, idx + 1);
+  
+  with FFocusSessions[idx] do
+  begin
+    ID := FNextFocusID;
+    TaskID := ATaskID;
+    FocusType := AFocusType;
+    StartTime := Now;
+    EndTime := 0;
+    DurationMinutes := 0;
+    FlowState := fsNoFlow;
+    FlowStateScore := 0;
+    DistractionCount := 0;
+    ContextSwitchCount := 0;
+    ProductivityRating := 0;
+    EnergyBefore := AEnergyBefore;
+    EnergyAfter := 0;
+    Notes := '';
+    Completed := False;
+    Created := Now;
+  end;
+  
+  FCurrentFocusID := FNextFocusID;
+  Result := FNextFocusID;
+  Inc(FNextFocusID);
+end;
+
+function TFocusTaskManager.EndFocusSession(ASessionID, AProductivity, 
+  AEnergyAfter: Integer; const ANotes: string): Boolean;
+var
+  idx: Integer;
 begin
   Result := False;
-  if FCurrentFocusSession = ASessionID then
+  idx := FindFocusIndex(ASessionID);
+  if idx = -1 then Exit;
+  
+  with FFocusSessions[idx] do
   begin
-    FCurrentState := fsFocusing;
-    Result := True;
+    EndTime := Now;
+    DurationMinutes := MinutesBetween(EndTime, StartTime);
+    ProductivityRating := AProductivity;
+    EnergyAfter := AEnergyAfter;
+    Notes := ANotes;
+    Completed := True;
+    
+    // Calculate flow state
+    FlowState := AnalyzeFlowState(DurationMinutes, DistractionCount, ContextSwitchCount);
+    FlowStateScore := CalculateFlowScore(FFocusSessions[idx]);
   end;
+  
+  if FCurrentFocusID = ASessionID then
+    FCurrentFocusID := -1;
+  
+  Result := True;
 end;
 
 function TFocusTaskManager.GetCurrentFocusSession: TFocusSession;
 var
   idx: Integer;
+  emptySession: TFocusSession;
 begin
-  FillChar(Result, SizeOf(Result), 0);
-  if FCurrentFocusSession >= 0 then
+  if FCurrentFocusID = -1 then
   begin
-    idx := FindFocusSessionIndex(FCurrentFocusSession);
-    if idx >= 0 then
-      Result := FFocusSessions[idx];
+    FillChar(emptySession, SizeOf(TFocusSession), 0);
+    emptySession.ID := -1;
+    Exit(emptySession);
   end;
-end;
-
-function TFocusTaskManager.GetFocusState: TFocusState;
-begin
-  Result := FCurrentState;
-end;
-
-function TFocusTaskManager.StartPomodoro(ATaskID: Integer): Integer;
-begin
-  Result := StartFocusSession(ATaskID, FPomodoroSettings.FocusDuration, 7, True);
-end;
-
-function TFocusTaskManager.CompletePomodoro(ASessionID: Integer): Boolean;
-var
-  idx: Integer;
-begin
-  Result := EndFocusSession(ASessionID, 6, 'Pomodoro completed');
-  if Result then
-  begin
-    idx := FindFocusSessionIndex(ASessionID);
-    if idx >= 0 then
-    begin
-      FFocusSessions[idx].CompletedPomodoros := 1;
-      Inc(FPomodorosCompleted);
-      
-      // Check if long break is needed
-      if (FPomodorosCompleted mod FPomodoroSettings.SessionsBeforeLongBreak) = 0 then
-        GenerateBreakRecommendation;
-    end;
-  end;
-end;
-
-function TFocusTaskManager.TakeBreak(AIsLongBreak: Boolean): Boolean;
-begin
-  if AIsLongBreak then
-    FCurrentState := fsBreaking
+  
+  idx := FindFocusIndex(FCurrentFocusID);
+  if idx <> -1 then
+    Result := FFocusSessions[idx]
   else
-    FCurrentState := fsBreaking;
-  Result := True;
+  begin
+    FillChar(emptySession, SizeOf(TFocusSession), 0);
+    emptySession.ID := -1;
+    Result := emptySession;
+  end;
 end;
 
-function TFocusTaskManager.GetPomodoroCount: Integer;
-begin
-  Result := FPomodorosCompleted;
-end;
-
-function TFocusTaskManager.LogInterruption(ASessionID: Integer; const AReason: string): Boolean;
+function TFocusTaskManager.GetFocusSessions(ADays: Integer): TFocusSessionArray;
 var
-  idx: Integer;
+  i, count: Integer;
+  cutoffDate: TDateTime;
 begin
-  Result := False;
-  idx := FindFocusSessionIndex(ASessionID);
-  if idx < 0 then Exit;
+  cutoffDate := Now - ADays;
+  count := 0;
   
-  Inc(FFocusSessions[idx].Interruptions);
-  Result := True;
-end;
-
-function TFocusTaskManager.GetSessionInterruptions(ASessionID: Integer): Integer;
-var
-  idx: Integer;
-begin
-  Result := 0;
-  idx := FindFocusSessionIndex(ASessionID);
-  if idx >= 0 then
-    Result := FFocusSessions[idx].Interruptions;
-end;
-
-function TFocusTaskManager.LogContextSwitch(AFromTaskID, AToTaskID: Integer;
-  const AReason: string; AImpact: Integer): Integer;
-var
-  Switch: TContextSwitch;
-begin
-  Switch.ID := FNextContextSwitchID;
-  Inc(FNextContextSwitchID);
-  Switch.FromTaskID := AFromTaskID;
-  Switch.ToTaskID := AToTaskID;
-  Switch.SwitchTime := Now;
-  Switch.Reason := AReason;
-  Switch.ProductivityImpact := AImpact;
+  for i := 0 to High(FFocusSessions) do
+    if FFocusSessions[i].StartTime >= cutoffDate then
+      Inc(count);
   
-  SetLength(FContextSwitches, Length(FContextSwitches) + 1);
-  FContextSwitches[High(FContextSwitches)] := Switch;
+  SetLength(Result, count);
+  count := 0;
   
-  Result := Switch.ID;
+  for i := 0 to High(FFocusSessions) do
+    if FFocusSessions[i].StartTime >= cutoffDate then
+    begin
+      Result[count] := FFocusSessions[i];
+      Inc(count);
+    end;
 end;
 
-function TFocusTaskManager.GetContextSwitches(ATaskID: Integer): TContextSwitchArray;
+function TFocusTaskManager.GetFocusStats(ADays: Integer): TFocusStats;
 var
-  i, Count: Integer;
+  sessions: TFocusSessionArray;
+  i, deepWork, shallowWork: Integer;
+  totalFlow, totalProd, totalRecovery: Double;
+  recoveryCount: Integer;
 begin
-  SetLength(Result, 0);
-  Count := 0;
+  FillChar(Result, SizeOf(TFocusStats), 0);
+  sessions := GetFocusSessions(ADays);
+  
+  if Length(sessions) = 0 then Exit;
+  
+  deepWork := 0;
+  shallowWork := 0;
+  totalFlow := 0;
+  totalProd := 0;
+  
+  for i := 0 to High(sessions) do
+  begin
+    Result.TotalFocusMinutes := Result.TotalFocusMinutes + sessions[i].DurationMinutes;
+    
+    if sessions[i].FocusType in [ftDeepWork, ftCreative, ftLearning] then
+      deepWork := deepWork + sessions[i].DurationMinutes
+    else
+      shallowWork := shallowWork + sessions[i].DurationMinutes;
+    
+    totalFlow := totalFlow + sessions[i].FlowStateScore;
+    totalProd := totalProd + sessions[i].ProductivityRating;
+    Result.TotalDistractions := Result.TotalDistractions + sessions[i].DistractionCount;
+    Result.TotalContextSwitches := Result.TotalContextSwitches + sessions[i].ContextSwitchCount;
+  end;
+  
+  Result.DeepWorkMinutes := deepWork;
+  Result.ShallowWorkMinutes := shallowWork;
+  Result.AverageFlowScore := totalFlow / Length(sessions);
+  Result.AverageProductivity := totalProd / Length(sessions);
+  
+  // Calculate average recovery time from context switches
+  recoveryCount := 0;
+  totalRecovery := 0;
   for i := 0 to High(FContextSwitches) do
-    if (FContextSwitches[i].FromTaskID = ATaskID) or
-       (FContextSwitches[i].ToTaskID = ATaskID) then
+  begin
+    if FContextSwitches[i].SwitchTime >= (Now - ADays) then
     begin
-      SetLength(Result, Count + 1);
-      Result[Count] := FContextSwitches[i];
-      Inc(Count);
+      totalRecovery := totalRecovery + FContextSwitches[i].RecoveryTimeMinutes;
+      Inc(recoveryCount);
     end;
+  end;
+  
+  if recoveryCount > 0 then
+    Result.AverageRecoveryTime := totalRecovery / recoveryCount;
+  
+  if Result.TotalFocusMinutes > 0 then
+    Result.FocusEfficiency := (Result.TotalFocusMinutes - (Result.TotalDistractions * 2)) / 
+                              Result.TotalFocusMinutes * 100;
 end;
 
-function TFocusTaskManager.GetAllContextSwitches: TContextSwitchArray;
-begin
-  Result := Copy(FContextSwitches, 0, Length(FContextSwitches));
-end;
-
-function TFocusTaskManager.GetContextSwitchCost: Integer;
-begin
-  // Average context switch costs about 23 minutes (research by Gloria Mark)
-  Result := Length(FContextSwitches) * 23;
-end;
-
-function TFocusTaskManager.LogDistraction(ATaskID: Integer; const AType: string;
-  ADuration, AImpact: Integer; const ANotes: string): Integer;
+function TFocusTaskManager.LogDistraction(ASessionID, ATaskID: Integer; 
+  AType: TDistractionType; const ASource: string; AImpact: Integer; 
+  AAvoidable: Boolean): Integer;
 var
-  Distraction: TDistraction;
+  idx, sessionIdx: Integer;
 begin
-  Distraction.ID := FNextDistractionID;
+  idx := Length(FDistractions);
+  SetLength(FDistractions, idx + 1);
+  
+  with FDistractions[idx] do
+  begin
+    ID := FNextDistractionID;
+    SessionID := ASessionID;
+    TaskID := ATaskID;
+    DistractType := AType;
+    OccurredAt := Now;
+    DurationSeconds := 0;
+    Source := ASource;
+    ImpactScore := AImpact;
+    WasAvoidable := AAvoidable;
+    Notes := '';
+  end;
+  
+  // Update session distraction count
+  sessionIdx := FindFocusIndex(ASessionID);
+  if sessionIdx <> -1 then
+    Inc(FFocusSessions[sessionIdx].DistractionCount);
+  
+  Result := FNextDistractionID;
   Inc(FNextDistractionID);
-  Distraction.TaskID := ATaskID;
-  Distraction.DistractionTime := Now;
-  Distraction.DistractionType := AType;
-  Distraction.Duration := ADuration;
-  Distraction.Impact := AImpact;
-  Distraction.Notes := ANotes;
-  
-  SetLength(FDistractions, Length(FDistractions) + 1);
-  FDistractions[High(FDistractions)] := Distraction;
-  
-  Result := Distraction.ID;
 end;
 
-function TFocusTaskManager.GetDistractions(ATaskID: Integer): TDistractionArray;
+function TFocusTaskManager.GetDistractions(ASessionID: Integer): TDistractionArray;
 var
-  i, Count: Integer;
+  i, count: Integer;
 begin
-  SetLength(Result, 0);
-  Count := 0;
+  count := 0;
   for i := 0 to High(FDistractions) do
-    if FDistractions[i].TaskID = ATaskID then
+    if FDistractions[i].SessionID = ASessionID then
+      Inc(count);
+  
+  SetLength(Result, count);
+  count := 0;
+  
+  for i := 0 to High(FDistractions) do
+    if FDistractions[i].SessionID = ASessionID then
     begin
-      SetLength(Result, Count + 1);
-      Result[Count] := FDistractions[i];
-      Inc(Count);
+      Result[count] := FDistractions[i];
+      Inc(count);
     end;
 end;
 
-function TFocusTaskManager.GetDistractionsByType(const AType: string): TDistractionArray;
+function TFocusTaskManager.GetDistractionStats(ADays: Integer): string;
 var
-  i, Count: Integer;
+  i, total: Integer;
+  cutoffDate: TDateTime;
+  totalImpact: Double;
 begin
-  SetLength(Result, 0);
-  Count := 0;
+  cutoffDate := Now - ADays;
+  total := 0;
+  totalImpact := 0;
+  
   for i := 0 to High(FDistractions) do
-    if FDistractions[i].DistractionType = AType then
+    if FDistractions[i].OccurredAt >= cutoffDate then
     begin
-      SetLength(Result, Count + 1);
-      Result[Count] := FDistractions[i];
-      Inc(Count);
+      Inc(total);
+      totalImpact := totalImpact + FDistractions[i].ImpactScore;
     end;
+  
+  Result := Format('Distraction Stats (Past %d days):'#13#10 +
+                   'Total distractions: %d'#13#10 +
+                   'Average per day: %.1f'#13#10 +
+                   'Average impact: %.1f/10',
+                   [ADays, total, total / Max(1, ADays),
+                    totalImpact / Max(1, total)]);
 end;
 
-function TFocusTaskManager.GetTotalDistractionTime: Integer;
+function TFocusTaskManager.GetMostCommonDistractions: string;
 var
   i: Integer;
+  typeCounts: array[TDistractionType] of Integer;
+  dtype: TDistractionType;
+  maxCount: Integer;
+  mostCommon: TDistractionType;
 begin
-  Result := 0;
+  for dtype := Low(TDistractionType) to High(TDistractionType) do
+    typeCounts[dtype] := 0;
+  
   for i := 0 to High(FDistractions) do
-    Result := Result + FDistractions[i].Duration;
-end;
-
-function TFocusTaskManager.LogEnergyLevel(AEnergy, AClarity, AMotivation: Integer;
-  const APhysicalState, ANotes: string): Integer;
-var
-  Log: TEnergyLog;
-begin
-  Log.ID := FNextEnergyLogID;
-  Inc(FNextEnergyLogID);
-  Log.LogTime := Now;
-  Log.EnergyLevel := AEnergy;
-  Log.MentalClarity := AClarity;
-  Log.Motivation := AMotivation;
-  Log.PhysicalState := APhysicalState;
-  Log.Notes := ANotes;
+    Inc(typeCounts[FDistractions[i].DistractType]);
   
-  SetLength(FEnergyLogs, Length(FEnergyLogs) + 1);
-  FEnergyLogs[High(FEnergyLogs)] := Log;
-  
-  Result := Log.ID;
-end;
-
-function TFocusTaskManager.GetEnergyLogs(AStartDate, AEndDate: TDateTime): TEnergyLogArray;
-var
-  i, Count: Integer;
-begin
-  SetLength(Result, 0);
-  Count := 0;
-  for i := 0 to High(FEnergyLogs) do
-    if (FEnergyLogs[i].LogTime >= AStartDate) and
-       (FEnergyLogs[i].LogTime <= AEndDate) then
+  maxCount := 0;
+  mostCommon := dtOther;
+  for dtype := Low(TDistractionType) to High(TDistractionType) do
+    if typeCounts[dtype] > maxCount then
     begin
-      SetLength(Result, Count + 1);
-      Result[Count] := FEnergyLogs[i];
-      Inc(Count);
+      maxCount := typeCounts[dtype];
+      mostCommon := dtype;
     end;
+  
+  Result := Format('Most common: %s (%d occurrences)', 
+                   [DistractionTypeToString(mostCommon), maxCount]);
 end;
 
-function TFocusTaskManager.GetAverageEnergyLevel: Double;
+function TFocusTaskManager.GetAvoidableDistractionRate(ADays: Integer): Double;
 var
-  i, Total: Integer;
+  i, total, avoidable: Integer;
+  cutoffDate: TDateTime;
 begin
-  Result := 0;
-  if Length(FEnergyLogs) = 0 then Exit;
+  cutoffDate := Now - ADays;
+  total := 0;
+  avoidable := 0;
   
-  Total := 0;
-  for i := 0 to High(FEnergyLogs) do
-    Total := Total + FEnergyLogs[i].EnergyLevel;
+  for i := 0 to High(FDistractions) do
+    if FDistractions[i].OccurredAt >= cutoffDate then
+    begin
+      Inc(total);
+      if FDistractions[i].WasAvoidable then
+        Inc(avoidable);
+    end;
   
-  Result := Total / Length(FEnergyLogs);
+  if total > 0 then
+    Result := (avoidable / total) * 100
+  else
+    Result := 0;
 end;
 
-function TFocusTaskManager.GetCurrentEnergyTrend: string;
+function TFocusTaskManager.LogContextSwitch(AFromTask, AToTask: Integer; 
+  const AReason: string; APlanned: Boolean): Integer;
 var
-  Recent: TEnergyLogArray;
-  AvgFirst, AvgLast: Double;
-  i: Integer;
+  idx, sessionIdx: Integer;
 begin
-  Recent := GetEnergyLogs(Now - 7, Now);
-  if Length(Recent) < 4 then
+  idx := Length(FContextSwitches);
+  SetLength(FContextSwitches, idx + 1);
+  
+  with FContextSwitches[idx] do
   begin
-    Result := 'Insufficient data for trend analysis';
-    Exit;
+    ID := FNextSwitchID;
+    FromTaskID := AFromTask;
+    ToTaskID := AToTask;
+    SwitchTime := Now;
+    RecoveryTimeMinutes := 0;
+    CostScore := 5; // Default medium cost
+    WasPlanned := APlanned;
+    Reason := AReason;
   end;
   
-  // Compare first half vs second half
-  AvgFirst := 0;
-  AvgLast := 0;
-  for i := 0 to (Length(Recent) div 2) - 1 do
-    AvgFirst := AvgFirst + Recent[i].EnergyLevel;
-  AvgFirst := AvgFirst / (Length(Recent) div 2);
-  
-  for i := Length(Recent) div 2 to High(Recent) do
-    AvgLast := AvgLast + Recent[i].EnergyLevel;
-  AvgLast := AvgLast / (Length(Recent) - (Length(Recent) div 2));
-  
-  if AvgLast > AvgFirst + 1 then
-    Result := 'Improving'
-  else if AvgLast < AvgFirst - 1 then
-    Result := 'Declining'
-  else
-    Result := 'Stable';
-end;
-
-function TFocusTaskManager.GetBestEnergyHours: string;
-begin
-  Result := 'Peak energy typically occurs between 9:00-11:00 AM and 3:00-5:00 PM';
-end;
-
-function TFocusTaskManager.GetFocusAnalytics(AStartDate, AEndDate: TDateTime): TFocusAnalytics;
-var
-  i, TotalTime, DeepWorkTime, ShallowWorkTime, TotalInterruptions: Integer;
-  HourCounts: array[0..23] of Integer;
-  MaxCount, MinCount, BestHour, WorstHour: Integer;
-  TotalEnergy: Double;
-  EnergyCount: Integer;
-begin
-  FillChar(Result, SizeOf(Result), 0);
-  FillChar(HourCounts, SizeOf(HourCounts), 0);
-  
-  TotalTime := 0;
-  DeepWorkTime := 0;
-  ShallowWorkTime := 0;
-  TotalInterruptions := 0;
-  TotalEnergy := 0;
-  EnergyCount := 0;
-  
-  for i := 0 to High(FFocusSessions) do
-    if (FFocusSessions[i].StartTime >= AStartDate) and
-       (FFocusSessions[i].StartTime <= AEndDate) and
-       FFocusSessions[i].Completed then
-    begin
-      TotalTime := TotalTime + FFocusSessions[i].ActualDuration;
-      if FFocusSessions[i].DeepWork then
-        DeepWorkTime := DeepWorkTime + FFocusSessions[i].ActualDuration
-      else
-        ShallowWorkTime := ShallowWorkTime + FFocusSessions[i].ActualDuration;
-      
-      TotalInterruptions := TotalInterruptions + FFocusSessions[i].Interruptions;
-      
-      Inc(HourCounts[HourOf(FFocusSessions[i].StartTime)]);
-      
-      if FFocusSessions[i].EnergyLevelStart > 0 then
-      begin
-        TotalEnergy := TotalEnergy + FFocusSessions[i].EnergyLevelStart;
-        Inc(EnergyCount);
-      end;
-    end;
-  
-  Result.TotalFocusTime := TotalTime;
-  if Length(FFocusSessions) > 0 then
-    Result.AverageFocusDuration := TotalTime / Length(FFocusSessions)
-  else
-    Result.AverageFocusDuration := 0;
-  
-  if TotalTime > 0 then
+  // Update current session context switch count
+  if FCurrentFocusID <> -1 then
   begin
-    Result.DeepWorkPercentage := (DeepWorkTime / TotalTime) * 100;
-    Result.ShallowWorkPercentage := (ShallowWorkTime / TotalTime) * 100;
-    Result.InterruptionRate := (TotalInterruptions / (TotalTime / 60.0));
+    sessionIdx := FindFocusIndex(FCurrentFocusID);
+    if sessionIdx <> -1 then
+      Inc(FFocusSessions[sessionIdx].ContextSwitchCount);
   end;
   
-  Result.ContextSwitches := Length(FContextSwitches);
-  
-  // Find best/worst hours
-  MaxCount := 0;
-  MinCount := MaxInt;
-  BestHour := 0;
-  WorstHour := 0;
-  for i := 0 to 23 do
-  begin
-    if HourCounts[i] > MaxCount then
-    begin
-      MaxCount := HourCounts[i];
-      BestHour := i;
-    end;
-    if (HourCounts[i] < MinCount) and (HourCounts[i] > 0) then
-    begin
-      MinCount := HourCounts[i];
-      WorstHour := i;
-    end;
-  end;
-  Result.BestFocusHour := BestHour;
-  Result.WorstFocusHour := WorstHour;
-  
-  if EnergyCount > 0 then
-    Result.AverageEnergyLevel := TotalEnergy / EnergyCount
-  else
-    Result.AverageEnergyLevel := 0;
-  
-  // Simple productivity score
-  Result.ProductivityScore := Min(100,
-    (Result.DeepWorkPercentage * 0.4) +
-    (Min(100, Result.AverageFocusDuration) * 0.3) +
-    (Max(0, 100 - (Result.InterruptionRate * 10)) * 0.3));
+  Result := FNextSwitchID;
+  Inc(FNextSwitchID);
 end;
 
-function TFocusTaskManager.GetFocusTrend(ADays: Integer): string;
+function TFocusTaskManager.UpdateSwitchRecovery(ASwitchID, AMinutes, 
+  ACost: Integer): Boolean;
 var
-  Analytics: TFocusAnalytics;
-begin
-  Analytics := GetFocusAnalytics(Now - ADays, Now);
-  Result := Format('Focus Trend (%d days): %.1f hours total, %.0f%% deep work, %.1f avg duration',
-    [ADays, Analytics.TotalFocusTime / 60.0, Analytics.DeepWorkPercentage,
-     Analytics.AverageFocusDuration]);
-end;
-
-function TFocusTaskManager.GetDeepWorkStats: string;
-var
-  i, DeepSessions, ShallowSessions: Integer;
-  DeepTime, ShallowTime: Integer;
-begin
-  DeepSessions := 0;
-  ShallowSessions := 0;
-  DeepTime := 0;
-  ShallowTime := 0;
-  
-  for i := 0 to High(FFocusSessions) do
-    if FFocusSessions[i].Completed then
-    begin
-      if FFocusSessions[i].DeepWork then
-      begin
-        Inc(DeepSessions);
-        DeepTime := DeepTime + FFocusSessions[i].ActualDuration;
-      end
-      else
-      begin
-        Inc(ShallowSessions);
-        ShallowTime := ShallowTime + FFocusSessions[i].ActualDuration;
-      end;
-    end;
-  
-  Result := Format('Deep Work: %d sessions (%.1f hours) | Shallow Work: %d sessions (%.1f hours)',
-    [DeepSessions, DeepTime / 60.0, ShallowSessions, ShallowTime / 60.0]);
-end;
-
-function TFocusTaskManager.GetProductivityHeatmap: string;
-begin
-  Result := 'Productivity Heatmap: Peak hours are 9-11 AM (80%) and 2-4 PM (70%)';
-end;
-
-function TFocusTaskManager.GetOptimalFocusTimes: string;
-begin
-  Result := 'Optimal Focus Times: Morning (9-11 AM) for deep work, Afternoon (2-4 PM) for collaboration';
-end;
-
-function TFocusTaskManager.GenerateRecommendations: Integer;
-var
-  Analytics: TFocusAnalytics;
-begin
-  Result := 0;
-  Analytics := GetFocusAnalytics(Now - 7, Now);
-  
-  // Check if break is needed
-  if (FCurrentState = fsFocusing) and (FPomodorosCompleted mod 4 = 0) then
-    GenerateBreakRecommendation;
-  
-  // Check if task switch might be beneficial
-  if Analytics.AverageFocusDuration < 15 then
-    GenerateTaskSwitchRecommendation;
-  
-  Result := Length(FRecommendations);
-end;
-
-procedure TFocusTaskManager.GenerateBreakRecommendation;
-var
-  Rec: TFocusRecommendation;
-begin
-  Rec.ID := FNextRecommendationID;
-  Inc(FNextRecommendationID);
-  Rec.RecommendationType := 'break';
-  Rec.Priority := 8;
-  Rec.Reason := 'You have completed 4 pomodoros';
-  Rec.Suggestion := 'Take a 15-minute long break to recharge';
-  Rec.CreatedAt := Now;
-  Rec.Applied := False;
-  
-  SetLength(FRecommendations, Length(FRecommendations) + 1);
-  FRecommendations[High(FRecommendations)] := Rec;
-end;
-
-procedure TFocusTaskManager.GenerateTaskSwitchRecommendation;
-var
-  Rec: TFocusRecommendation;
-begin
-  Rec.ID := FNextRecommendationID;
-  Inc(FNextRecommendationID);
-  Rec.RecommendationType := 'switch_task';
-  Rec.Priority := 6;
-  Rec.Reason := 'Short focus sessions detected';
-  Rec.Suggestion := 'Consider switching to a different task type';
-  Rec.CreatedAt := Now;
-  Rec.Applied := False;
-  
-  SetLength(FRecommendations, Length(FRecommendations) + 1);
-  FRecommendations[High(FRecommendations)] := Rec;
-end;
-
-function TFocusTaskManager.GetActiveRecommendations: TFocusRecommendationArray;
-var
-  i, Count: Integer;
-begin
-  SetLength(Result, 0);
-  Count := 0;
-  for i := 0 to High(FRecommendations) do
-    if not FRecommendations[i].Applied then
-    begin
-      SetLength(Result, Count + 1);
-      Result[Count] := FRecommendations[i];
-      Inc(Count);
-    end;
-end;
-
-function TFocusTaskManager.ApplyRecommendation(ARecommendationID: Integer): Boolean;
-var
-  i: Integer;
+  idx: Integer;
 begin
   Result := False;
-  for i := 0 to High(FRecommendations) do
-    if FRecommendations[i].ID = ARecommendationID then
+  idx := FindSwitchIndex(ASwitchID);
+  if idx = -1 then Exit;
+  
+  FContextSwitches[idx].RecoveryTimeMinutes := AMinutes;
+  FContextSwitches[idx].CostScore := ACost;
+  Result := True;
+end;
+
+function TFocusTaskManager.GetContextSwitches(ADays: Integer): TContextSwitchArray;
+var
+  i, count: Integer;
+  cutoffDate: TDateTime;
+begin
+  cutoffDate := Now - ADays;
+  count := 0;
+  
+  for i := 0 to High(FContextSwitches) do
+    if FContextSwitches[i].SwitchTime >= cutoffDate then
+      Inc(count);
+  
+  SetLength(Result, count);
+  count := 0;
+  
+  for i := 0 to High(FContextSwitches) do
+    if FContextSwitches[i].SwitchTime >= cutoffDate then
     begin
-      FRecommendations[i].Applied := True;
-      Result := True;
-      Exit;
+      Result[count] := FContextSwitches[i];
+      Inc(count);
     end;
 end;
 
-function TFocusTaskManager.DismissRecommendation(ARecommendationID: Integer): Boolean;
-begin
-  Result := ApplyRecommendation(ARecommendationID);
-end;
-
-function TFocusTaskManager.ClassifyTaskAsDeepWork(ATaskID: Integer): Boolean;
-begin
-  Result := AddTagToTask(ATaskID, 'deep-work');
-end;
-
-function TFocusTaskManager.ClassifyTaskAsShallowWork(ATaskID: Integer): Boolean;
-begin
-  Result := AddTagToTask(ATaskID, 'shallow-work');
-end;
-
-function TFocusTaskManager.GetDeepWorkTasks: TTaskArray;
-begin
-  Result := FilterByTag('deep-work');
-end;
-
-function TFocusTaskManager.GetShallowWorkTasks: TTaskArray;
-begin
-  Result := FilterByTag('shallow-work');
-end;
-
-function TFocusTaskManager.SuggestNextTask: Integer;
+function TFocusTaskManager.GetSwitchingCost(ADays: Integer): string;
 var
-  CurrentEnergy: Double;
-  DeepTasks, ShallowTasks: TTaskArray;
+  switches: TContextSwitchArray;
+  i, totalSwitches, plannedSwitches: Integer;
+  totalRecovery, totalCost: Double;
 begin
-  Result := -1;
-  CurrentEnergy := GetAverageEnergyLevel;
+  switches := GetContextSwitches(ADays);
+  totalSwitches := Length(switches);
+  plannedSwitches := 0;
+  totalRecovery := 0;
+  totalCost := 0;
   
-  if CurrentEnergy >= 7 then
+  for i := 0 to High(switches) do
   begin
-    // High energy - suggest deep work
-    DeepTasks := GetDeepWorkTasks;
-    if Length(DeepTasks) > 0 then
-      Result := DeepTasks[0].ID;
-  end
-  else
-  begin
-    // Low energy - suggest shallow work
-    ShallowTasks := GetShallowWorkTasks;
-    if Length(ShallowTasks) > 0 then
-      Result := ShallowTasks[0].ID;
+    if switches[i].WasPlanned then
+      Inc(plannedSwitches);
+    totalRecovery := totalRecovery + switches[i].RecoveryTimeMinutes;
+    totalCost := totalCost + switches[i].CostScore;
   end;
+  
+  Result := Format('Context Switch Analysis (Past %d days):'#13#10 +
+                   'Total switches: %d'#13#10 +
+                   'Planned: %d (%.1f%%)'#13#10 +
+                   'Avg recovery time: %.1f minutes'#13#10 +
+                   'Avg cost score: %.1f/10'#13#10 +
+                   'Total lost time: %.0f minutes',
+                   [ADays, totalSwitches, plannedSwitches,
+                    (plannedSwitches / Max(1, totalSwitches)) * 100,
+                    totalRecovery / Max(1, totalSwitches),
+                    totalCost / Max(1, totalSwitches),
+                    totalRecovery]);
 end;
 
-function TFocusTaskManager.GetOptimalTaskForCurrentEnergy: Integer;
+function TFocusTaskManager.GetAverageSwitchCost: Double;
+var
+  i: Integer;
+  total: Double;
 begin
-  Result := SuggestNextTask;
+  if Length(FContextSwitches) = 0 then
+    Exit(0);
+  
+  total := 0;
+  for i := 0 to High(FContextSwitches) do
+    total := total + FContextSwitches[i].RecoveryTimeMinutes;
+  
+  Result := total / Length(FContextSwitches);
 end;
 
-procedure TFocusTaskManager.EnableAutoBreakReminders(AEnabled: Boolean);
+function TFocusTaskManager.ScheduleDeepWorkBlock(const ATitle: string; 
+  AStart, AEnd: TDateTime; AProtectionLevel: Integer): Integer;
+var
+  idx: Integer;
 begin
-  FAutoBreakReminders := AEnabled;
+  idx := Length(FDeepWorkBlocks);
+  SetLength(FDeepWorkBlocks, idx + 1);
+  
+  with FDeepWorkBlocks[idx] do
+  begin
+    ID := FNextBlockID;
+    Title := ATitle;
+    StartTime := AStart;
+    EndTime := AEnd;
+    SetLength(TaskIDs, 0);
+    ProtectionLevel := AProtectionLevel;
+    ActualFocusMinutes := 0;
+    InterruptionsAllowed := 0;
+    ActualInterruptions := 0;
+    Success := False;
+    Notes := '';
+  end;
+  
+  Result := FNextBlockID;
+  Inc(FNextBlockID);
 end;
 
-procedure TFocusTaskManager.EnableContextSwitchTracking(AEnabled: Boolean);
+function TFocusTaskManager.AddTaskToBlock(ABlockID, ATaskID: Integer): Boolean;
+var
+  idx, taskIdx: Integer;
 begin
-  FTrackContextSwitches := AEnabled;
-end;
-
-function TFocusTaskManager.GetFocusSettings: string;
-begin
-  Result := Format('Pomodoro: %dm focus, %dm short break, %dm long break | ' +
-    'Auto breaks: %s | Context tracking: %s',
-    [FPomodoroSettings.FocusDuration, FPomodoroSettings.ShortBreakDuration,
-     FPomodoroSettings.LongBreakDuration,
-     BoolToStr(FAutoBreakReminders, True),
-     BoolToStr(FTrackContextSwitches, True)]);
-end;
-
-function TFocusTaskManager.SaveFocusDataToFile(const AFilename: string): Boolean;
-begin
-  // Simplified - would normally save to file
+  Result := False;
+  idx := FindBlockIndex(ABlockID);
+  if idx = -1 then Exit;
+  
+  taskIdx := Length(FDeepWorkBlocks[idx].TaskIDs);
+  SetLength(FDeepWorkBlocks[idx].TaskIDs, taskIdx + 1);
+  FDeepWorkBlocks[idx].TaskIDs[taskIdx] := ATaskID;
   Result := True;
 end;
 
-function TFocusTaskManager.LoadFocusDataFromFile(const AFilename: string): Boolean;
+function TFocusTaskManager.StartDeepWorkBlock(ABlockID: Integer): Boolean;
+var
+  idx: Integer;
 begin
-  // Simplified - would normally load from file
+  Result := False;
+  idx := FindBlockIndex(ABlockID);
+  if idx = -1 then Exit;
+  
+  FCurrentBlockID := ABlockID;
   Result := True;
 end;
 
-function TFocusTaskManager.FocusStateToString(AState: TFocusState): string;
+function TFocusTaskManager.EndDeepWorkBlock(ABlockID: Integer; 
+  const ANotes: string): Boolean;
+var
+  idx: Integer;
 begin
-  case AState of
-    fsIdle: Result := 'Idle';
-    fsFocusing: Result := 'Focusing';
-    fsBreaking: Result := 'On Break';
-    fsPaused: Result := 'Paused';
+  Result := False;
+  idx := FindBlockIndex(ABlockID);
+  if idx = -1 then Exit;
+  
+  with FDeepWorkBlocks[idx] do
+  begin
+    Notes := ANotes;
+    Success := (ActualInterruptions <= InterruptionsAllowed);
+  end;
+  
+  if FCurrentBlockID = ABlockID then
+    FCurrentBlockID := -1;
+  
+  Result := True;
+end;
+
+function TFocusTaskManager.GetUpcomingBlocks: TDeepWorkBlockArray;
+var
+  i, count: Integer;
+  now: TDateTime;
+begin
+  now := Now;
+  count := 0;
+  
+  for i := 0 to High(FDeepWorkBlocks) do
+    if FDeepWorkBlocks[i].StartTime > now then
+      Inc(count);
+  
+  SetLength(Result, count);
+  count := 0;
+  
+  for i := 0 to High(FDeepWorkBlocks) do
+    if FDeepWorkBlocks[i].StartTime > now then
+    begin
+      Result[count] := FDeepWorkBlocks[i];
+      Inc(count);
+    end;
+end;
+
+function TFocusTaskManager.GetBlockEffectiveness: string;
+var
+  i, total, successful: Integer;
+begin
+  total := 0;
+  successful := 0;
+  
+  for i := 0 to High(FDeepWorkBlocks) do
+    if FDeepWorkBlocks[i].EndTime < Now then
+    begin
+      Inc(total);
+      if FDeepWorkBlocks[i].Success then
+        Inc(successful);
+    end;
+  
+  Result := Format('Deep Work Block Success Rate: %.1f%% (%d/%d blocks)',
+                   [(successful / Max(1, total)) * 100, successful, total]);
+end;
+
+function TFocusTaskManager.IdentifyFlowPatterns: TFlowPatternArray;
+begin
+  // Simplified version - would analyze sessions by time and type
+  SetLength(Result, 0);
+end;
+
+function TFocusTaskManager.GetBestTimeForDeepWork: Integer;
+var
+  i, hour: Integer;
+  hourScores: array[0..23] of record
+    total: Double;
+    count: Integer;
+  end;
+  bestHour, maxScore: Integer;
+begin
+  // Initialize
+  for hour := 0 to 23 do
+  begin
+    hourScores[hour].total := 0;
+    hourScores[hour].count := 0;
+  end;
+  
+  // Analyze sessions
+  for i := 0 to High(FFocusSessions) do
+    if FFocusSessions[i].FocusType in [ftDeepWork, ftCreative, ftLearning] then
+    begin
+      hour := HourOf(FFocusSessions[i].StartTime);
+      hourScores[hour].total := hourScores[hour].total + FFocusSessions[i].FlowStateScore;
+      Inc(hourScores[hour].count);
+    end;
+  
+  // Find best hour
+  bestHour := 9; // Default to 9 AM
+  maxScore := 0;
+  for hour := 0 to 23 do
+    if hourScores[hour].count > 0 then
+      if Round(hourScores[hour].total) > maxScore then
+      begin
+        maxScore := Round(hourScores[hour].total);
+        bestHour := hour;
+      end;
+  
+  Result := bestHour;
+end;
+
+function TFocusTaskManager.GetFlowStateRecommendations: string;
+var
+  bestHour: Integer;
+begin
+  bestHour := GetBestTimeForDeepWork;
+  Result := Format('Flow State Recommendations:'#13#10 +
+                   '• Best time for deep work: %d:00'#13#10 +
+                   '• Minimize distractions during this time'#13#10 +
+                   '• Schedule creative tasks during peak hours'#13#10 +
+                   '• Reserve low-energy times for admin work',
+                   [bestHour]);
+end;
+
+function TFocusTaskManager.PredictFlowPotential(ATaskID, AHour: Integer): Double;
+begin
+  // Simplified - would use historical data
+  Result := 0.5; // 50% probability
+end;
+
+function TFocusTaskManager.GetFocusEfficiency(ADays: Integer): Double;
+var
+  stats: TFocusStats;
+begin
+  stats := GetFocusStats(ADays);
+  Result := stats.FocusEfficiency;
+end;
+
+function TFocusTaskManager.GetDeepWorkRatio(ADays: Integer): Double;
+var
+  stats: TFocusStats;
+begin
+  stats := GetFocusStats(ADays);
+  if stats.TotalFocusMinutes > 0 then
+    Result := (stats.DeepWorkMinutes / stats.TotalFocusMinutes) * 100
+  else
+    Result := 0;
+end;
+
+function TFocusTaskManager.GetInterruptionImpact(ADays: Integer): string;
+var
+  stats: TFocusStats;
+  lostTime: Double;
+begin
+  stats := GetFocusStats(ADays);
+  lostTime := stats.TotalDistractions * 5 + stats.AverageRecoveryTime * stats.TotalContextSwitches;
+  
+  Result := Format('Interruption Impact Analysis:'#13#10 +
+                   'Total distractions: %d'#13#10 +
+                   'Total context switches: %d'#13#10 +
+                   'Estimated lost time: %.0f minutes'#13#10 +
+                   'That''s %.1f hours of productivity!',
+                   [stats.TotalDistractions, stats.TotalContextSwitches,
+                    lostTime, lostTime / 60]);
+end;
+
+function TFocusTaskManager.SuggestFocusImprovements: string;
+var
+  avoidableRate: Double;
+  deepWorkRatio: Double;
+begin
+  avoidableRate := GetAvoidableDistractionRate(7);
+  deepWorkRatio := GetDeepWorkRatio(7);
+  
+  Result := 'Focus Improvement Suggestions:'#13#10;
+  
+  if avoidableRate > 50 then
+    Result := Result + '• %.0f%% of distractions are avoidable - turn off notifications!'#13#10;
+  
+  if deepWorkRatio < 30 then
+    Result := Result + '• Only %.0f%% deep work - schedule more focused blocks'#13#10;
+  
+  Result := Result + '• Use Pomodoro technique for better focus'#13#10 +
+                     '• Batch similar tasks to reduce context switching'#13#10 +
+                     '• Protect morning hours for deep work';
+  
+  Result := Format(Result, [avoidableRate, deepWorkRatio]);
+end;
+
+function TFocusTaskManager.GenerateFocusReport(ADays: Integer): string;
+var
+  stats: TFocusStats;
+begin
+  stats := GetFocusStats(ADays);
+  
+  Result := Format('=== FOCUS & DEEP WORK REPORT (Past %d days) ==='#13#10#13#10 +
+                   'Time Allocation:'#13#10 +
+                   '  Total focus time: %d minutes (%.1f hours)'#13#10 +
+                   '  Deep work: %d minutes (%.1f%%)'#13#10 +
+                   '  Shallow work: %d minutes (%.1f%%)'#13#10#13#10 +
+                   'Quality Metrics:'#13#10 +
+                   '  Average flow score: %.1f/100'#13#10 +
+                   '  Average productivity: %.1f/10'#13#10 +
+                   '  Focus efficiency: %.1f%%'#13#10#13#10 +
+                   'Interruptions:'#13#10 +
+                   '  Total distractions: %d'#13#10 +
+                   '  Context switches: %d'#13#10 +
+                   '  Avg recovery time: %.1f minutes'#13#10,
+                   [ADays,
+                    stats.TotalFocusMinutes, stats.TotalFocusMinutes / 60,
+                    stats.DeepWorkMinutes, (stats.DeepWorkMinutes / Max(1, stats.TotalFocusMinutes)) * 100,
+                    stats.ShallowWorkMinutes, (stats.ShallowWorkMinutes / Max(1, stats.TotalFocusMinutes)) * 100,
+                    stats.AverageFlowScore,
+                    stats.AverageProductivity,
+                    stats.FocusEfficiency,
+                    stats.TotalDistractions,
+                    stats.TotalContextSwitches,
+                    stats.AverageRecoveryTime]);
+end;
+
+function TFocusTaskManager.GetProductivityByTimeOfDay: string;
+begin
+  Result := 'Productivity peaks at ' + IntToStr(GetBestTimeForDeepWork) + ':00';
+end;
+
+function TFocusTaskManager.GetEnergyCorrelation: string;
+var
+  i, highEnergyProd, lowEnergyProd, highCount, lowCount: Integer;
+begin
+  highEnergyProd := 0;
+  lowEnergyProd := 0;
+  highCount := 0;
+  lowCount := 0;
+  
+  for i := 0 to High(FFocusSessions) do
+  begin
+    if FFocusSessions[i].EnergyBefore >= 7 then
+    begin
+      highEnergyProd := highEnergyProd + FFocusSessions[i].ProductivityRating;
+      Inc(highCount);
+    end
+    else if FFocusSessions[i].EnergyBefore <= 4 then
+    begin
+      lowEnergyProd := lowEnergyProd + FFocusSessions[i].ProductivityRating;
+      Inc(lowCount);
+    end;
+  end;
+  
+  Result := Format('Energy-Productivity Correlation:'#13#10 +
+                   'High energy sessions: %.1f/10 avg productivity'#13#10 +
+                   'Low energy sessions: %.1f/10 avg productivity',
+                   [highEnergyProd / Max(1, highCount),
+                    lowEnergyProd / Max(1, lowCount)]);
+end;
+
+procedure TFocusTaskManager.SetPomodoroSettings(AWorkMinutes, AShortBreak, 
+  ALongBreak, ACycleCount: Integer);
+begin
+  FPomodoroLength := AWorkMinutes;
+  FShortBreakLength := AShortBreak;
+  FLongBreakLength := ALongBreak;
+  FPomodorosUntilLongBreak := ACycleCount;
+end;
+
+procedure TFocusTaskManager.SetFlowThreshold(AMinutes: Integer);
+begin
+  FFlowThreshold := AMinutes;
+end;
+
+function TFocusTaskManager.GetSettings: string;
+begin
+  Result := Format('Focus Manager Settings:'#13#10 +
+                   'Pomodoro: %d minutes work, %d min short break, %d min long break'#13#10 +
+                   'Long break after: %d pomodoros'#13#10 +
+                   'Flow threshold: %d minutes',
+                   [FPomodoroLength, FShortBreakLength, FLongBreakLength,
+                    FPomodorosUntilLongBreak, FFlowThreshold]);
+end;
+
+function TFocusTaskManager.FocusTypeToString(AFType: TFocusType): string;
+begin
+  case AFType of
+    ftDeepWork: Result := 'Deep Work';
+    ftShallowWork: Result := 'Shallow Work';
+    ftAdministrative: Result := 'Administrative';
+    ftMeeting: Result := 'Meeting';
+    ftCreative: Result := 'Creative';
+    ftLearning: Result := 'Learning';
+    ftCommunication: Result := 'Communication';
   else
     Result := 'Unknown';
   end;
 end;
 
-function TFocusTaskManager.FocusSessionToString(const ASession: TFocusSession): string;
+function TFocusTaskManager.FlowStateToString(AState: TFlowState): string;
 begin
-  Result := Format('Session #%d: Task #%d, %d/%d min, %d interruptions, %s',
-    [ASession.ID, ASession.TaskID, ASession.ActualDuration, ASession.PlannedDuration,
-     ASession.Interruptions, BoolToStr(ASession.DeepWork, 'Deep', 'Shallow')]);
+  case AState of
+    fsNoFlow: Result := 'No Flow';
+    fsLowFlow: Result := 'Low Flow';
+    fsModerateFlow: Result := 'Moderate Flow';
+    fsHighFlow: Result := 'High Flow';
+    fsPeakFlow: Result := 'Peak Flow';
+  else
+    Result := 'Unknown';
+  end;
+end;
+
+function TFocusTaskManager.FocusQualityToString(AQuality: TFocusQuality): string;
+begin
+  case AQuality of
+    fqPoor: Result := 'Poor';
+    fqFair: Result := 'Fair';
+    fqGood: Result := 'Good';
+    fqExcellent: Result := 'Excellent';
+  else
+    Result := 'Unknown';
+  end;
+end;
+
+function TFocusTaskManager.DistractionTypeToString(AType: TDistractionType): string;
+begin
+  case AType of
+    dtNotification: Result := 'Notification';
+    dtInterruption: Result := 'Interruption';
+    dtContextSwitch: Result := 'Context Switch';
+    dtNoise: Result := 'Noise';
+    dtTechnical: Result := 'Technical Issue';
+    dtPersonal: Result := 'Personal';
+    dtOther: Result := 'Other';
+  else
+    Result := 'Unknown';
+  end;
+end;
+
+function TFocusTaskManager.SaveFocusDataToFile(const AFilename: string): Boolean;
+begin
+  Result := False;
+  // Simplified - would implement full serialization
+end;
+
+function TFocusTaskManager.LoadFocusDataFromFile(const AFilename: string): Boolean;
+begin
+  Result := False;
+  // Simplified - would implement full deserialization
 end;
 
 end.
