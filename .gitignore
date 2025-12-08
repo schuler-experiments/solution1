@@ -1,0 +1,22 @@
+
+# Binary files
+bin/
+*.o
+*.ppu
+*.exe
+
+# Data files
+*.dat
+*.bak
+*.tmp
+
+# Editor files
+*.swp
+*~
+.DS_Store
+
+# IDE files
+*.lps
+*.lpi.bak
+backup/
+lib/
