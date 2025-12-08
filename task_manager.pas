@@ -16,8 +16,8 @@ var
   Task: TTask;
   OverdueTasks, FoundTasks: TTaskArray;
   Yesterday: TDateTime;
-  SaveFile: String;
-  CloneID, CompletedCount: Integer;
+  SaveFile, HTMLFile: String;
+  CloneID, CompletedCount, TaskA, TaskB, TaskC: Integer;
   Stats: TTaskStats;
 begin
   WriteLn('--------------------------------------------------');
@@ -25,7 +25,9 @@ begin
   WriteLn('--------------------------------------------------');
 
   SaveFile := 'tasks_test.db';
+  HTMLFile := 'tasks_report.html';
   if FileExists(SaveFile) then DeleteFile(SaveFile);
+  if FileExists(HTMLFile) then DeleteFile(HTMLFile);
 
   Manager := TTaskManager.Create;
   try
@@ -90,6 +92,56 @@ begin
     else
       WriteLn('[FAIL] Statistics mismatch after complete: Completed=', Stats.Completed);
 
+    // 5. Test Dependencies
+    WriteLn('[TEST] Testing Dependencies...');
+    TaskA := Manager.AddTask('Task A', 'Base task');
+    TaskB := Manager.AddTask('Task B', 'Depends on A');
+    TaskC := Manager.AddTask('Task C', 'Depends on B');
+    
+    // Add dependencies: B -> A, C -> B
+    if Manager.AddDependency(TaskB, TaskA) and Manager.AddDependency(TaskC, TaskB) then
+      WriteLn('[PASS] Dependencies added')
+    else
+      WriteLn('[FAIL] Failed to add dependencies');
+      
+    // Check circular
+    if not Manager.AddDependency(TaskA, TaskC) then
+      WriteLn('[PASS] Circular dependency correctly rejected')
+    else
+      WriteLn('[FAIL] Circular dependency allowed');
+      
+    // Check CanStart
+    if Manager.CanStart(TaskA) then // No deps
+      WriteLn('[PASS] Task A can start (no deps)')
+    else
+      WriteLn('[FAIL] Task A should be able to start');
+      
+    if not Manager.CanStart(TaskB) then // A is pending
+      WriteLn('[PASS] Task B cannot start (A pending)')
+    else
+      WriteLn('[FAIL] Task B should not start');
+      
+    // Complete A
+    Manager.UpdateTaskStatus(TaskA, tsCompleted);
+    if Manager.CanStart(TaskB) then
+      WriteLn('[PASS] Task B can start after A completed')
+    else
+      WriteLn('[FAIL] Task B should start now');
+      
+    // Blocked Stats
+    Stats := Manager.GetTaskStatistics;
+    // C is blocked by B. B is not blocked (A is done).
+    if Stats.Blocked = 1 then
+      WriteLn('[PASS] Blocked stats verified (1 blocked task)')
+    else
+      WriteLn('[FAIL] Blocked stats mismatch: ', Stats.Blocked);
+
+    // 6. Test HTML Export
+    WriteLn('[TEST] Exporting to HTML...');
+    if Manager.ExportToHTML(HTMLFile) and FileExists(HTMLFile) then
+      WriteLn('[PASS] HTML report generated')
+    else
+      WriteLn('[FAIL] HTML report generation failed');
 
     // --- Test Persistence (Existing Tests) ---
 
@@ -114,11 +166,11 @@ begin
       WriteLn('[FAIL] Failed to load tasks');
 
     // Verify Loaded Data
-    // We had 4 tasks before save.
-    if Manager.GetTaskCount = 4 then
-      WriteLn('[PASS] Loaded 4 tasks')
+    // We had 4 original + 3 new (A,B,C) = 7 tasks.
+    if Manager.GetTaskCount = 7 then
+      WriteLn('[PASS] Loaded 7 tasks')
     else
-      WriteLn('[FAIL] Loaded ', Manager.GetTaskCount, ' tasks (expected 4)');
+      WriteLn('[FAIL] Loaded ', Manager.GetTaskCount, ' tasks (expected 7)');
 
     // Verify Task 1 Tags
     Task := Manager.GetTask(0); // ID 1
@@ -126,6 +178,15 @@ begin
       WriteLn('[PASS] Task 1 verified (Title and Tags)')
     else
       WriteLn('[FAIL] Task 1 verification failed');
+      
+    // Verify Dependency Persistence
+    // Task C (last one) should depend on Task B (second to last)
+    // IDs are preserved.
+    Task := Manager.GetTask(6); // Task C
+    if (Length(Task.Dependencies) = 1) then
+      WriteLn('[PASS] Dependency persistence verified')
+    else
+      WriteLn('[FAIL] Dependency persistence failed');
 
     // Verify Task 3 Overdue
     OverdueTasks := Manager.GetOverdueTasks;
@@ -140,6 +201,7 @@ begin
   finally
     Manager.Free;
     if FileExists(SaveFile) then DeleteFile(SaveFile);
+    // if FileExists(HTMLFile) then DeleteFile(HTMLFile); // Keep HTML for inspection if needed
   end;
   
   WriteLn('--------------------------------------------------');

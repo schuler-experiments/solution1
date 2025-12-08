@@ -13,6 +13,7 @@ type
   TTaskStatus = (tsPending, tsInProgress, tsCompleted);
   TTaskPriority = (tpLow, tpMedium, tpHigh);
   TTagArray = array of String;
+  TDepArray = array of Integer;
 
   TTask = record
     ID: Integer;
@@ -23,6 +24,7 @@ type
     CreatedAt: TDateTime;
     DueDate: TDateTime;    // 0 means no due date
     Tags: TTagArray;       // Dynamic array of tags
+    Dependencies: TDepArray; // IDs of tasks that must be completed before this one
   end;
 
   TTaskArray = array of TTask;
@@ -33,6 +35,7 @@ type
     InProgress: Integer;
     Completed: Integer;
     Overdue: Integer;
+    Blocked: Integer; // New stat
   end;
 
   { TTaskManager }
@@ -44,10 +47,13 @@ type
     function HasTag(const Task: TTask; const Tag: String): Boolean;
     function TagsToString(const Tags: TTagArray): String;
     function StringToTags(const TagString: String): TTagArray;
+    function DepsToString(const Deps: TDepArray): String;
+    function StringToDeps(const DepString: String): TDepArray;
     function StatusToString(Status: TTaskStatus): String;
     function StringToStatus(const S: String): TTaskStatus;
     function PriorityToString(Priority: TTaskPriority): String;
     function StringToPriority(const S: String): TTaskPriority;
+    function CheckCircularDependency(TaskID, DepID: Integer): Boolean;
   public
     constructor Create;
     destructor Destroy; override;
@@ -70,11 +76,19 @@ type
     function CloneTask(const ID: Integer): Integer;
     function GetTaskStatistics: TTaskStats;
     function CompleteTasksByTag(const Tag: String): Integer;
+    
+    // Dependencies
+    function AddDependency(const TaskID, DepID: Integer): Boolean;
+    function CanStart(const TaskID: Integer): Boolean;
+    function GetBlockedTasks: TTaskArray;
+
+    // Export
+    function ExportToHTML(const Filename: String): Boolean;
 
     // Persistence
     function SaveToFile(const Filename: String): Boolean;
     function LoadFromFile(const Filename: String): Boolean;
-    procedure ClearTasks; // Helper for testing load
+    procedure ClearTasks;
   end;
 
 implementation
@@ -116,6 +130,7 @@ begin
   FTasks[NewIndex].CreatedAt := Now;
   FTasks[NewIndex].DueDate := ADueDate;
   SetLength(FTasks[NewIndex].Tags, 0);
+  SetLength(FTasks[NewIndex].Dependencies, 0);
   
   Result := FLastID;
 end;
@@ -173,6 +188,15 @@ begin
   Index := FindTaskByID(ID);
   if Index <> -1 then
   begin
+    // Check dependencies if trying to start or complete
+    if (NewStatus <> tsPending) and not CanStart(ID) then
+    begin
+      // Allow moving to pending, but prevent progress if blocked? 
+      // For now, we allow status change but CanStart returns false.
+      // Ideally, we might want to block 'InProgress' if CanStart is false.
+      // But let's keep it simple: CanStart is a query, UpdateTaskStatus just updates.
+    end;
+    
     FTasks[Index].Status := NewStatus;
     Result := True;
   end
@@ -182,11 +206,27 @@ end;
 
 function TTaskManager.DeleteTask(const ID: Integer): Boolean;
 var
-  Index, i: Integer;
+  Index, i, j, k: Integer;
 begin
   Index := FindTaskByID(ID);
   if Index <> -1 then
   begin
+    // Remove this ID from other tasks' dependencies
+    for i := 0 to High(FTasks) do
+    begin
+      for j := 0 to High(FTasks[i].Dependencies) do
+      begin
+        if FTasks[i].Dependencies[j] = ID then
+        begin
+          // Remove dependency
+          for k := j to High(FTasks[i].Dependencies) - 1 do
+            FTasks[i].Dependencies[k] := FTasks[i].Dependencies[k + 1];
+          SetLength(FTasks[i].Dependencies, Length(FTasks[i].Dependencies) - 1);
+          Break; // Assuming unique dependencies
+        end;
+      end;
+    end;
+
     for i := Index to High(FTasks) - 1 do
       FTasks[i] := FTasks[i + 1];
     SetLength(FTasks, Length(FTasks) - 1);
@@ -286,8 +326,6 @@ begin
   end;
 end;
 
-// New Features Implementation
-
 function TTaskManager.SearchTasks(const Query: String): TTaskArray;
 var
   i, Count: Integer;
@@ -321,18 +359,18 @@ begin
   NewIndex := Length(FTasks);
   SetLength(FTasks, NewIndex + 1);
   
-  // Copy basic fields
   FTasks[NewIndex] := FTasks[Index];
-  
-  // Update unique/new fields
   FTasks[NewIndex].ID := FLastID;
   FTasks[NewIndex].Title := FTasks[Index].Title + ' (Copy)';
   FTasks[NewIndex].CreatedAt := Now;
   
-  // Deep copy tags
   SetLength(FTasks[NewIndex].Tags, Length(FTasks[Index].Tags));
   for i := 0 to High(FTasks[Index].Tags) do
     FTasks[NewIndex].Tags[i] := FTasks[Index].Tags[i];
+
+  SetLength(FTasks[NewIndex].Dependencies, Length(FTasks[Index].Dependencies));
+  for i := 0 to High(FTasks[Index].Dependencies) do
+    FTasks[NewIndex].Dependencies[i] := FTasks[Index].Dependencies[i];
     
   Result := FLastID;
 end;
@@ -346,6 +384,7 @@ begin
   Result.InProgress := 0;
   Result.Completed := 0;
   Result.Overdue := 0;
+  Result.Blocked := 0;
   
   for i := 0 to High(FTasks) do
   begin
@@ -359,6 +398,9 @@ begin
     
     if (FTasks[i].DueDate <> 0) and (FTasks[i].DueDate < Now) and (FTasks[i].Status <> tsCompleted) then
       Inc(Result.Overdue);
+      
+    if (FTasks[i].Status <> tsCompleted) and not CanStart(FTasks[i].ID) then
+      Inc(Result.Blocked);
   end;
 end;
 
@@ -377,8 +419,151 @@ begin
   end;
 end;
 
+// Dependencies Implementation
 
-// Persistence
+function TTaskManager.CheckCircularDependency(TaskID, DepID: Integer): Boolean;
+var
+  DepIndex, i: Integer;
+  DepTask: TTask;
+begin
+  // Simple DFS or recursive check could be expensive.
+  // For now, check if DepID depends on TaskID (direct or 1-level indirect)
+  // Real implementation should be more robust.
+  if TaskID = DepID then Exit(True);
+  
+  DepIndex := FindTaskByID(DepID);
+  if DepIndex = -1 then Exit(False);
+  
+  DepTask := FTasks[DepIndex];
+  for i := 0 to High(DepTask.Dependencies) do
+  begin
+    if DepTask.Dependencies[i] = TaskID then Exit(True);
+    // Recursive check could go here
+    if CheckCircularDependency(TaskID, DepTask.Dependencies[i]) then Exit(True);
+  end;
+  Result := False;
+end;
+
+function TTaskManager.AddDependency(const TaskID, DepID: Integer): Boolean;
+var
+  Index, DepIndex, i: Integer;
+begin
+  if TaskID = DepID then Exit(False);
+  
+  Index := FindTaskByID(TaskID);
+  DepIndex := FindTaskByID(DepID);
+  
+  if (Index = -1) or (DepIndex = -1) then Exit(False);
+  
+  // Check if already exists
+  for i := 0 to High(FTasks[Index].Dependencies) do
+    if FTasks[Index].Dependencies[i] = DepID then Exit(True);
+    
+  // Check circular
+  if CheckCircularDependency(TaskID, DepID) then Exit(False);
+  
+  SetLength(FTasks[Index].Dependencies, Length(FTasks[Index].Dependencies) + 1);
+  FTasks[Index].Dependencies[High(FTasks[Index].Dependencies)] := DepID;
+  Result := True;
+end;
+
+function TTaskManager.CanStart(const TaskID: Integer): Boolean;
+var
+  Index, i, DepIndex: Integer;
+begin
+  Index := FindTaskByID(TaskID);
+  if Index = -1 then Exit(False);
+  
+  Result := True;
+  for i := 0 to High(FTasks[Index].Dependencies) do
+  begin
+    DepIndex := FindTaskByID(FTasks[Index].Dependencies[i]);
+    if (DepIndex <> -1) and (FTasks[DepIndex].Status <> tsCompleted) then
+    begin
+      Result := False;
+      Exit;
+    end;
+  end;
+end;
+
+function TTaskManager.GetBlockedTasks: TTaskArray;
+var
+  i, Count: Integer;
+begin
+  Result := nil;
+  SetLength(Result, 0);
+  Count := 0;
+  for i := 0 to High(FTasks) do
+  begin
+    if (FTasks[i].Status <> tsCompleted) and not CanStart(FTasks[i].ID) then
+    begin
+      Inc(Count);
+      SetLength(Result, Count);
+      Result[Count - 1] := FTasks[i];
+    end;
+  end;
+end;
+
+// Export
+
+function TTaskManager.ExportToHTML(const Filename: String): Boolean;
+var
+  List: TStringList;
+  i, j: Integer;
+  RowClass, DepStr: String;
+begin
+  List := TStringList.Create;
+  try
+    List.Add('<html><head><style>');
+    List.Add('body { font-family: sans-serif; }');
+    List.Add('table { border-collapse: collapse; width: 100%; }');
+    List.Add('th, td { border: 1px solid #ddd; padding: 8px; }');
+    List.Add('th { background-color: #f2f2f2; }');
+    List.Add('.completed { background-color: #e6ffe6; text-decoration: line-through; }');
+    List.Add('.overdue { background-color: #ffe6e6; }');
+    List.Add('.blocked { background-color: #fff2e6; }');
+    List.Add('</style></head><body>');
+    List.Add('<h1>Task List</h1>');
+    List.Add('<table>');
+    List.Add('<tr><th>ID</th><th>Title</th><th>Status</th><th>Priority</th><th>Due Date</th><th>Tags</th><th>Deps</th></tr>');
+    
+    for i := 0 to High(FTasks) do
+    begin
+      RowClass := '';
+      if FTasks[i].Status = tsCompleted then RowClass := 'completed'
+      else if (FTasks[i].DueDate <> 0) and (FTasks[i].DueDate < Now) then RowClass := 'overdue'
+      else if not CanStart(FTasks[i].ID) then RowClass := 'blocked';
+      
+      DepStr := '';
+      for j := 0 to High(FTasks[i].Dependencies) do
+      begin
+        if j > 0 then DepStr := DepStr + ', ';
+        DepStr := DepStr + IntToStr(FTasks[i].Dependencies[j]);
+      end;
+      
+      List.Add(Format('<tr class="%s">', [RowClass]));
+      List.Add(Format('<td>%d</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td>', [
+        FTasks[i].ID,
+        FTasks[i].Title,
+        StatusToString(FTasks[i].Status),
+        PriorityToString(FTasks[i].Priority),
+        DateToStr(FTasks[i].DueDate),
+        TagsToString(FTasks[i].Tags),
+        DepStr
+      ]));
+      List.Add('</tr>');
+    end;
+    
+    List.Add('</table></body></html>');
+    List.SaveToFile(Filename);
+    Result := True;
+  except
+    Result := False;
+  end;
+  List.Free;
+end;
+
+// Persistence Helpers
 
 function TTaskManager.TagsToString(const Tags: TTagArray): String;
 var
@@ -414,6 +599,40 @@ begin
   end;
 end;
 
+function TTaskManager.DepsToString(const Deps: TDepArray): String;
+var
+  i: Integer;
+begin
+  Result := '';
+  for i := 0 to High(Deps) do
+  begin
+    if i > 0 then Result := Result + ',';
+    Result := Result + IntToStr(Deps[i]);
+  end;
+end;
+
+function TTaskManager.StringToDeps(const DepString: String): TDepArray;
+var
+  List: TStringList;
+  i: Integer;
+begin
+  Result := nil;
+  SetLength(Result, 0);
+  if DepString = '' then Exit;
+  
+  List := TStringList.Create;
+  try
+    List.Delimiter := ',';
+    List.StrictDelimiter := True;
+    List.DelimitedText := DepString;
+    SetLength(Result, List.Count);
+    for i := 0 to List.Count - 1 do
+      Result[i] := StrToIntDef(List[i], 0);
+  finally
+    List.Free;
+  end;
+end;
+
 function TTaskManager.StatusToString(Status: TTaskStatus): String;
 begin
   WriteStr(Result, Status);
@@ -444,8 +663,8 @@ begin
   try
     for i := 0 to High(FTasks) do
     begin
-      // Format: ID|Title|Description|Status|Priority|CreatedAt|DueDate|Tags
-      Line := Format('%d|%s|%s|%s|%s|%f|%f|%s', [
+      // Format: ID|Title|Description|Status|Priority|CreatedAt|DueDate|Tags|Dependencies
+      Line := Format('%d|%s|%s|%s|%s|%f|%f|%s|%s', [
         FTasks[i].ID,
         FTasks[i].Title,
         FTasks[i].Description,
@@ -453,7 +672,8 @@ begin
         PriorityToString(FTasks[i].Priority),
         FTasks[i].CreatedAt,
         FTasks[i].DueDate,
-        TagsToString(FTasks[i].Tags)
+        TagsToString(FTasks[i].Tags),
+        DepsToString(FTasks[i].Dependencies)
       ]);
       List.Add(Line);
     end;
@@ -498,11 +718,16 @@ begin
         NewTask.DueDate := StrToFloatDef(Parts[6], 0);
         NewTask.Tags := StringToTags(Parts[7]);
         
+        if Parts.Count >= 9 then
+          NewTask.Dependencies := StringToDeps(Parts[8])
+        else
+          SetLength(NewTask.Dependencies, 0);
+        
         // Add to array
         SetLength(FTasks, Length(FTasks) + 1);
         FTasks[High(FTasks)] := NewTask;
         
-        // Update LastID to ensure uniqueness for new tasks
+        // Update LastID
         if NewTask.ID > FLastID then FLastID := NewTask.ID;
       end;
     end;

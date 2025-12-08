@@ -1,27 +1,18 @@
-
 # Pascal Task Manager
 
-A robust, command-line task manager written in Free Pascal.
+A robust, feature-rich Task Manager written in Free Pascal.
 
 ## Features
 
-*   **Task Management**: Create, Read, Update, and Delete (CRUD) tasks.
-*   **Search**: Find tasks by keywords in the title or description.
-*   **Cloning**: Duplicate existing tasks to quickly create similar items.
-*   **Statistics**: Get instant insights into task counts (Pending, In Progress, Completed, Overdue).
-*   **Bulk Operations**: Mark multiple tasks as completed based on tags.
-*   **Dynamic Arrays**: Uses dynamic arrays for efficient memory management.
-*   **Tagging System**: Add multiple tags to tasks for better organization.
-*   **Priorities**: Assign Low, Medium, or High priority to tasks.
-*   **Due Dates**: Set due dates and track overdue tasks.
-*   **Persistence**: Save and load tasks to/from a text file (`.db`).
-*   **Sorting**: Sort tasks by priority.
-
-## Project Structure
-
-*   `task_manager.pas`: Main program file containing the `SelfTest` procedure.
-*   `task_types.pas`: Unit containing the `TTask` record, `TTaskManager` class, and core logic.
-*   `bin/`: Directory where the compiled executable is stored.
+*   **Core CRUD:** Create, Read, Update, Delete tasks.
+*   **Task Attributes:** Title, Description, Priority, Due Date, Status.
+*   **Tagging System:** Add multiple tags to tasks for categorization.
+*   **Search:** Filter tasks by title or description.
+*   **Dependencies:** Link tasks (Task B depends on Task A). Includes circular dependency protection and "Can Start" logic.
+*   **Statistics:** View real-time stats (Total, Pending, Completed, Overdue, Blocked).
+*   **HTML Export:** Generate a styled HTML report of all tasks.
+*   **Persistence:** Save and load tasks from a custom pipe-delimited file format.
+*   **Self-Testing:** Built-in self-test suite to verify all functionality.
 
 ## Compilation
 
@@ -33,15 +24,14 @@ fpc solution1/task_manager.pas -obin/task_manager -O1 -Mobjfpc
 
 ## Usage
 
-Currently, the program runs a comprehensive self-test suite to verify all functionalities.
+Run the compiled binary to execute the self-test suite:
 
 ```bash
-./bin/task_manager
+bin/task_manager
 ```
 
-## Implementation Details
+## Structure
 
-*   **Language**: Free Pascal (FPC)
-*   **Mode**: `{$mode objfpc}`
-*   **Data Storage**: In-memory dynamic arrays with file persistence support.
-*   **No User Input**: Designed as a reusable library/backend logic.
+*   `task_manager.pas`: Main program entry point and self-test suite.
+*   `task_types.pas`: Core logic unit containing the `TTaskManager` class and `TTask` record.
+*   `bin/`: Directory for the compiled executable.
