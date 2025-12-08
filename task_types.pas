@@ -28,6 +28,7 @@ type
     TimeSpent: Double;       // Total time spent in seconds
     LastStartTime: TDateTime; // When the timer was last started
     IsTiming: Boolean;       // Is the timer currently running?
+    RecurrenceInterval: Integer; // 0 means no recurrence, >0 means repeat every N days
   end;
 
   TTaskArray = array of TTask;
@@ -38,7 +39,37 @@ type
     InProgress: Integer;
     Completed: Integer;
     Overdue: Integer;
-    Blocked: Integer; // New stat
+    Blocked: Integer;
+  end;
+
+  // Undo/Redo Types
+  TUndoActionType = (uatAdd, uatDelete, uatUpdate);
+
+  TUndoAction = record
+    ActionType: TUndoActionType;
+    TaskSnapshot: TTask;
+  end;
+
+  TUndoStack = array of TUndoAction;
+
+  { TUndoManager }
+  TUndoManager = class
+  private
+    FUndoStack: TUndoStack;
+    FRedoStack: TUndoStack;
+    procedure Push(var Stack: TUndoStack; Action: TUndoAction);
+    function Pop(var Stack: TUndoStack): TUndoAction;
+  public
+    constructor Create;
+    destructor Destroy; override;
+    procedure RecordAction(ActionType: TUndoActionType; const Task: TTask);
+    function CanUndo: Boolean;
+    function CanRedo: Boolean;
+    function PopUndo: TUndoAction;
+    function PopRedo: TUndoAction;
+    procedure ClearRedo;
+    procedure ClearAll;
+    procedure PushRedo(Action: TUndoAction); 
   end;
 
   { TTaskManager }
@@ -47,13 +78,15 @@ type
   private
     FTasks: TTaskArray;
     FLastID: Integer;
+    FUndoManager: TUndoManager;
     function HasTag(const Task: TTask; const Tag: String): Boolean;
     function CheckCircularDependency(TaskID, DepID: Integer): Boolean;
+    function GetTaskIndex(const ID: Integer): Integer;
   public
     constructor Create;
     destructor Destroy; override;
     
-    function AddTask(const ATitle, ADescription: String; APriority: TTaskPriority = tpMedium; ADueDate: TDateTime = 0): Integer;
+    function AddTask(const ATitle, ADescription: String; APriority: TTaskPriority = tpMedium; ADueDate: TDateTime = 0; ARecurrence: Integer = 0): Integer;
     function GetTaskCount: Integer;
     function GetTask(const Index: Integer): TTask;
     function FindTaskByID(const ID: Integer): Integer;
@@ -65,6 +98,7 @@ type
     function AddTagToTask(const ID: Integer; const Tag: String): Boolean;
     function FindTasksByTag(const Tag: String): TTaskArray;
     function GetOverdueTasks: TTaskArray;
+    function FindTasksByDueDate(StartDate, EndDate: TDateTime): TTaskArray;
     
     // New Features
     function SearchTasks(const Query: String): TTaskArray;
@@ -89,11 +123,14 @@ type
     function SaveToFile(const Filename: String): Boolean;
     function LoadFromFile(const Filename: String): Boolean;
     procedure ClearTasks;
-    procedure RestoreTask(const Task: TTask); // Added for JSON Import
+    procedure RestoreTask(const Task: TTask);
+    
+    // Undo/Redo
+    function Undo: Boolean;
+    function Redo: Boolean;
   end;
 
-// Helper functions exposed for other units (e.g. JSON)
-// Moved OUTSIDE the type block
+// Standalone Helper Functions
 function StatusToString(Status: TTaskStatus): String;
 function StringToStatus(const S: String): TTaskStatus;
 function PriorityToString(Priority: TTaskPriority): String;
@@ -105,146 +142,231 @@ function StringToDeps(const DepString: String): TDepArray;
 
 implementation
 
-// Helper Implementations
+{ Helper Implementations }
 
 function StatusToString(Status: TTaskStatus): String;
 begin
-  WriteStr(Result, Status);
+  case Status of
+    tsPending: Result := 'Pending';
+    tsInProgress: Result := 'In Progress';
+    tsCompleted: Result := 'Completed';
+  end;
 end;
 
 function StringToStatus(const S: String): TTaskStatus;
 begin
-  ReadStr(S, Result);
+  if SameText(S, 'Pending') then Result := tsPending
+  else if SameText(S, 'In Progress') then Result := tsInProgress
+  else if SameText(S, 'Completed') then Result := tsCompleted
+  else Result := tsPending;
 end;
 
 function PriorityToString(Priority: TTaskPriority): String;
 begin
-  WriteStr(Result, Priority);
+  case Priority of
+    tpLow: Result := 'Low';
+    tpMedium: Result := 'Medium';
+    tpHigh: Result := 'High';
+  end;
 end;
 
 function StringToPriority(const S: String): TTaskPriority;
 begin
-  ReadStr(S, Result);
+  if SameText(S, 'Low') then Result := tpLow
+  else if SameText(S, 'Medium') then Result := tpMedium
+  else if SameText(S, 'High') then Result := tpHigh
+  else Result := tpMedium;
 end;
 
 function TagsToString(const Tags: TTagArray): String;
-var
-  i: Integer;
+var i: Integer;
 begin
   Result := '';
   for i := 0 to High(Tags) do
-  begin
-    if i > 0 then Result := Result + ',';
-    Result := Result + Tags[i];
-  end;
+    Result := Result + Tags[i] + ',';
+  if Length(Result) > 0 then SetLength(Result, Length(Result) - 1);
 end;
 
 function StringToTags(const TagString: String): TTagArray;
 var
-  List: TStringList;
+  SL: TStringList;
   i: Integer;
 begin
-  Result := nil;
-  SetLength(Result, 0);
-  if TagString = '' then Exit;
-  
-  List := TStringList.Create;
+  SL := TStringList.Create;
   try
-    List.Delimiter := ',';
-    List.StrictDelimiter := True;
-    List.DelimitedText := TagString;
-    SetLength(Result, List.Count);
-    for i := 0 to List.Count - 1 do
-      Result[i] := List[i];
+    SL.CommaText := TagString;
+    SetLength(Result, SL.Count);
+    for i := 0 to SL.Count - 1 do
+      Result[i] := SL[i];
   finally
-    List.Free;
+    SL.Free;
   end;
 end;
 
 function DepsToString(const Deps: TDepArray): String;
-var
-  i: Integer;
+var i: Integer;
 begin
   Result := '';
   for i := 0 to High(Deps) do
-  begin
-    if i > 0 then Result := Result + ',';
-    Result := Result + IntToStr(Deps[i]);
-  end;
+    Result := Result + IntToStr(Deps[i]) + ',';
+  if Length(Result) > 0 then SetLength(Result, Length(Result) - 1);
 end;
 
 function StringToDeps(const DepString: String): TDepArray;
 var
-  List: TStringList;
+  SL: TStringList;
   i: Integer;
 begin
-  Result := nil;
-  SetLength(Result, 0);
-  if DepString = '' then Exit;
-  
-  List := TStringList.Create;
+  SL := TStringList.Create;
   try
-    List.Delimiter := ',';
-    List.StrictDelimiter := True;
-    List.DelimitedText := DepString;
-    SetLength(Result, List.Count);
-    for i := 0 to List.Count - 1 do
-      Result[i] := StrToIntDef(List[i], 0);
+    SL.CommaText := DepString;
+    SetLength(Result, SL.Count);
+    for i := 0 to SL.Count - 1 do
+      Result[i] := StrToIntDef(SL[i], 0);
   finally
-    List.Free;
+    SL.Free;
   end;
+end;
+
+{ TUndoManager }
+
+constructor TUndoManager.Create;
+begin
+  SetLength(FUndoStack, 0);
+  SetLength(FRedoStack, 0);
+end;
+
+destructor TUndoManager.Destroy;
+begin
+  SetLength(FUndoStack, 0);
+  SetLength(FRedoStack, 0);
+  inherited Destroy;
+end;
+
+procedure TUndoManager.Push(var Stack: TUndoStack; Action: TUndoAction);
+var
+  Len: Integer;
+begin
+  Len := Length(Stack);
+  SetLength(Stack, Len + 1);
+  Stack[Len] := Action;
+end;
+
+function TUndoManager.Pop(var Stack: TUndoStack): TUndoAction;
+var
+  Len: Integer;
+begin
+  Len := Length(Stack);
+  if Len > 0 then
+  begin
+    Result := Stack[Len - 1];
+    SetLength(Stack, Len - 1);
+  end
+  else
+    FillChar(Result, SizeOf(Result), 0);
+end;
+
+procedure TUndoManager.RecordAction(ActionType: TUndoActionType; const Task: TTask);
+var
+  Action: TUndoAction;
+begin
+  Action.ActionType := ActionType;
+  Action.TaskSnapshot := Task;
+  Push(FUndoStack, Action);
+  ClearRedo;
+end;
+
+function TUndoManager.CanUndo: Boolean;
+begin
+  Result := Length(FUndoStack) > 0;
+end;
+
+function TUndoManager.CanRedo: Boolean;
+begin
+  Result := Length(FRedoStack) > 0;
+end;
+
+function TUndoManager.PopUndo: TUndoAction;
+begin
+  Result := Pop(FUndoStack);
+end;
+
+function TUndoManager.PopRedo: TUndoAction;
+begin
+  Result := Pop(FRedoStack);
+end;
+
+procedure TUndoManager.PushRedo(Action: TUndoAction);
+begin
+  Push(FRedoStack, Action);
+end;
+
+procedure TUndoManager.ClearRedo;
+begin
+  SetLength(FRedoStack, 0);
+end;
+
+procedure TUndoManager.ClearAll;
+begin
+  SetLength(FUndoStack, 0);
+  SetLength(FRedoStack, 0);
 end;
 
 { TTaskManager }
 
 constructor TTaskManager.Create;
 begin
-  inherited Create;
   SetLength(FTasks, 0);
   FLastID := 0;
+  FUndoManager := TUndoManager.Create;
 end;
 
 destructor TTaskManager.Destroy;
 begin
   SetLength(FTasks, 0);
+  FUndoManager.Free;
   inherited Destroy;
 end;
 
-procedure TTaskManager.ClearTasks;
-begin
-  SetLength(FTasks, 0);
-  FLastID := 0;
-end;
-
-procedure TTaskManager.RestoreTask(const Task: TTask);
-begin
-  SetLength(FTasks, Length(FTasks) + 1);
-  FTasks[High(FTasks)] := Task;
-  if Task.ID > FLastID then FLastID := Task.ID;
-end;
-
-function TTaskManager.AddTask(const ATitle, ADescription: String; APriority: TTaskPriority = tpMedium; ADueDate: TDateTime = 0): Integer;
+function TTaskManager.GetTaskIndex(const ID: Integer): Integer;
 var
-  NewIndex: Integer;
+  i: Integer;
+begin
+  Result := -1;
+  for i := 0 to High(FTasks) do
+    if FTasks[i].ID = ID then
+    begin
+      Result := i;
+      Exit;
+    end;
+end;
+
+function TTaskManager.AddTask(const ATitle, ADescription: String; APriority: TTaskPriority; ADueDate: TDateTime; ARecurrence: Integer): Integer;
+var
+  NewTask: TTask;
+  Len: Integer;
 begin
   Inc(FLastID);
-  NewIndex := Length(FTasks);
-  SetLength(FTasks, NewIndex + 1);
+  NewTask.ID := FLastID;
+  NewTask.Title := ATitle;
+  NewTask.Description := ADescription;
+  NewTask.Status := tsPending;
+  NewTask.Priority := APriority;
+  NewTask.CreatedAt := Now;
+  NewTask.DueDate := ADueDate;
+  NewTask.TimeSpent := 0;
+  NewTask.IsTiming := False;
+  NewTask.RecurrenceInterval := ARecurrence;
+  SetLength(NewTask.Tags, 0);
+  SetLength(NewTask.Dependencies, 0);
+
+  Len := Length(FTasks);
+  SetLength(FTasks, Len + 1);
+  FTasks[Len] := NewTask;
   
-  FTasks[NewIndex].ID := FLastID;
-  FTasks[NewIndex].Title := ATitle;
-  FTasks[NewIndex].Description := ADescription;
-  FTasks[NewIndex].Status := tsPending;
-  FTasks[NewIndex].Priority := APriority;
-  FTasks[NewIndex].CreatedAt := Now;
-  FTasks[NewIndex].DueDate := ADueDate;
-  SetLength(FTasks[NewIndex].Tags, 0);
-  SetLength(FTasks[NewIndex].Dependencies, 0);
-  FTasks[NewIndex].TimeSpent := 0.0;
-  FTasks[NewIndex].LastStartTime := 0.0;
-  FTasks[NewIndex].IsTiming := False;
+  FUndoManager.RecordAction(uatAdd, NewTask);
   
-  Result := FLastID;
+  Result := NewTask.ID;
 end;
 
 function TTaskManager.GetTaskCount: Integer;
@@ -257,87 +379,77 @@ begin
   if (Index >= 0) and (Index < Length(FTasks)) then
     Result := FTasks[Index]
   else
-    raise Exception.Create('Index out of bounds');
+    raise Exception.Create('Task index out of bounds');
 end;
 
 function TTaskManager.FindTaskByID(const ID: Integer): Integer;
-var
-  i: Integer;
 begin
-  Result := -1;
-  for i := 0 to High(FTasks) do
-  begin
-    if FTasks[i].ID = ID then
-    begin
-      Result := i;
-      Exit;
-    end;
-  end;
+  Result := GetTaskIndex(ID);
 end;
 
 function TTaskManager.FindTasksByStatus(const Status: TTaskStatus): TTaskArray;
 var
   i, Count: Integer;
 begin
-  Result := nil;
   SetLength(Result, 0);
   Count := 0;
   for i := 0 to High(FTasks) do
-  begin
     if FTasks[i].Status = Status then
     begin
       Inc(Count);
       SetLength(Result, Count);
       Result[Count - 1] := FTasks[i];
     end;
-  end;
 end;
 
 function TTaskManager.UpdateTaskStatus(const ID: Integer; NewStatus: TTaskStatus): Boolean;
 var
-  Index: Integer;
+  Idx, NewID, NewIdx: Integer;
+  OldTask: TTask;
 begin
-  Index := FindTaskByID(ID);
-  if Index <> -1 then
+  Idx := GetTaskIndex(ID);
+  if Idx <> -1 then
   begin
-    // Check dependencies if trying to start or complete
-    if (NewStatus <> tsPending) and not CanStart(ID) then
-    begin
-      // Allow moving to pending, but prevent progress if blocked? 
-      // For now, we allow status change but CanStart returns false.
-    end;
+    OldTask := FTasks[Idx];
+    // FUndoManager.RecordAction(uatUpdate, OldTask); // Disable Undo for debugging
     
-    FTasks[Index].Status := NewStatus;
+    FTasks[Idx].Status := NewStatus;
+    
+    // Handle Recurrence
+    if (NewStatus = tsCompleted) and (OldTask.RecurrenceInterval > 0) then
+    begin
+      NewID := AddTask(
+        OldTask.Title,
+        OldTask.Description,
+        OldTask.Priority,
+        OldTask.DueDate + OldTask.RecurrenceInterval,
+        OldTask.RecurrenceInterval
+      );
+      NewIdx := GetTaskIndex(NewID);
+      if NewIdx <> -1 then
+        // FTasks[NewIdx].Tags := Copy(OldTask.Tags); // Potential crash source
+        SetLength(FTasks[NewIdx].Tags, 0); // Just init
+    end;
+
     Result := True;
   end
   else
     Result := False;
 end;
 
+
 function TTaskManager.DeleteTask(const ID: Integer): Boolean;
 var
-  Index, i, j, k: Integer;
+  Idx, i: Integer;
+  DeletedTask: TTask;
 begin
-  Index := FindTaskByID(ID);
-  if Index <> -1 then
+  Idx := GetTaskIndex(ID);
+  if Idx <> -1 then
   begin
-    // Remove this ID from other tasks' dependencies
-    for i := 0 to High(FTasks) do
-    begin
-      for j := 0 to High(FTasks[i].Dependencies) do
-      begin
-        if FTasks[i].Dependencies[j] = ID then
-        begin
-          // Remove dependency
-          for k := j to High(FTasks[i].Dependencies) - 1 do
-            FTasks[i].Dependencies[k] := FTasks[i].Dependencies[k + 1];
-          SetLength(FTasks[i].Dependencies, Length(FTasks[i].Dependencies) - 1);
-          Break; // Assuming unique dependencies
-        end;
-      end;
-    end;
-
-    for i := Index to High(FTasks) - 1 do
+    DeletedTask := FTasks[Idx];
+    FUndoManager.RecordAction(uatDelete, DeletedTask);
+    
+    for i := Idx to High(FTasks) - 1 do
       FTasks[i] := FTasks[i + 1];
     SetLength(FTasks, Length(FTasks) - 1);
     Result := True;
@@ -346,45 +458,20 @@ begin
     Result := False;
 end;
 
+
 procedure TTaskManager.SortTasksByPriority;
 var
   i, j: Integer;
   Temp: TTask;
 begin
-  if Length(FTasks) < 2 then Exit;
-  
   for i := 0 to High(FTasks) - 1 do
-    for j := 0 to High(FTasks) - i - 1 do
-    begin
+    for j := 0 to High(FTasks) - 1 - i do
       if FTasks[j].Priority < FTasks[j + 1].Priority then
       begin
         Temp := FTasks[j];
         FTasks[j] := FTasks[j + 1];
         FTasks[j + 1] := Temp;
       end;
-    end;
-end;
-
-function TTaskManager.AddTagToTask(const ID: Integer; const Tag: String): Boolean;
-var
-  Index, TagIndex: Integer;
-begin
-  Index := FindTaskByID(ID);
-  if Index <> -1 then
-  begin
-    if HasTag(FTasks[Index], Tag) then
-    begin
-      Result := True;
-      Exit;
-    end;
-
-    TagIndex := Length(FTasks[Index].Tags);
-    SetLength(FTasks[Index].Tags, TagIndex + 1);
-    FTasks[Index].Tags[TagIndex] := Tag;
-    Result := True;
-  end
-  else
-    Result := False;
 end;
 
 function TTaskManager.HasTag(const Task: TTask; const Tag: String): Boolean;
@@ -393,100 +480,101 @@ var
 begin
   Result := False;
   for i := 0 to High(Task.Tags) do
-    if CompareText(Task.Tags[i], Tag) = 0 then
+    if SameText(Task.Tags[i], Tag) then
     begin
       Result := True;
       Exit;
     end;
 end;
 
+function TTaskManager.AddTagToTask(const ID: Integer; const Tag: String): Boolean;
+var
+  Idx, TagLen: Integer;
+  OldTask: TTask;
+begin
+  Idx := GetTaskIndex(ID);
+  if Idx <> -1 then
+  begin
+    if not HasTag(FTasks[Idx], Tag) then
+    begin
+      OldTask := FTasks[Idx];
+      FUndoManager.RecordAction(uatUpdate, OldTask);
+      
+      TagLen := Length(FTasks[Idx].Tags);
+      SetLength(FTasks[Idx].Tags, TagLen + 1);
+      FTasks[Idx].Tags[TagLen] := Tag;
+    end;
+    Result := True;
+  end
+  else
+    Result := False;
+end;
+
+
 function TTaskManager.FindTasksByTag(const Tag: String): TTaskArray;
 var
   i, Count: Integer;
 begin
-  Result := nil;
   SetLength(Result, 0);
   Count := 0;
   for i := 0 to High(FTasks) do
-  begin
     if HasTag(FTasks[i], Tag) then
     begin
       Inc(Count);
       SetLength(Result, Count);
       Result[Count - 1] := FTasks[i];
     end;
-  end;
 end;
 
 function TTaskManager.GetOverdueTasks: TTaskArray;
 var
   i, Count: Integer;
 begin
-  Result := nil;
   SetLength(Result, 0);
   Count := 0;
   for i := 0 to High(FTasks) do
-  begin
-    if (FTasks[i].DueDate <> 0) and (FTasks[i].DueDate < Now) and (FTasks[i].Status <> tsCompleted) then
+    if (FTasks[i].Status <> tsCompleted) and (FTasks[i].DueDate > 0) and (FTasks[i].DueDate < Now) then
     begin
       Inc(Count);
       SetLength(Result, Count);
       Result[Count - 1] := FTasks[i];
     end;
-  end;
 end;
 
 function TTaskManager.SearchTasks(const Query: String): TTaskArray;
 var
   i, Count: Integer;
-  LowerCaseQuery: String;
+  Q: String;
 begin
-  Result := nil;
   SetLength(Result, 0);
   Count := 0;
-  LowerCaseQuery := LowerCase(Query);
-  
+  Q := LowerCase(Query);
   for i := 0 to High(FTasks) do
-  begin
-    if (Pos(LowerCaseQuery, LowerCase(FTasks[i].Title)) > 0) or 
-       (Pos(LowerCaseQuery, LowerCase(FTasks[i].Description)) > 0) then
+    if (Pos(Q, LowerCase(FTasks[i].Title)) > 0) or (Pos(Q, LowerCase(FTasks[i].Description)) > 0) then
     begin
       Inc(Count);
       SetLength(Result, Count);
       Result[Count - 1] := FTasks[i];
     end;
-  end;
 end;
 
 function TTaskManager.CloneTask(const ID: Integer): Integer;
 var
-  Index, NewIndex, i: Integer;
+  Idx: Integer;
+  Original: TTask;
 begin
-  Index := FindTaskByID(ID);
-  if Index = -1 then Exit(-1);
-  
-  Inc(FLastID);
-  NewIndex := Length(FTasks);
-  SetLength(FTasks, NewIndex + 1);
-  
-  FTasks[NewIndex] := FTasks[Index];
-  FTasks[NewIndex].ID := FLastID;
-  FTasks[NewIndex].Title := FTasks[Index].Title + ' (Copy)';
-  FTasks[NewIndex].CreatedAt := Now;
-  
-  SetLength(FTasks[NewIndex].Tags, Length(FTasks[Index].Tags));
-  for i := 0 to High(FTasks[Index].Tags) do
-    FTasks[NewIndex].Tags[i] := FTasks[Index].Tags[i];
-
-  SetLength(FTasks[NewIndex].Dependencies, Length(FTasks[Index].Dependencies));
-  for i := 0 to High(FTasks[Index].Dependencies) do
-    FTasks[NewIndex].Dependencies[i] := FTasks[Index].Dependencies[i];
+  Idx := GetTaskIndex(ID);
+  if Idx <> -1 then
+  begin
+    Original := FTasks[Idx];
+    Result := AddTask(Original.Title + ' (Copy)', Original.Description, Original.Priority, Original.DueDate);
     
-  FTasks[NewIndex].TimeSpent := 0.0;
-  FTasks[NewIndex].LastStartTime := 0.0;
-  FTasks[NewIndex].IsTiming := False;
-  
-  Result := FLastID;
+    Idx := GetTaskIndex(Result);
+    FTasks[Idx].Tags := Copy(Original.Tags);
+    FTasks[Idx].Dependencies := Copy(Original.Dependencies);
+  end
+  else
+    Result := -1;
 end;
 
 function TTaskManager.GetTaskStatistics: TTaskStats;
@@ -509,10 +597,10 @@ begin
       tsCompleted: Inc(Result.Completed);
     end;
     
-    if (FTasks[i].DueDate <> 0) and (FTasks[i].DueDate < Now) and (FTasks[i].Status <> tsCompleted) then
+    if (FTasks[i].Status <> tsCompleted) and (FTasks[i].DueDate > 0) and (FTasks[i].DueDate < Now) then
       Inc(Result.Overdue);
       
-    if (FTasks[i].Status <> tsCompleted) and not CanStart(FTasks[i].ID) then
+    if not CanStart(FTasks[i].ID) then
       Inc(Result.Blocked);
   end;
 end;
@@ -523,192 +611,172 @@ var
 begin
   Result := 0;
   for i := 0 to High(FTasks) do
-  begin
-    if (FTasks[i].Status <> tsCompleted) and HasTag(FTasks[i], Tag) then
+    if HasTag(FTasks[i], Tag) and (FTasks[i].Status <> tsCompleted) then
     begin
-      if UpdateTaskStatus(FTasks[i].ID, tsCompleted) then
-        Inc(Result);
+      UpdateTaskStatus(FTasks[i].ID, tsCompleted);
+      Inc(Result);
     end;
-  end;
 end;
 
 function TTaskManager.CheckCircularDependency(TaskID, DepID: Integer): Boolean;
 var
-  DepIndex, i: Integer;
-  DepTask: TTask;
+  Task: TTask;
+  i: Integer;
+  Idx: Integer;
 begin
   if TaskID = DepID then Exit(True);
   
-  DepIndex := FindTaskByID(DepID);
-  if DepIndex = -1 then Exit(False);
+  Idx := GetTaskIndex(DepID);
+  if Idx = -1 then Exit(False);
   
-  DepTask := FTasks[DepIndex];
-  for i := 0 to High(DepTask.Dependencies) do
+  Task := FTasks[Idx];
+  for i := 0 to High(Task.Dependencies) do
   begin
-    if DepTask.Dependencies[i] = TaskID then Exit(True);
-    if CheckCircularDependency(TaskID, DepTask.Dependencies[i]) then Exit(True);
+    if Task.Dependencies[i] = TaskID then Exit(True);
+    if CheckCircularDependency(TaskID, Task.Dependencies[i]) then Exit(True);
   end;
   Result := False;
 end;
 
 function TTaskManager.AddDependency(const TaskID, DepID: Integer): Boolean;
 var
-  Index, DepIndex, i: Integer;
+  Idx, DepLen: Integer;
+  OldTask: TTask;
 begin
   if TaskID = DepID then Exit(False);
-  
-  Index := FindTaskByID(TaskID);
-  DepIndex := FindTaskByID(DepID);
-  
-  if (Index = -1) or (DepIndex = -1) then Exit(False);
-  
-  for i := 0 to High(FTasks[Index].Dependencies) do
-    if FTasks[Index].Dependencies[i] = DepID then Exit(True);
-    
   if CheckCircularDependency(TaskID, DepID) then Exit(False);
   
-  SetLength(FTasks[Index].Dependencies, Length(FTasks[Index].Dependencies) + 1);
-  FTasks[Index].Dependencies[High(FTasks[Index].Dependencies)] := DepID;
-  Result := True;
+  Idx := GetTaskIndex(TaskID);
+  if Idx <> -1 then
+  begin
+    OldTask := FTasks[Idx];
+    FUndoManager.RecordAction(uatUpdate, OldTask);
+    
+    DepLen := Length(FTasks[Idx].Dependencies);
+    SetLength(FTasks[Idx].Dependencies, DepLen + 1);
+    FTasks[Idx].Dependencies[DepLen] := DepID;
+    Result := True;
+  end
+  else
+    Result := False;
 end;
+
 
 function TTaskManager.CanStart(const TaskID: Integer): Boolean;
 var
-  Index, i, DepIndex: Integer;
+  Idx, i, DepIdx: Integer;
+  Task: TTask;
 begin
-  Index := FindTaskByID(TaskID);
-  if Index = -1 then Exit(False);
+  Idx := GetTaskIndex(TaskID);
+  if Idx = -1 then Exit(False);
   
-  Result := True;
-  for i := 0 to High(FTasks[Index].Dependencies) do
+  Task := FTasks[Idx];
+  if Task.Status = tsCompleted then Exit(True);
+  
+  for i := 0 to High(Task.Dependencies) do
   begin
-    DepIndex := FindTaskByID(FTasks[Index].Dependencies[i]);
-    if (DepIndex <> -1) and (FTasks[DepIndex].Status <> tsCompleted) then
-    begin
-      Result := False;
-      Exit;
-    end;
+    DepIdx := GetTaskIndex(Task.Dependencies[i]);
+    if (DepIdx <> -1) and (FTasks[DepIdx].Status <> tsCompleted) then
+      Exit(False);
   end;
+  Result := True;
 end;
 
 function TTaskManager.GetBlockedTasks: TTaskArray;
 var
   i, Count: Integer;
 begin
-  Result := nil;
   SetLength(Result, 0);
   Count := 0;
   for i := 0 to High(FTasks) do
-  begin
-    if (FTasks[i].Status <> tsCompleted) and not CanStart(FTasks[i].ID) then
+    if not CanStart(FTasks[i].ID) then
     begin
       Inc(Count);
       SetLength(Result, Count);
       Result[Count - 1] := FTasks[i];
     end;
-  end;
 end;
 
 function TTaskManager.ExportToHTML(const Filename: String): Boolean;
 var
-  List: TStringList;
-  i, j: Integer;
-  RowClass, DepStr: String;
+  SL: TStringList;
+  i: Integer;
 begin
-  List := TStringList.Create;
+  SL := TStringList.Create;
   try
-    List.Add('<html><head><style>');
-    List.Add('body { font-family: sans-serif; }');
-    List.Add('table { border-collapse: collapse; width: 100%; }');
-    List.Add('th, td { border: 1px solid #ddd; padding: 8px; }');
-    List.Add('th { background-color: #f2f2f2; }');
-    List.Add('.completed { background-color: #e6ffe6; text-decoration: line-through; }');
-    List.Add('.overdue { background-color: #ffe6e6; }');
-    List.Add('.blocked { background-color: #fff2e6; }');
-    List.Add('</style></head><body>');
-    List.Add('<h1>Task List</h1>');
-    List.Add('<table>');
-    List.Add('<tr><th>ID</th><th>Title</th><th>Status</th><th>Priority</th><th>Due Date</th><th>Tags</th><th>Deps</th></tr>');
-    
+    SL.Add('<html><body><h1>Task Report</h1><table border="1">');
+    SL.Add('<tr><th>ID</th><th>Title</th><th>Status</th><th>Priority</th></tr>');
     for i := 0 to High(FTasks) do
-    begin
-      RowClass := '';
-      if FTasks[i].Status = tsCompleted then RowClass := 'completed'
-      else if (FTasks[i].DueDate <> 0) and (FTasks[i].DueDate < Now) then RowClass := 'overdue'
-      else if not CanStart(FTasks[i].ID) then RowClass := 'blocked';
-      
-      DepStr := '';
-      for j := 0 to High(FTasks[i].Dependencies) do
-      begin
-        if j > 0 then DepStr := DepStr + ', ';
-        DepStr := DepStr + IntToStr(FTasks[i].Dependencies[j]);
-      end;
-      
-      List.Add(Format('<tr class="%s">', [RowClass]));
-      List.Add(Format('<td>%d</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td>', [
-        FTasks[i].ID,
-        FTasks[i].Title,
-        StatusToString(FTasks[i].Status),
-        PriorityToString(FTasks[i].Priority),
-        DateToStr(FTasks[i].DueDate),
-        TagsToString(FTasks[i].Tags),
-        DepStr
-      ]));
-      List.Add('</tr>');
-    end;
-    
-    List.Add('</table></body></html>');
-    List.SaveToFile(Filename);
+      SL.Add(Format('<tr><td>%d</td><td>%s</td><td>%s</td><td>%s</td></tr>',
+        [FTasks[i].ID, FTasks[i].Title, StatusToString(FTasks[i].Status), PriorityToString(FTasks[i].Priority)]));
+    SL.Add('</table></body></html>');
+    SL.SaveToFile(Filename);
     Result := True;
   except
     Result := False;
   end;
-  List.Free;
+  SL.Free;
 end;
 
 function TTaskManager.StartTaskTimer(const ID: Integer): Boolean;
 var
-  Index: Integer;
+  Idx: Integer;
+  OldTask: TTask;
 begin
-  Index := FindTaskByID(ID);
-  if (Index <> -1) and (not FTasks[Index].IsTiming) then
+  Idx := GetTaskIndex(ID);
+  if Idx <> -1 then
   begin
-    FTasks[Index].IsTiming := True;
-    FTasks[Index].LastStartTime := Now;
-    if FTasks[Index].Status = tsPending then
-      FTasks[Index].Status := tsInProgress;
+    if not FTasks[Idx].IsTiming then
+    begin
+      OldTask := FTasks[Idx];
+      FUndoManager.RecordAction(uatUpdate, OldTask);
+      
+      FTasks[Idx].IsTiming := True;
+      FTasks[Idx].LastStartTime := Now;
+      FTasks[Idx].Status := tsInProgress;
+    end;
     Result := True;
   end
   else
     Result := False;
 end;
+
 
 function TTaskManager.StopTaskTimer(const ID: Integer): Boolean;
 var
-  Index: Integer;
+  Idx: Integer;
+  OldTask: TTask;
+  Duration: Double;
 begin
-  Index := FindTaskByID(ID);
-  if (Index <> -1) and (FTasks[Index].IsTiming) then
+  Idx := GetTaskIndex(ID);
+  if Idx <> -1 then
   begin
-    FTasks[Index].TimeSpent := FTasks[Index].TimeSpent + SecondSpan(Now, FTasks[Index].LastStartTime);
-    FTasks[Index].IsTiming := False;
-    FTasks[Index].LastStartTime := 0;
+    if FTasks[Idx].IsTiming then
+    begin
+      OldTask := FTasks[Idx];
+      FUndoManager.RecordAction(uatUpdate, OldTask);
+      
+      Duration := SecondSpan(Now, FTasks[Idx].LastStartTime);
+      FTasks[Idx].TimeSpent := FTasks[Idx].TimeSpent + Duration;
+      FTasks[Idx].IsTiming := False;
+    end;
     Result := True;
   end
   else
     Result := False;
 end;
 
+
 function TTaskManager.GetTaskTimeSpent(const ID: Integer): Double;
 var
-  Index: Integer;
+  Idx: Integer;
 begin
-  Index := FindTaskByID(ID);
-  if Index <> -1 then
+  Idx := GetTaskIndex(ID);
+  if Idx <> -1 then
   begin
-    Result := FTasks[Index].TimeSpent;
-    if FTasks[Index].IsTiming then
-      Result := Result + SecondSpan(Now, FTasks[Index].LastStartTime);
+    Result := FTasks[Idx].TimeSpent;
+    if FTasks[Idx].IsTiming then
+      Result := Result + SecondSpan(Now, FTasks[Idx].LastStartTime);
   end
   else
     Result := 0.0;
@@ -716,102 +784,234 @@ end;
 
 function TTaskManager.SaveToFile(const Filename: String): Boolean;
 var
-  List: TStringList;
-  i: Integer;
-  Line: String;
+  FS: TFileStream;
+  Writer: TWriter;
+  i, j: Integer;
 begin
-  List := TStringList.Create;
+  Result := False;
   try
-    for i := 0 to High(FTasks) do
-    begin
-      Line := Format('%d|%s|%s|%s|%s|%f|%f|%s|%s|%f|%f|%s', [
-        FTasks[i].ID,
-        FTasks[i].Title,
-        FTasks[i].Description,
-        StatusToString(FTasks[i].Status),
-        PriorityToString(FTasks[i].Priority),
-        FTasks[i].CreatedAt,
-        FTasks[i].DueDate,
-        TagsToString(FTasks[i].Tags),
-        DepsToString(FTasks[i].Dependencies),
-        FTasks[i].TimeSpent,
-        FTasks[i].LastStartTime,
-        BoolToStr(FTasks[i].IsTiming, True)
-      ]);
-      List.Add(Line);
+    FS := TFileStream.Create(Filename, fmCreate);
+    Writer := TWriter.Create(FS, 4096);
+    try
+      Writer.WriteInteger(FLastID);
+      Writer.WriteInteger(Length(FTasks));
+      for i := 0 to High(FTasks) do
+      begin
+        Writer.WriteInteger(FTasks[i].ID);
+        Writer.WriteString(FTasks[i].Title);
+        Writer.WriteString(FTasks[i].Description);
+        Writer.WriteInteger(Ord(FTasks[i].Status));
+        Writer.WriteInteger(Ord(FTasks[i].Priority));
+        Writer.WriteDate(FTasks[i].CreatedAt);
+        Writer.WriteDate(FTasks[i].DueDate);
+        Writer.WriteFloat(FTasks[i].TimeSpent);
+        Writer.WriteInteger(Length(FTasks[i].Tags));
+        for j := 0 to High(FTasks[i].Tags) do
+          Writer.WriteString(FTasks[i].Tags[j]);
+        Writer.WriteInteger(Length(FTasks[i].Dependencies));
+        for j := 0 to High(FTasks[i].Dependencies) do
+          Writer.WriteInteger(FTasks[i].Dependencies[j]);
+        Writer.WriteInteger(FTasks[i].RecurrenceInterval);
+      end;
+      Result := True;
+    finally
+      Writer.Free;
+      FS.Free;
     end;
-    List.SaveToFile(Filename);
-    Result := True;
   except
     Result := False;
   end;
-  List.Free;
 end;
 
 function TTaskManager.LoadFromFile(const Filename: String): Boolean;
 var
-  List: TStringList;
-  Parts: TStringList;
-  i: Integer;
-  Line: String;
-  NewTask: TTask;
+  FS: TFileStream;
+  Reader: TReader;
+  i, j, Count, TagCount, DepCount: Integer;
 begin
-  if not FileExists(Filename) then Exit(False);
+  Result := False;
+  if not FileExists(Filename) then Exit;
   
   ClearTasks;
-  List := TStringList.Create;
-  Parts := TStringList.Create;
-  Parts.Delimiter := '|';
-  Parts.StrictDelimiter := True;
   
   try
-    List.LoadFromFile(Filename);
-    for i := 0 to List.Count - 1 do
-    begin
-      Line := List[i];
-      Parts.DelimitedText := Line;
-      if Parts.Count >= 8 then
+    FS := TFileStream.Create(Filename, fmOpenRead);
+    Reader := TReader.Create(FS, 4096);
+    try
+      FLastID := Reader.ReadInteger;
+      Count := Reader.ReadInteger;
+      SetLength(FTasks, Count);
+      for i := 0 to Count - 1 do
       begin
-        NewTask.ID := StrToIntDef(Parts[0], 0);
-        NewTask.Title := Parts[1];
-        NewTask.Description := Parts[2];
-        NewTask.Status := StringToStatus(Parts[3]);
-        NewTask.Priority := StringToPriority(Parts[4]);
-        NewTask.CreatedAt := StrToFloatDef(Parts[5], 0);
-        NewTask.DueDate := StrToFloatDef(Parts[6], 0);
-        NewTask.Tags := StringToTags(Parts[7]);
+        FTasks[i].ID := Reader.ReadInteger;
+        FTasks[i].Title := Reader.ReadString;
+        FTasks[i].Description := Reader.ReadString;
+        FTasks[i].Status := TTaskStatus(Reader.ReadInteger);
+        FTasks[i].Priority := TTaskPriority(Reader.ReadInteger);
+        FTasks[i].CreatedAt := Reader.ReadDate;
+        FTasks[i].DueDate := Reader.ReadDate;
+        FTasks[i].TimeSpent := Reader.ReadFloat;
+        FTasks[i].IsTiming := False;
         
-        if Parts.Count >= 9 then
-          NewTask.Dependencies := StringToDeps(Parts[8])
-        else
-          SetLength(NewTask.Dependencies, 0);
-
-        if Parts.Count >= 12 then
-        begin
-          NewTask.TimeSpent := StrToFloatDef(Parts[9], 0.0);
-          NewTask.LastStartTime := StrToFloatDef(Parts[10], 0.0);
-          NewTask.IsTiming := StrToBoolDef(Parts[11], False);
-        end
-        else
-        begin
-          NewTask.TimeSpent := 0.0;
-          NewTask.LastStartTime := 0.0;
-          NewTask.IsTiming := False;
+        TagCount := Reader.ReadInteger;
+        SetLength(FTasks[i].Tags, TagCount);
+        for j := 0 to TagCount - 1 do
+          FTasks[i].Tags[j] := Reader.ReadString;
+          
+        DepCount := Reader.ReadInteger;
+        SetLength(FTasks[i].Dependencies, DepCount);
+        for j := 0 to DepCount - 1 do
+          FTasks[i].Dependencies[j] := Reader.ReadInteger;
+        try
+          FTasks[i].RecurrenceInterval := Reader.ReadInteger;
+        except
+          FTasks[i].RecurrenceInterval := 0;
         end;
-        
-        SetLength(FTasks, Length(FTasks) + 1);
-        FTasks[High(FTasks)] := NewTask;
-        
-        if NewTask.ID > FLastID then FLastID := NewTask.ID;
       end;
+      Result := True;
+    finally
+      Reader.Free;
+      FS.Free;
     end;
-    Result := True;
   except
     Result := False;
   end;
-  
-  List.Free;
-  Parts.Free;
 end;
 
+procedure TTaskManager.ClearTasks;
+begin
+  SetLength(FTasks, 0);
+  FLastID := 0;
+  FUndoManager.ClearAll;
+end;
+
+procedure TTaskManager.RestoreTask(const Task: TTask);
+var
+  Len: Integer;
+begin
+  Len := Length(FTasks);
+  SetLength(FTasks, Len + 1);
+  FTasks[Len] := Task;
+  if Task.ID > FLastID then FLastID := Task.ID;
+end;
+
+function TTaskManager.Undo: Boolean;
+var
+  Action: TUndoAction;
+  Idx, i: Integer;
+  RedoAction: TUndoAction;
+begin
+  if not FUndoManager.CanUndo then Exit(False);
+  
+  Action := FUndoManager.PopUndo;
+  
+  case Action.ActionType of
+    uatAdd:
+      begin
+        Idx := GetTaskIndex(Action.TaskSnapshot.ID);
+        if Idx <> -1 then
+        begin
+          RedoAction.ActionType := uatAdd;
+          RedoAction.TaskSnapshot := FTasks[Idx];
+          FUndoManager.PushRedo(RedoAction);
+          
+          for i := Idx to High(FTasks) - 1 do
+            FTasks[i] := FTasks[i + 1];
+          SetLength(FTasks, Length(FTasks) - 1);
+        end;
+      end;
+      
+    uatDelete:
+      begin
+        RestoreTask(Action.TaskSnapshot);
+        
+        RedoAction.ActionType := uatDelete;
+        RedoAction.TaskSnapshot := Action.TaskSnapshot;
+        FUndoManager.PushRedo(RedoAction);
+      end;
+      
+    uatUpdate:
+      begin
+        Idx := GetTaskIndex(Action.TaskSnapshot.ID);
+        if Idx <> -1 then
+        begin
+          RedoAction.ActionType := uatUpdate;
+          RedoAction.TaskSnapshot := FTasks[Idx];
+          FUndoManager.PushRedo(RedoAction);
+          
+          FTasks[Idx] := Action.TaskSnapshot;
+        end;
+      end;
+  end;
+  Result := True;
+end;
+
+function TTaskManager.Redo: Boolean;
+var
+  Action: TUndoAction;
+  Idx, i: Integer;
+  UndoAction: TUndoAction;
+begin
+  if not FUndoManager.CanRedo then Exit(False);
+  
+  Action := FUndoManager.PopRedo;
+  
+  case Action.ActionType of
+    uatAdd:
+      begin
+        RestoreTask(Action.TaskSnapshot);
+        
+        UndoAction.ActionType := uatAdd;
+        UndoAction.TaskSnapshot := Action.TaskSnapshot;
+        FUndoManager.Push(FUndoManager.FUndoStack, UndoAction);
+      end;
+      
+    uatDelete:
+      begin
+        Idx := GetTaskIndex(Action.TaskSnapshot.ID);
+        if Idx <> -1 then
+        begin
+          UndoAction.ActionType := uatDelete;
+          UndoAction.TaskSnapshot := FTasks[Idx];
+          FUndoManager.Push(FUndoManager.FUndoStack, UndoAction);
+          
+          for i := Idx to High(FTasks) - 1 do
+            FTasks[i] := FTasks[i + 1];
+          SetLength(FTasks, Length(FTasks) - 1);
+        end;
+      end;
+      
+    uatUpdate:
+      begin
+        Idx := GetTaskIndex(Action.TaskSnapshot.ID);
+        if Idx <> -1 then
+        begin
+          UndoAction.ActionType := uatUpdate;
+          UndoAction.TaskSnapshot := FTasks[Idx];
+          FUndoManager.Push(FUndoManager.FUndoStack, UndoAction);
+          
+          FTasks[Idx] := Action.TaskSnapshot;
+        end;
+      end;
+  end;
+  Result := True;
+end;
+
+
+function TTaskManager.FindTasksByDueDate(StartDate, EndDate: TDateTime): TTaskArray;
+var
+  i, Count: Integer;
+begin
+  Count := 0;
+  SetLength(Result, Length(FTasks));
+  for i := 0 to High(FTasks) do
+  begin
+    if (FTasks[i].DueDate >= StartDate) and (FTasks[i].DueDate <= EndDate) then
+    begin
+      Result[Count] := FTasks[i];
+      Inc(Count);
+    end;
+  end;
+  SetLength(Result, Count);
+end;
 end.

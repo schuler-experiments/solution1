@@ -41,6 +41,7 @@ begin
   JSON.Add('time_spent', Task.TimeSpent);
   JSON.Add('last_start_time', Task.LastStartTime);
   JSON.Add('is_timing', Task.IsTiming);
+  JSON.Add('recurrence', Task.RecurrenceInterval);
   
   Result := JSON;
 end;
@@ -79,6 +80,7 @@ begin
   Result.TimeSpent := JSON.Get('time_spent', 0.0);
   Result.LastStartTime := JSON.Get('last_start_time', 0.0);
   Result.IsTiming := JSON.Get('is_timing', False);
+  Result.RecurrenceInterval := JSON.Get('recurrence', 0);
 end;
 
 function ExportTasksToJSON(Manager: TTaskManager; const Filename: String): Boolean;
