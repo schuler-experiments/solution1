@@ -27,6 +27,14 @@ type
 
   TTaskArray = array of TTask;
 
+  TTaskStats = record
+    Total: Integer;
+    Pending: Integer;
+    InProgress: Integer;
+    Completed: Integer;
+    Overdue: Integer;
+  end;
+
   { TTaskManager }
 
   TTaskManager = class
@@ -57,6 +65,12 @@ type
     function FindTasksByTag(const Tag: String): TTaskArray;
     function GetOverdueTasks: TTaskArray;
     
+    // New Features
+    function SearchTasks(const Query: String): TTaskArray;
+    function CloneTask(const ID: Integer): Integer;
+    function GetTaskStatistics: TTaskStats;
+    function CompleteTasksByTag(const Tag: String): Integer;
+
     // Persistence
     function SaveToFile(const Filename: String): Boolean;
     function LoadFromFile(const Filename: String): Boolean;
@@ -272,7 +286,99 @@ begin
   end;
 end;
 
-// Helper methods for persistence
+// New Features Implementation
+
+function TTaskManager.SearchTasks(const Query: String): TTaskArray;
+var
+  i, Count: Integer;
+  LowerCaseQuery: String;
+begin
+  Result := nil;
+  SetLength(Result, 0);
+  Count := 0;
+  LowerCaseQuery := LowerCase(Query);
+  
+  for i := 0 to High(FTasks) do
+  begin
+    if (Pos(LowerCaseQuery, LowerCase(FTasks[i].Title)) > 0) or 
+       (Pos(LowerCaseQuery, LowerCase(FTasks[i].Description)) > 0) then
+    begin
+      Inc(Count);
+      SetLength(Result, Count);
+      Result[Count - 1] := FTasks[i];
+    end;
+  end;
+end;
+
+function TTaskManager.CloneTask(const ID: Integer): Integer;
+var
+  Index, NewIndex, i: Integer;
+begin
+  Index := FindTaskByID(ID);
+  if Index = -1 then Exit(-1);
+  
+  Inc(FLastID);
+  NewIndex := Length(FTasks);
+  SetLength(FTasks, NewIndex + 1);
+  
+  // Copy basic fields
+  FTasks[NewIndex] := FTasks[Index];
+  
+  // Update unique/new fields
+  FTasks[NewIndex].ID := FLastID;
+  FTasks[NewIndex].Title := FTasks[Index].Title + ' (Copy)';
+  FTasks[NewIndex].CreatedAt := Now;
+  
+  // Deep copy tags
+  SetLength(FTasks[NewIndex].Tags, Length(FTasks[Index].Tags));
+  for i := 0 to High(FTasks[Index].Tags) do
+    FTasks[NewIndex].Tags[i] := FTasks[Index].Tags[i];
+    
+  Result := FLastID;
+end;
+
+function TTaskManager.GetTaskStatistics: TTaskStats;
+var
+  i: Integer;
+begin
+  Result.Total := 0;
+  Result.Pending := 0;
+  Result.InProgress := 0;
+  Result.Completed := 0;
+  Result.Overdue := 0;
+  
+  for i := 0 to High(FTasks) do
+  begin
+    Inc(Result.Total);
+    
+    case FTasks[i].Status of
+      tsPending: Inc(Result.Pending);
+      tsInProgress: Inc(Result.InProgress);
+      tsCompleted: Inc(Result.Completed);
+    end;
+    
+    if (FTasks[i].DueDate <> 0) and (FTasks[i].DueDate < Now) and (FTasks[i].Status <> tsCompleted) then
+      Inc(Result.Overdue);
+  end;
+end;
+
+function TTaskManager.CompleteTasksByTag(const Tag: String): Integer;
+var
+  i: Integer;
+begin
+  Result := 0;
+  for i := 0 to High(FTasks) do
+  begin
+    if (FTasks[i].Status <> tsCompleted) and HasTag(FTasks[i], Tag) then
+    begin
+      FTasks[i].Status := tsCompleted;
+      Inc(Result);
+    end;
+  end;
+end;
+
+
+// Persistence
 
 function TTaskManager.TagsToString(const Tags: TTagArray): String;
 var

@@ -6,6 +6,10 @@ A robust, command-line task manager written in Free Pascal.
 ## Features
 
 *   **Task Management**: Create, Read, Update, and Delete (CRUD) tasks.
+*   **Search**: Find tasks by keywords in the title or description.
+*   **Cloning**: Duplicate existing tasks to quickly create similar items.
+*   **Statistics**: Get instant insights into task counts (Pending, In Progress, Completed, Overdue).
+*   **Bulk Operations**: Mark multiple tasks as completed based on tags.
 *   **Dynamic Arrays**: Uses dynamic arrays for efficient memory management.
 *   **Tagging System**: Add multiple tags to tasks for better organization.
 *   **Priorities**: Assign Low, Medium, or High priority to tasks.
