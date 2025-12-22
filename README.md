@@ -6,12 +6,115 @@
 A feature-rich, enterprise-grade task management system implemented entirely in Free Pascal (FPC). This project demonstrates advanced software engineering concepts including object-oriented programming, class inheritance, modular design, and complex business logic.
 
 **Project Statistics:**
-- **Total Source Code Lines:** 39,338+ lines
+- **Total Source Code Lines:** 30,842 lines (48 source files)
 - **Core Units:** 20+ specialized modules
 - **Demo Programs:** 22 test/demonstration programs
 - **Programming Language:** Free Pascal (Object Pascal mode)
 - **Architecture:** Object-oriented with inheritance hierarchy
 - **Design Pattern:** Modular, extensible class-based architecture
+
+## Quick Start
+
+### Prerequisites
+
+Install Free Pascal Compiler (FPC):
+
+```bash
+# Ubuntu/Debian
+sudo apt-get install fpc
+
+# macOS
+brew install fpc
+
+# Windows
+# Download from: https://www.freepascal.org/download.html
+```
+
+### Compilation
+
+#### Using the Compilation Script
+
+The project includes a convenient compilation script:
+
+```bash
+cd solution1/bin
+./compile.sh
+```
+
+The `compile.sh` script:
+- Automatically navigates to the correct directory
+- Compiles solution1.pas with debugging symbols (`-gl`)
+- Places the executable in the `bin/` folder
+- Reports compilation success or failure
+
+#### Manual Compilation
+
+Compile any demo program manually:
+
+```bash
+cd solution1
+
+# Compile core module
+fpc taskmanager.pas -O2 -Mobjfpc
+
+# Compile and run a specific demo
+fpc solution1.pas -obin/demo1 -O2 -Mobjfpc
+./bin/demo1
+
+# Compile with debugging symbols
+fpc solution1.pas -gl -obin/demo1 -Mobjfpc
+```
+
+**Compiler flags explained:**
+- `-Mobjfpc` - Object Pascal mode (required for OOP features)
+- `-O2` - Optimization level 2
+- `-gl` - Generate debugging information
+- `-o<filename>` - Specify output executable name
+- `-H+` - Use AnsiStrings (long strings)
+
+## Demo Programs Reference
+
+Each solution file demonstrates specific features and capabilities. Run them in order to learn the system progressively.
+
+| File | Program Name | Modules Used | Features Demonstrated |
+|------|-------------|--------------|----------------------|
+| **solution1.pas** | TaskManagerDemo | taskmanager | **Core Features**: CRUD operations, categories, tags, priorities, filtering, sorting, basic statistics, CSV export |
+| **solution2.pas** | TaskManagerExtendedDemo | taskmanager, taskmanagerext | **Extended Features**: Recurring tasks, subtasks, parent-child relationships, priority scoring, batch operations |
+| **solution3.pas** | TaskManagerAdvancedDemo | taskmanager, taskmanagerext, taskmanageradvanced | **Advanced Features**: Analytics, smart suggestions, pattern detection, predictive insights |
+| **solution4.pas** | solution4 | taskmanager, taskmanagerext, taskmanageradvanced, taskmanagerenhanced | **Enhanced Features**: Reminders, audit trail, archiving, file attachments, change tracking |
+| **solution5.pas** | solution5 | taskmanagerteam (+ dependencies) | **Team Collaboration**: Team members, task assignments, permissions, workload management |
+| **solution6.pas** | solution6 | taskmanagerteam, taskmanagergamify | **Gamification**: Points, badges, achievements, leaderboards, productivity rewards |
+| **solution7.pas** | solution7 | taskmanagerteam, taskmanagerrecurring | **Recurring Tasks**: Daily/weekly/monthly patterns, recurrence rules, automated task generation |
+| **solution8.pas** | TaskManagerResourceDemo | taskmanagerresource | **Resource Management**: Resource allocation, capacity planning, conflict detection |
+| **solution9.pas** | TaskManagerIntelligenceDemo | taskmanagerintelligence | **AI Intelligence**: Pattern recognition, predictive analytics, smart scheduling recommendations |
+| **solution10.pas** | solution10 | taskmanagersmart | **Smart Features**: Auto-categorization, intelligent prioritization, time estimation |
+| **solution11.pas** | solution11 | Multiple modules | **Integration Demo**: Combined features from multiple modules working together |
+| **solution12.pas** | solution12 | taskmanagerlifestyle | **Lifestyle Integration**: Health tracking, work-life balance, wellness goals |
+| **solution13.pas** | solution13 | taskmanagerlifestyle, taskmanagerwellbeing | **Wellbeing**: Stress management, burnout prevention, mental health support |
+| **solution14.pas** | solution14 | taskmanagerfocus | **Focus & Productivity**: Pomodoro technique, distraction blocking, deep work sessions |
+| **solution15.pas** | BoardTaskManagerDemo | taskmanagerboards | **Kanban Boards**: Board management, columns, WIP limits, sprint planning, agile workflows |
+| **solution16.pas** | SearchEngineDemo | taskmanagersearch | **Search Engine**: Full-text search, filters, advanced queries, search indexing |
+| **solution17.pas** | solution17 | taskmanagermeetings | **Meeting Management**: Meeting scheduling, attendees, agendas, minutes, action items |
+| **solution18.pas** | solution18 | taskmanagercomments | **Comments & Discussion**: Threaded comments, mentions, notifications, collaboration |
+| **solution19.pas** | solution19 | taskmanagertemplates | **Templates**: Task templates, project templates, reusable workflows |
+| **solution20.pas** | solution20 | taskmanagernotifications | **Notifications**: Multi-channel alerts, email/SMS, escalation rules, notification preferences |
+| **solution21.pas** | TimeTrackingDemo | taskmanagertimetracking | **Time Tracking**: Time logging, timesheets, billable hours, productivity analysis |
+| **solution22.pas** | KnowledgeBaseDemo | taskmanagerknowledge | **Knowledge Base**: Documentation, wiki, knowledge articles, search, versioning |
+
+### Running Demo Programs
+
+```bash
+# Compile and run in one step
+fpc solution1.pas -obin/demo1 && ./bin/demo1
+
+# Compile multiple demos
+for i in {1..22}; do
+  fpc solution$i.pas -obin/demo$i -O2 -Mobjfpc
+done
+
+# Run a specific demo
+./bin/demo5  # Team collaboration demo
+```
 
 ## Architecture Overview
 
@@ -43,462 +146,365 @@ TTaskManager (base class - taskmanager.pas)
 └── TWellbeingTaskManager (taskmanagerwellbeing.pas)
 ```
 
+### Project Structure
+
+```
+solution1/
+├── bin/
+│   └── compile.sh          # Compilation helper script
+├── src/
+│   └── taskmanager.pas     # Alternative/backup version of core module
+├── taskmanager.pas         # Core base class (use this one)
+├── taskmanager*.pas        # 20+ feature modules
+├── solution*.pas           # 22 demo programs
+└── README.md              # This documentation
+```
+
+**Note:** There are two `taskmanager.pas` files:
+- **Root `taskmanager.pas`** (23,918 bytes) - The main version to use
+- **src/taskmanager.pas** (24,654 bytes) - Alternative/development version
+
+For new projects, use the root `taskmanager.pas` as it's the stable release version.
+
 ### Module Organization
 
 The system is organized into specialized modules, each providing distinct functionality:
 
-| Module | Unit File | Primary Features |
-|--------|-----------|------------------|
-| **Core** | taskmanager.pas | Basic CRUD, filtering, sorting, categories, tags |
-| **Extended** | taskmanagerext.pas | Recurring tasks, subtasks, priority scoring |
-| **Advanced** | taskmanageradvanced.pas | Batch operations, analytics, smart suggestions |
-| **Enhanced** | taskmanagerenhanced.pas | Reminders, audit trail, archiving, attachments |
-| **Team** | taskmanagerteam.pas | Team collaboration, assignments, permissions |
-| **Boards** | taskmanagerboards.pas | Kanban boards, sprint planning, agile workflows |
-| **Notifications** | taskmanagernotifications.pas | Multi-channel alerts, templates, escalation |
-| **Intelligence** | taskmanagerintelligence.pas | AI insights, pattern detection, predictions |
-| **Knowledge** | taskmanagerknowledge.pas | Knowledge base, documentation, wiki |
-| **Lifestyle** | taskmanagerlifestyle.pas | Health integration, work-life balance |
-| **Focus** | taskmanagerfocus.pas | Pomodoro timer, focus sessions, distractions |
-| **Time Tracking** | taskmanagertimetracking.pas | Detailed time logging, timesheets, billing |
-| **Meetings** | taskmanagermeetings.pas | Meeting scheduling, agendas, minutes |
-| **Resources** | taskmanagerresource.pas | Resource allocation, capacity planning |
-| **Search** | taskmanagersearch.pas | Advanced search engine, full-text indexing |
-| **Templates** | taskmanagertemplates.pas | Task templates, workflows, automation |
-| **Smart** | taskmanagersmart.pas | Smart scheduling, auto-prioritization |
-| **Recurring** | taskmanagerrecurring.pas | Advanced recurring task patterns |
-| **Comments** | taskmanagercomments.pas | Discussion threads, mentions, reactions |
-| **Gamification** | taskmanagergamify.pas | Points, achievements, leaderboards |
-| **Wellbeing** | taskmanagerwellbeing.pas | Stress tracking, burnout prevention |
+| Module | Unit File | Primary Features | Lines of Code |
+|--------|-----------|------------------|---------------|
+| **Core** | taskmanager.pas | Basic CRUD, filtering, sorting, categories, tags | 899 |
+| **Extended** | taskmanagerext.pas | Recurring tasks, subtasks, priority scoring | 958 |
+| **Advanced** | taskmanageradvanced.pas | Batch operations, analytics, smart suggestions | 701 |
+| **Enhanced** | taskmanagerenhanced.pas | Reminders, audit trail, archiving, attachments | 1,024 |
+| **Team** | taskmanagerteam.pas | Team collaboration, assignments, permissions | 1,051 |
+| **Boards** | taskmanagerboards.pas | Kanban boards, sprint planning, agile workflows | 962 |
+| **Notifications** | taskmanagernotifications.pas | Multi-channel alerts, templates, escalation | 1,538 |
+| **Intelligence** | taskmanagerintelligence.pas | AI insights, pattern detection, predictions | 713 |
+| **Knowledge** | taskmanagerknowledge.pas | Knowledge base, documentation, wiki | 1,284 |
+| **Lifestyle** | taskmanagerlifestyle.pas | Health integration, work-life balance | 1,410 |
+| **Focus** | taskmanagerfocus.pas | Pomodoro, deep work, distraction management | 1,370 |
+| **Gamify** | taskmanagergamify.pas | Points, badges, achievements, leaderboards | 844 |
+| **Recurring** | taskmanagerrecurring.pas | Recurring task patterns and automation | 1,043 |
+| **Resource** | taskmanagerresource.pas | Resource allocation and capacity planning | 1,000 |
+| **Smart** | taskmanagersmart.pas | Auto-categorization, intelligent features | 719 |
+| **Search** | taskmanagersearch.pas | Full-text search and advanced queries | 942 |
+| **Templates** | taskmanagertemplates.pas | Task and project templates | 1,147 |
+| **Time Tracking** | taskmanagertimetracking.pas | Time logs, timesheets, billable hours | 1,544 |
+| **Meetings** | taskmanagermeetings.pas | Meeting management and scheduling | 1,084 |
+| **Comments** | taskmanagercomments.pas | Threaded discussions and collaboration | 1,502 |
+| **Wellbeing** | taskmanagerwellbeing.pas | Stress management, burnout prevention | 1,099 |
 
-## Core Features (TTaskManager)
+**Total:** 30,842 lines across 48 source files
 
-The base `TTaskManager` class in `taskmanager.pas` provides fundamental task management capabilities:
+## Core Features
 
-### Data Structures
+### Basic Task Management (TTaskManager)
 
-#### TTaskStatus (Enumeration)
-```pascal
-TTaskStatus = (
-  tsNotStarted,   // Task has not been started
-  tsInProgress,   // Task is currently being worked on
-  tsCompleted,    // Task is finished
-  tsCancelled,    // Task was cancelled
-  tsOnHold        // Task is paused/blocked
-);
-```
-
-#### TTaskPriority (Enumeration)
-```pascal
-TTaskPriority = (
-  tpLow,      // Low priority
-  tpMedium,   // Medium priority
-  tpHigh,     // High priority
-  tpCritical  // Critical priority
-);
-```
-
-#### TTask (Record)
-```pascal
-TTask = record
-  ID: Integer;                    // Unique identifier
-  Title: string;                  // Task title
-  Description: string;            // Detailed description
-  Category: string;               // Task category
-  Status: TTaskStatus;            // Current status
-  Priority: TTaskPriority;        // Priority level
-  CreatedDate: TDateTime;         // Creation timestamp
-  DueDate: TDateTime;             // Due date
-  CompletedDate: TDateTime;       // Completion timestamp
-  EstimatedHours: Double;         // Estimated effort
-  ActualHours: Double;            // Actual time spent
-  Tags: array of string;          // Flexible tagging
-end;
-```
-
-### Core Operations
-
-#### Task CRUD
-```pascal
-// Create
-function AddTask(const ATitle, ADescription, ACategory: string;
-                 APriority: TTaskPriority; ADueDate: TDateTime;
-                 AEstimatedHours: Double = 0): Integer;
-
-// Read
-function GetTask(AID: Integer): TTask;
-function GetAllTasks: TTaskArray;
-
-// Update
-function UpdateTaskTitle(AID: Integer; const ANewTitle: string): Boolean;
-function UpdateTaskDescription(AID: Integer; const ANewDesc: string): Boolean;
-function UpdateTaskStatus(AID: Integer; ANewStatus: TTaskStatus): Boolean;
-function UpdateTaskPriority(AID: Integer; ANewPriority: TTaskPriority): Boolean;
-function UpdateTaskDueDate(AID: Integer; ANewDueDate: TDateTime): Boolean;
-function UpdateTaskCategory(AID: Integer; const ANewCategory: string): Boolean;
-function UpdateTaskEstimatedHours(AID: Integer; AHours: Double): Boolean;
-function UpdateTaskActualHours(AID: Integer; AHours: Double): Boolean;
-
-// Delete
-function DeleteTask(AID: Integer): Boolean;
-```
-
-#### Filtering & Searching
-```pascal
-// Filter by status
-function FilterByStatus(AStatus: TTaskStatus): TTaskArray;
-
-// Filter by priority
-function FilterByPriority(APriority: TTaskPriority): TTaskArray;
-
-// Filter by category
-function FilterByCategory(const ACategory: string): TTaskArray;
-
-// Filter by date range
-function FilterByDateRange(AStartDate, AEndDate: TDateTime): TTaskArray;
-
-// Filter by tags
-function FilterByTags(const ATags: array of string): TTaskArray;
-
-// Search by title (case-insensitive)
-function SearchByTitle(const ASearchTerm: string): TTaskArray;
-```
-
-#### Sorting
-```pascal
-type
-  TSortCriteria = (
-    scTitle,      // Sort by title alphabetically
-    scPriority,   // Sort by priority
-    scDueDate,    // Sort by due date
-    scCreatedDate,// Sort by creation date
-    scStatus,     // Sort by status
-    scCategory    // Sort by category
-  );
-
-// Ascending sort
-function SortTasks(ACriteria: TSortCriteria): TTaskArray;
-
-// Descending sort
-function SortTasksDescending(ACriteria: TSortCriteria): TTaskArray;
-```
-
-#### Statistics & Analytics
-```pascal
-function GetCompletedTaskCount: Integer;
-function GetPendingTaskCount: Integer;
-function GetOverdueTaskCount: Integer;
-function GetCompletionRate: Double;  // Returns percentage
-function GetAverageCompletionTime: Double;  // In days
-function GetTotalEstimatedHours: Double;
-function GetTotalActualHours: Double;
-function GetTasksByCategory: TStringIntegerMap;  // Category → Count
-```
-
-#### Tag Management
-```pascal
-function AddTagToTask(ATaskID: Integer; const ATag: string): Boolean;
-function RemoveTagFromTask(ATaskID: Integer; const ATag: string): Boolean;
-function GetTaskTags(ATaskID: Integer): TStringArray;
-```
-
-#### Import/Export & Persistence
-```pascal
-// Export to CSV format
-function ExportToCSV: string;
-
-// Save to custom file format
-function SaveToFile(const AFileName: string): Boolean;
-
-// Load from file
-function LoadFromFile(const AFileName: string): Boolean;
-```
-
-### Usage Example - Core Features
+The foundation class provides essential task management:
 
 ```pascal
-program TaskManagerDemo;
-
-uses
-  SysUtils, DateUtils, taskmanager;
+uses taskmanager;
 
 var
-  Manager: TTaskManager;
+  TM: TTaskManager;
   TaskID: Integer;
-  Tasks: TTaskArray;
-  i: Integer;
 
 begin
-  Manager := TTaskManager.Create;
+  TM := TTaskManager.Create;
   try
-    // Create tasks
-    TaskID := Manager.AddTask(
-      'Implement login system',
-      'Create secure user authentication with OAuth2 support',
+    // Create a task
+    TaskID := TM.AddTask(
+      'Implement login feature',
+      'Create user authentication',
       'Backend',
       tpHigh,
-      EncodeDate(2024, 3, 15),
-      16.0  // Estimated hours
+      EncodeDate(2024, 12, 31),
+      8.0  // 8 hours estimated
     );
     
-    // Add tags
-    Manager.AddTagToTask(TaskID, 'security');
-    Manager.AddTagToTask(TaskID, 'authentication');
+    // Update task
+    TM.UpdateTask(TaskID, 'Implement OAuth login', '', '', tpHigh, 0, 0);
     
-    // Update status
-    Manager.UpdateTaskStatus(TaskID, tsInProgress);
-    
-    // Track time
-    Manager.UpdateTaskActualHours(TaskID, 8.5);
-    
-    // Get sorted tasks
-    Tasks := Manager.SortTasksDescending(scPriority);
-    
-    WriteLn('Tasks sorted by priority (highest first):');
-    for i := 0 to High(Tasks) do
-      WriteLn('  - ', Tasks[i].Title, ' (', GetEnumName(TypeInfo(TTaskPriority), 
-              Ord(Tasks[i].Priority)), ')');
-    
-    // Get statistics
-    WriteLn('Completion Rate: ', Manager.GetCompletionRate:0:1, '%');
-    WriteLn('Total Estimated Hours: ', Manager.GetTotalEstimatedHours:0:1);
+    // Mark complete
+    TM.CompleteTask(TaskID);
     
     // Export to CSV
-    WriteLn(Manager.ExportToCSV);
+    TM.ExportToCSV('tasks.csv');
+  finally
+    TM.Free;
+  end;
+end.
+```
+
+**Key Methods:**
+
+```pascal
+// CRUD Operations
+function AddTask(const ATitle, ADescription, ACategory: string;
+                 APriority: TTaskPriority; ADueDate: TDateTime;
+                 AEstimatedHours: Double): Integer;
+function UpdateTask(AID: Integer; const ATitle, ADescription, 
+                   ACategory: string; APriority: TTaskPriority;
+                   ADueDate: TDateTime; AEstimatedHours: Double): Boolean;
+function DeleteTask(AID: Integer): Boolean;
+function CompleteTask(AID: Integer): Boolean;
+
+// Filtering & Retrieval
+function GetAllTasks: TTaskArray;
+function GetTasksByCategory(const ACategory: string): TTaskArray;
+function GetTasksByPriority(APriority: TTaskPriority): TTaskArray;
+function GetOverdueTasks: TTaskArray;
+function GetUpcomingTasks(ADays: Integer): TTaskArray;
+
+// Sorting
+procedure SortTasksByPriority;
+procedure SortTasksByDueDate;
+procedure SortTasksByTitle;
+
+// Statistics
+function GetCompletionRate: Double;
+function GetAverageCompletionTime: Double;
+function GetCategoryStatistics: string;
+
+// Export
+function ExportToCSV(const AFilename: string): Boolean;
+procedure SaveToFile(const AFilename: string);
+procedure LoadFromFile(const AFilename: string);
+```
+
+### Data Types
+
+```pascal
+type
+  TTaskPriority = (tpLow, tpMedium, tpHigh, tpUrgent);
+  
+  TTask = record
+    ID: Integer;
+    Title: string;
+    Description: string;
+    Category: string;
+    Priority: TTaskPriority;
+    DueDate: TDateTime;
+    EstimatedHours: Double;
+    ActualHours: Double;
+    CreatedDate: TDateTime;
+    CompletedDate: TDateTime;
+    IsCompleted: Boolean;
+    Tags: array of string;
+  end;
+  
+  TTaskArray = array of TTask;
+```
+
+## Extended Features (TExtendedTaskManager)
+
+Adds recurring tasks, subtasks, and advanced operations:
+
+```pascal
+uses taskmanager, taskmanagerext;
+
+var
+  Manager: TExtendedTaskManager;
+  ParentID, ChildID: Integer;
+
+begin
+  Manager := TExtendedTaskManager.Create;
+  try
+    // Create recurring task (daily)
+    ParentID := Manager.AddRecurringTask(
+      'Daily standup',
+      'Team sync meeting',
+      rtDaily,
+      EncodeDate(2024, 1, 1),
+      EncodeDate(2024, 12, 31)
+    );
     
-    // Save to file
-    if Manager.SaveToFile('tasks.dat') then
-      WriteLn('Tasks saved successfully');
-      
+    // Add subtask
+    ChildID := Manager.AddSubtask(ParentID, 'Prepare agenda', 'List topics');
+    
+    // Get all subtasks
+    Subtasks := Manager.GetSubtasks(ParentID);
+    
+    // Priority scoring
+    Score := Manager.CalculatePriorityScore(ParentID);
   finally
     Manager.Free;
   end;
 end.
 ```
 
-## Extended Features (TExtendedTaskManager)
-
-The `TExtendedTaskManager` class extends the base with advanced capabilities:
-
-### Recurring Tasks
-
-Support for automatic task recurrence with multiple patterns:
+**Recurring Task Types:**
 
 ```pascal
 type
-  TRecurrencePattern = (
-    rpNone,       // One-time task
-    rpDaily,      // Every day
-    rpWeekly,     // Every week
-    rpBiWeekly,   // Every 2 weeks
-    rpMonthly,    // Every month
-    rpQuarterly,  // Every 3 months
-    rpYearly      // Every year
-  );
-
-// Create recurring task
-function AddExtendedTask(const ATitle, ADescription, ACategory: string;
-                         APriority: TTaskPriority; ADueDate: TDateTime;
-                         AEstimatedHours: Double; ARecurrence: TRecurrencePattern;
-                         AParentID: Integer = 0): Integer;
-
-// Update recurrence
-function SetTaskRecurrence(ATaskID: Integer; APattern: TRecurrencePattern): Boolean;
-
-// Get recurring tasks
-function GetRecurringTasks: TExtendedTaskArray;
-
-// Generate next occurrence
-function GenerateNextRecurrence(ATaskID: Integer): Integer;
-
-// Auto-update all recurring tasks
-procedure UpdateAllRecurringTasks;
+  TRecurrenceType = (rtDaily, rtWeekly, rtMonthly, rtYearly, rtCustom);
 ```
 
-### Hierarchical Tasks (Subtasks)
-
-Break down complex tasks into manageable subtasks:
+**Key Methods:**
 
 ```pascal
-// Create subtask
-function AddSubtask(AParentID: Integer; const ATitle, ADescription: string;
-                    APriority: TTaskPriority; ADueDate: TDateTime): Integer;
+// Recurring Tasks
+function AddRecurringTask(const ATitle, ADescription: string;
+                         ARecurrence: TRecurrenceType;
+                         AStartDate, AEndDate: TDateTime): Integer;
+function GenerateRecurringInstances(ATaskID: Integer): Integer;
 
-// Get all subtasks of a parent
+// Subtasks
+function AddSubtask(AParentID: Integer; const ATitle, ADescription: string): Integer;
 function GetSubtasks(AParentID: Integer): TExtendedTaskArray;
+function GetParentTask(ATaskID: Integer): TExtendedTask;
 
-// Get parent task ID
-function GetParentTask(ATaskID: Integer): Integer;
-
-// Check if task has subtasks
-function HasSubtasks(ATaskID: Integer): Boolean;
-```
-
-### Smart Priority Scoring
-
-Automatic priority calculation based on multiple factors:
-
-```pascal
-// Calculate dynamic priority score
-function CalculatePriorityScore(const ATask: TExtendedTask): Double;
-// Considers: base priority, days until due, subtask count, completion percentage
-
-// Get top priority tasks
+// Priority Scoring
+function CalculatePriorityScore(ATaskID: Integer): Double;
 function GetTopPriorityTasks(ACount: Integer): TExtendedTaskArray;
 
-// Get tasks needing attention
-function GetTasksNeedingAttention: TExtendedTaskArray;
-// Returns overdue, due soon, or blocked tasks
-
-// Get tasks due soon
-function GetTasksDueSoon(ADays: Integer): TExtendedTaskArray;
-```
-
-### Batch Operations
-
-Perform operations on multiple tasks efficiently:
-
-```pascal
-// Update multiple tasks at once
-function BatchUpdateStatus(const ATaskIDs: array of Integer;
-                           ANewStatus: TTaskStatus): Integer;
-
-function BatchUpdatePriority(const ATaskIDs: array of Integer;
-                             ANewPriority: TTaskPriority): Integer;
+// Batch Operations
+type
+  TBatchOperationResult = record
+    SuccessCount: Integer;
+    FailureCount: Integer;
+    Errors: array of string;
+  end;
 
 function BatchUpdateCategory(const ATaskIDs: array of Integer;
-                             const ANewCategory: string): Integer;
-
-function BatchDelete(const ATaskIDs: array of Integer): Integer;
-
-// Add tag to multiple tasks
-function BatchAddTag(const ATaskIDs: array of Integer;
-                     const ATag: string): Integer;
+                            const ANewCategory: string): TBatchOperationResult;
+function BatchComplete(const ATaskIDs: array of Integer): TBatchOperationResult;
+function BatchDelete(const ATaskIDs: array of Integer): TBatchOperationResult;
 ```
 
-### Usage Example - Extended Features
+## Advanced Analytics (TAdvancedTaskManager)
+
+Provides business intelligence and insights:
 
 ```pascal
+uses taskmanager, taskmanagerext, taskmanageradvanced;
+
 var
-  ExtManager: TExtendedTaskManager;
-  MainTaskID, SubtaskID: Integer;
-  TopTasks: TExtendedTaskArray;
+  Manager: TAdvancedTaskManager;
+  Suggestions: TTaskSuggestionArray;
+  Report: TProductivityReport;
 
 begin
-  ExtManager := TExtendedTaskManager.Create;
+  Manager := TAdvancedTaskManager.Create;
   try
-    // Create a recurring weekly task
-    MainTaskID := ExtManager.AddExtendedTask(
-      'Weekly team meeting',
-      'Sprint planning and review',
-      'Meetings',
-      tpMedium,
-      EncodeDate(2024, 3, 1),
-      2.0,
-      rpWeekly,  // Recurs every week
-      0          // No parent
+    // Get smart suggestions
+    Suggestions := Manager.GetSmartSuggestions;
+    
+    // Generate productivity report
+    Report := Manager.GetProductivityReport(
+      EncodeDate(2024, 1, 1),
+      EncodeDate(2024, 12, 31)
     );
     
-    // Add subtasks
-    SubtaskID := ExtManager.AddSubtask(
-      MainTaskID,
-      'Prepare agenda',
-      'Compile discussion topics',
-      tpHigh,
-      EncodeDate(2024, 2, 29)
-    );
-    
-    // Get tasks needing attention
-    TopTasks := ExtManager.GetTasksNeedingAttention;
-    WriteLn('Tasks needing attention: ', Length(TopTasks));
-    
-    // Auto-generate next recurring instances
-    ExtManager.UpdateAllRecurringTasks;
-    
+    WriteLn('Tasks Completed: ', Report.TasksCompleted);
+    WriteLn('Completion Rate: ', Report.CompletionRate:0:2, '%');
+    WriteLn('Average Time: ', Report.AverageCompletionTime:0:2, ' hours');
   finally
-    ExtManager.Free;
+    Manager.Free;
   end;
 end.
 ```
 
-## Advanced Features (TAdvancedTaskManager)
-
-The `TAdvancedTaskManager` adds sophisticated analytics and productivity insights.
-
-### Advanced Analytics
+**Analytics Types:**
 
 ```pascal
-// Productivity metrics
-function GetProductivityScore: Double;
-function GetTaskVelocity: Double;  // Tasks completed per day
-function GetAverageTaskDuration: Double;
-
-// Complexity analysis
-function GetComplexityDistribution: TComplexityReport;
-function GetHighComplexityTasks: TExtendedTaskArray;
-
-// Time management insights
-function GetTimeManagementReport: TTimeReport;
-function GetEstimationAccuracy: Double;  // Estimated vs actual %
+type
+  TProductivityReport = record
+    TasksCompleted: Integer;
+    TasksCreated: Integer;
+    CompletionRate: Double;
+    AverageCompletionTime: Double;
+    TotalHoursLogged: Double;
+    ProductivityScore: Double;
+  end;
+  
+  TTaskSuggestion = record
+    TaskID: Integer;
+    SuggestionType: string;
+    Reason: string;
+    Priority: Integer;
+  end;
 ```
 
-### Smart Suggestions
+**Key Methods:**
 
 ```pascal
-// AI-driven task recommendations
-function GetSuggestedNextTasks: TExtendedTaskArray;
-function GetTasksToDelegate: TExtendedTaskArray;
-function GetTasksToBreakDown: TExtendedTaskArray;  // Complex tasks
-function GetQuickWins: TExtendedTaskArray;  // Low effort, high impact
+// Analytics
+function GetProductivityReport(AStartDate, AEndDate: TDateTime): TProductivityReport;
+function GetCategoryAnalytics: TCategoryAnalyticsArray;
+function GetTimelineAnalysis: TTimelineAnalysisArray;
+
+// Smart Suggestions
+function GetSmartSuggestions: TTaskSuggestionArray;
+function GetTasksNeedingAttention: TExtendedTaskArray;
+function PredictCompletionDate(ATaskID: Integer): TDateTime;
+
+// Pattern Detection
+function DetectProductivityPatterns: TProductivityPatternArray;
+function GetOptimalWorkTimes: TTimeRangeArray;
 ```
 
 ## Enhanced Features (TEnhancedTaskManager)
 
-### Reminders System
+Adds reminders, audit trails, archiving, and attachments:
 
 ```pascal
-type
-  TReminderType = (rtEmail, rtSMS, rtPush, rtInApp);
+uses taskmanagerenhanced;
 
-// Set reminder
-function SetReminder(ATaskID: Integer; AReminderDate: TDateTime;
-                     AReminderType: TReminderType; const AMessage: string): Integer;
+var
+  Manager: TEnhancedTaskManager;
+  ReminderID, AttachmentID: Integer;
 
-// Get active reminders
-function GetActiveReminders: TReminderArray;
-
-// Dismiss reminder
-function DismissReminder(AReminderID: Integer): Boolean;
+begin
+  Manager := TEnhancedTaskManager.Create;
+  try
+    // Add reminder
+    ReminderID := Manager.AddReminder(
+      TaskID,
+      EncodeDate(2024, 12, 25) + EncodeTime(9, 0, 0, 0),
+      'Start working on this task'
+    );
+    
+    // Attach file
+    AttachmentID := Manager.AttachFile(
+      TaskID,
+      '/path/to/document.pdf',
+      'Requirements document'
+    );
+    
+    // Get audit log
+    AuditLog := Manager.GetAuditLog(TaskID);
+    
+    // Archive old tasks
+    ArchivedCount := Manager.ArchiveOldTasks(90); // 90 days old
+  finally
+    Manager.Free;
+  end;
+end.
 ```
 
-### Audit Trail
+**Key Methods:**
 
 ```pascal
-// Track all changes
+// Reminders
+function AddReminder(ATaskID: Integer; AReminderTime: TDateTime;
+                    const AMessage: string): Integer;
+function GetUpcomingReminders(AHours: Integer): TReminderArray;
+function DismissReminder(AReminderID: Integer): Boolean;
+
+// Audit Trail
 function GetAuditLog(ATaskID: Integer): TAuditEntryArray;
 function GetAllAuditLogs: TAuditEntryArray;
 function GetAuditLogByUser(const AUserName: string): TAuditEntryArray;
 function GetAuditLogByDateRange(AStart, AEnd: TDateTime): TAuditEntryArray;
-```
 
-### Task Archiving
-
-```pascal
-// Archive completed tasks
+// Task Archiving
 function ArchiveTask(ATaskID: Integer): Boolean;
 function ArchiveOldTasks(ADaysOld: Integer): Integer;
-
-// Restore from archive
 function RestoreTask(ATaskID: Integer): Boolean;
-
-// Get archived tasks
 function GetArchivedTasks: TTaskArray;
-```
 
-### File Attachments
-
-```pascal
-// Attach files to tasks
+// File Attachments
 function AttachFile(ATaskID: Integer; const AFilePath, ADescription: string): Integer;
 function GetAttachments(ATaskID: Integer): TAttachmentArray;
 function RemoveAttachment(AAttachmentID: Integer): Boolean;
@@ -506,38 +512,67 @@ function RemoveAttachment(AAttachmentID: Integer): Boolean;
 
 ## Team Collaboration (TTeamTaskManager)
 
-### User Management
+Enables multi-user collaboration:
 
 ```pascal
-// Add team members
-function AddTeamMember(const AName, AEmail, ARole: string): Integer;
-function GetAllTeamMembers: TTeamMemberArray;
-function UpdateTeamMember(AMemberID: Integer; const AName, AEmail, ARole: string): Boolean;
+uses taskmanagerteam;
+
+var
+  Manager: TTeamTaskManager;
+  MemberID: Integer;
+
+begin
+  Manager := TTeamTaskManager.Create;
+  try
+    // Add team member
+    MemberID := Manager.AddTeamMember(
+      'John Doe',
+      'john@example.com',
+      'Developer'
+    );
+    
+    // Assign task
+    Manager.AssignTask(TaskID, MemberID);
+    
+    // Set permissions
+    Manager.SetTaskPermission(TaskID, MemberID, plEdit);
+    
+    // Get workload
+    Workload := Manager.GetMemberWorkload(MemberID);
+  finally
+    Manager.Free;
+  end;
+end.
 ```
 
-### Task Assignment
-
-```pascal
-// Assign tasks
-function AssignTask(ATaskID, AMemberID: Integer): Boolean;
-function UnassignTask(ATaskID: Integer): Boolean;
-function GetAssignedTasks(AMemberID: Integer): TTaskArray;
-function GetUnassignedTasks: TTaskArray;
-```
-
-### Permissions & Access Control
+**Permission Levels:**
 
 ```pascal
 type
   TPermissionLevel = (plNone, plView, plEdit, plAdmin);
-
-function SetTaskPermission(ATaskID, AMemberID: Integer; ALevel: TPermissionLevel): Boolean;
-function GetTaskPermission(ATaskID, AMemberID: Integer): TPermissionLevel;
 ```
 
-### Team Analytics
+**Key Methods:**
 
 ```pascal
+// User Management
+function AddTeamMember(const AName, AEmail, ARole: string): Integer;
+function GetAllTeamMembers: TTeamMemberArray;
+function UpdateTeamMember(AMemberID: Integer; const AName, AEmail, ARole: string): Boolean;
+function RemoveTeamMember(AMemberID: Integer): Boolean;
+
+// Task Assignment
+function AssignTask(ATaskID, AMemberID: Integer): Boolean;
+function UnassignTask(ATaskID: Integer): Boolean;
+function GetAssignedTasks(AMemberID: Integer): TTaskArray;
+function GetUnassignedTasks: TTaskArray;
+
+// Permissions & Access Control
+function SetTaskPermission(ATaskID, AMemberID: Integer; ALevel: TPermissionLevel): Boolean;
+function GetTaskPermission(ATaskID, AMemberID: Integer): TPermissionLevel;
+function CanUserModifyTask(ATaskID, AMemberID: Integer): Boolean;
+
+// Team Analytics
 function GetTeamProductivity: TTeamProductivityReport;
 function GetMemberWorkload(AMemberID: Integer): TWorkloadReport;
 function GetTeamCapacity: TCapacityReport;
@@ -545,751 +580,651 @@ function GetTeamCapacity: TCapacityReport;
 
 ## Kanban Boards (TBoardTaskManager)
 
-### Board Management
+Implements agile board management:
+
+```pascal
+uses taskmanagerboards;
+
+var
+  Manager: TBoardTaskManager;
+  BoardID, ColumnID: Integer;
+
+begin
+  Manager := TBoardTaskManager.Create;
+  try
+    // Create Kanban board
+    BoardID := Manager.CreateBoard('Development Sprint', 'Q1 2024', btKanban);
+    
+    // Add columns
+    ColumnID := Manager.AddColumn(BoardID, 'To Do', ctToDo, 5);  // WIP limit: 5
+    
+    // Move task to column
+    Manager.MoveTaskToColumn(TaskID, ColumnID);
+    
+    // Check WIP limit
+    if Manager.IsColumnAtWIPLimit(ColumnID) then
+      WriteLn('Column is at WIP limit!');
+  finally
+    Manager.Free;
+  end;
+end.
+```
+
+**Board Types:**
 
 ```pascal
 type
   TBoardType = (btKanban, btScrum, btCustom);
+  TColumnType = (ctBacklog, ctToDo, ctInProgress, ctReview, ctDone, ctCustom);
+```
 
-// Create boards
+**Key Methods:**
+
+```pascal
+// Board Management
 function CreateBoard(const AName, ADescription: string; ABoardType: TBoardType): Integer;
 function GetAllBoards: TBoardArray;
+function UpdateBoard(ABoardID: Integer; const AName, ADescription: string): Boolean;
 function ArchiveBoard(ABoardID: Integer): Boolean;
-```
 
-### Column Management
-
-```pascal
-type
-  TColumnType = (ctBacklog, ctToDo, ctInProgress, ctReview, ctDone, ctCustom);
-
-// Manage columns
+// Column Management
 function AddColumn(ABoardID: Integer; const AName: string;
-                   AColumnType: TColumnType; AWIPLimit: Integer): Integer;
+                  AColumnType: TColumnType; AWIPLimit: Integer): Integer;
 function UpdateColumn(AColumnID: Integer; const AName: string;
-                      AWIPLimit: Integer): Boolean;
+                     AWIPLimit: Integer): Boolean;
 function MoveColumn(AColumnID: Integer; ANewPosition: Integer): Boolean;
-```
+function DeleteColumn(AColumnID: Integer): Boolean;
 
-### Task Card Management
-
-```pascal
-// Move tasks between columns
+// Task Card Management
 function MoveTaskToColumn(ATaskID, AColumnID: Integer): Boolean;
 function GetTasksInColumn(AColumnID: Integer): TTaskArray;
+function GetTaskColumn(ATaskID: Integer): Integer;
 
-// Check WIP limits
+// WIP Limits
 function IsColumnAtWIPLimit(AColumnID: Integer): Boolean;
 function GetColumnWIPStatus(AColumnID: Integer): TWIPStatus;
-```
 
-### Sprint Management
-
-```pascal
-// Sprint planning
+// Sprint Planning
 function CreateSprint(ABoardID: Integer; const AName: string;
-                      AStartDate, AEndDate: TDateTime): Integer;
-function AddTaskToSprint(ATaskID, ASprintID: Integer): Boolean;
-function GetSprintTasks(ASprintID: Integer): TTaskArray;
+                     AStartDate, AEndDate: TDateTime): Integer;
+function GetActiveSprints(ABoardID: Integer): TSprintArray;
 function GetSprintVelocity(ASprintID: Integer): Double;
 ```
 
-## Notification System (TNotificationTaskManager)
+## Additional Modules
 
-### Multi-Channel Notifications
+### Search Engine (TSearchTaskManager)
 
 ```pascal
-type
-  TNotificationChannel = (ncEmail, ncSMS, ncPush, ncInApp, ncDesktop, ncSlack, ncWebhook);
-  TNotificationPriority = (npLow, npNormal, npHigh, npUrgent);
+// Full-text search
+Results := SearchManager.SearchTasks('login authentication');
 
-// Send notifications
-function SendNotification(const ARecipient, ASubject, AMessage: string;
-                          AChannels: set of TNotificationChannel;
-                          APriority: TNotificationPriority): Integer;
-
-// Get notification history
-function GetNotifications(ARecipient: string): TNotificationArray;
-function GetUnreadNotifications(ARecipient: string): TNotificationArray;
+// Advanced filtering
+Results := SearchManager.SearchWithFilters(
+  'feature',
+  tpHigh,
+  'Backend',
+  EncodeDate(2024, 1, 1),
+  EncodeDate(2024, 12, 31)
+);
 ```
 
-### Notification Templates
+### Time Tracking (TTimeTrackingTaskManager)
 
 ```pascal
-// Create reusable templates
-function CreateTemplate(const AName, ASubject, ABody: string;
-                        AChannels: set of TNotificationChannel): Integer;
+// Start time tracking
+SessionID := TimeManager.StartTimeTracking(TaskID, 'Working on implementation');
 
-// Use templates with variable substitution
-function SendFromTemplate(ATemplateID: Integer; const ARecipient: string;
-                          AVariables: TStringMap): Integer;
+// Stop tracking
+TimeManager.StopTimeTracking(SessionID);
+
+// Get timesheet
+Timesheet := TimeManager.GetTimesheet(
+  MemberID,
+  EncodeDate(2024, 12, 1),
+  EncodeDate(2024, 12, 31)
+);
 ```
 
-### Escalation Rules
+### Knowledge Base (TKnowledgeTaskManager)
 
 ```pascal
-// Define escalation policies
-function CreateEscalationRule(ATaskID: Integer; AMinutesBefore: Integer;
-                              const AEscalateTo: string;
-                              AChannels: set of TNotificationChannel): Integer;
+// Create article
+ArticleID := KnowledgeManager.CreateArticle(
+  'How to Deploy',
+  'Deployment guide...',
+  'Documentation'
+);
 
-// Check and trigger escalations
-procedure ProcessEscalations;
-```
+// Link to task
+KnowledgeManager.LinkArticleToTask(ArticleID, TaskID);
 
-### Digest Notifications
-
-```pascal
-// Configure digest delivery
-function EnableDigest(const ARecipient: string; AFrequency: TDigestFrequency): Boolean;
-function GetDigestSummary(const ARecipient: string): string;
-```
-
-## Intelligence & Analytics (TIntelligenceTaskManager)
-
-### Pattern Detection
-
-```pascal
-// Analyze task patterns
-function DetectPatterns: TPatternArray;
-function GetTaskCompletionPatterns: TPatternReport;
-function GetProductivityPatterns: TPatternReport;
-```
-
-### Predictive Analytics
-
-```pascal
-// Predict completion dates
-function PredictCompletionDate(ATaskID: Integer): TDateTime;
-function PredictProjectCompletion(const ACategory: string): TDateTime;
-
-// Risk analysis
-function GetRiskScore(ATaskID: Integer): Double;
-function GetHighRiskTasks: TTaskArray;
-```
-
-### Insights & Recommendations
-
-```pascal
-// Get actionable insights
-function GetInsights: TInsightArray;
-function GetRecommendations: TRecommendationArray;
-function GetOptimizationSuggestions: TSuggestionArray;
-```
-
-## Knowledge Base (TKnowledgeTaskManager)
-
-### Documentation Management
-
-```pascal
-// Create knowledge articles
-function CreateArticle(const ATitle, AContent, ACategory: string;
-                       ATags: array of string): Integer;
-
-// Link articles to tasks
-function LinkArticleToTask(AArticleID, ATaskID: Integer): Boolean;
-function GetTaskArticles(ATaskID: Integer): TArticleArray;
-```
-
-### Wiki Functionality
-
-```pascal
 // Search knowledge base
-function SearchArticles(const AQuery: string): TArticleArray;
-function GetArticlesByCategory(const ACategory: string): TArticleArray;
-
-// Version control
-function GetArticleHistory(AArticleID: Integer): TVersionArray;
-function RevertArticle(AArticleID, AVersionID: Integer): Boolean;
+Articles := KnowledgeManager.SearchArticles('deployment');
 ```
 
-## Time Tracking (TTimeTrackingTaskManager)
-
-### Time Logging
+### Notifications (TNotificationTaskManager)
 
 ```pascal
-// Start/stop timer
-function StartTimer(ATaskID: Integer): Boolean;
-function StopTimer(ATaskID: Integer): Double;  // Returns elapsed hours
-function GetActiveTimer: Integer;  // Returns task ID or -1
+// Send notification
+NotificationManager.SendNotification(
+  TaskID,
+  [MemberID1, MemberID2],
+  'Task assigned to you',
+  ntEmail
+);
 
-// Manual time entry
-function LogTime(ATaskID: Integer; AHours: Double; const ADescription: string;
-                 ALogDate: TDateTime): Integer;
-
-// Get time entries
-function GetTimeEntries(ATaskID: Integer): TTimeEntryArray;
-function GetTimeEntriesByDateRange(AStart, AEnd: TDateTime): TTimeEntryArray;
+// Configure escalation
+NotificationManager.SetEscalationRule(
+  TaskID,
+  24,  // hours
+  ManagerID
+);
 ```
 
-### Timesheet Management
+### Templates (TTemplateTaskManager)
 
 ```pascal
-// Generate timesheets
-function GenerateTimesheet(AMemberID: Integer; AStartDate, AEndDate: TDateTime): TTimesheetReport;
-function GetBillableHours(AMemberID: Integer; AStartDate, AEndDate: TDateTime): Double;
-function ExportTimesheetToCSV(AMemberID: Integer; AStartDate, AEndDate: TDateTime): string;
+// Create template
+TemplateID := TemplateManager.CreateTaskTemplate(
+  'Bug Fix Template',
+  'Standard bug fixing workflow'
+);
+
+// Add template steps
+TemplateManager.AddTemplateStep(TemplateID, 'Reproduce bug', 1);
+TemplateManager.AddTemplateStep(TemplateID, 'Fix code', 2);
+TemplateManager.AddTemplateStep(TemplateID, 'Test fix', 3);
+
+// Create task from template
+TaskID := TemplateManager.CreateTaskFromTemplate(TemplateID);
 ```
 
-### Billing Integration
+### AI Intelligence & Analytics (TIntelligenceTaskManager)
+
+**Module:** `taskmanagerintelligence_final.pas`  
+**Inherits from:** TResourceTaskManager  
+**Key Features:** Natural Language Processing, Advanced Analytics, Backup/Versioning, Bulk Operations, Smart Notifications, Multi-format Export
+
+The Intelligence Task Manager provides enterprise-grade features for advanced task management, including AI-powered natural language processing, comprehensive analytics, automated backups, and bulk operations.
+
+#### Natural Language Processing (NLP)
+
+Create tasks using natural language input:
 
 ```pascal
-// Track billable time
-function SetTaskBillable(ATaskID: Integer; AIsBillable: Boolean;
-                         AHourlyRate: Double): Boolean;
-function GetBillableAmount(ATaskID: Integer): Double;
-function GenerateInvoiceData(AClientName: string; AStartDate, AEndDate: TDateTime): TInvoiceData;
+uses taskmanagerintelligence;
+
+var
+  Manager: TIntelligenceTaskManager;
+  ParsedTask: TParsedTask;
+  TaskID: Integer;
+  TaskIDs: TIntArray;
+begin
+  Manager := TIntelligenceTaskManager.Create;
+  try
+    // Parse natural language to task structure
+    ParsedTask := Manager.ParseNaturalLanguageTask(
+      'Create high priority feature for user authentication due next Friday'
+    );
+    
+    WriteLn('Parsed: ', ParsedTask.Title);
+    WriteLn('Priority: ', Ord(ParsedTask.Priority));
+    WriteLn('Confidence: ', ParsedTask.Confidence:0:2);
+    
+    // Create task directly from natural language
+    TaskID := Manager.CreateTaskFromNL(
+      'Fix login bug high priority due tomorrow'
+    );
+    
+    // Bulk create from natural language
+    TaskIDs := Manager.BulkCreateFromNL([
+      'Review pull request for authentication',
+      'Update documentation for API endpoints',
+      'Test deployment pipeline critical'
+    ]);
+    
+    WriteLn('Created ', Length(TaskIDs), ' tasks from natural language');
+  finally
+    Manager.Free;
+  end;
+end.
 ```
 
-## Meeting Management (TMeetingTaskManager)
-
-### Meeting Scheduling
-
-```pascal
-// Schedule meetings
-function ScheduleMeeting(const ATitle, ADescription: string;
-                         AStartTime, AEndTime: TDateTime;
-                         AAttendees: array of Integer): Integer;
-
-// Get meetings
-function GetUpcomingMeetings: TMeetingArray;
-function GetMeetingsByDateRange(AStart, AEnd: TDateTime): TMeetingArray;
-```
-
-### Agenda Management
-
-```pascal
-// Create agendas
-function CreateAgenda(AMeetingID: Integer): Integer;
-function AddAgendaItem(AAgendaID: Integer; const ATitle, ADescription: string;
-                       ADurationMinutes: Integer): Integer;
-function GetAgenda(AMeetingID: Integer): TAgendaItemArray;
-```
-
-### Meeting Minutes
-
-```pascal
-// Record minutes
-function StartMeetingMinutes(AMeetingID: Integer): Integer;
-function AddMinuteNote(AMinutesID: Integer; const ANote: string): Boolean;
-function AddActionItem(AMinutesID: Integer; const ADescription: string;
-                       AAssigneeID: Integer; ADueDate: TDateTime): Integer;
-function FinalizeMeetingMinutes(AMinutesID: Integer): Boolean;
-```
-
-## Resource Management (TResourceTaskManager)
-
-### Resource Allocation
-
-```pascal
-type
-  TResourceType = (rtHuman, rtEquipment, rtBudget, rtLicense);
-
-// Add resources
-function AddResource(const AName, ADescription: string; AResourceType: TResourceType;
-                     ACapacity: Double): Integer;
-
-// Allocate to tasks
-function AllocateResource(ATaskID, AResourceID: Integer; AAmount: Double): Boolean;
-function GetTaskResources(ATaskID: Integer): TResourceAllocationArray;
-```
-
-### Capacity Planning
-
-```pascal
-// Check availability
-function GetResourceAvailability(AResourceID: Integer; AStartDate, AEndDate: TDateTime): Double;
-function GetOverallocatedResources: TResourceArray;
-
-// Optimization
-function OptimizeResourceAllocation: TOptimizationReport;
-function GetResourceUtilization(AResourceID: Integer): Double;  // Percentage
-```
-
-## Search Engine (TSearchTaskManager)
-
-### Full-Text Search
-
-```pascal
-// Advanced search
-function SearchTasks(const AQuery: string; AOptions: TSearchOptions): TTaskArray;
-function SearchWithFilters(const AQuery: string; AFilters: TSearchFilter): TTaskArray;
-
-// Index management
-procedure RebuildSearchIndex;
-function GetIndexStats: TIndexStats;
-```
-
-### Search Filters
+**NLP Types:**
 
 ```pascal
 type
-  TSearchFilter = record
-    Categories: array of string;
-    Priorities: set of TTaskPriority;
-    Statuses: set of TTaskStatus;
-    DateRange: TDateRange;
-    AssignedTo: array of Integer;
+  TNLPToken = record
+    TokenType: string;      // 'action', 'priority', 'date', 'category'
+    Value: string;          // Extracted value
+    Confidence: Double;     // 0.0 to 1.0
+  end;
+  
+  TParsedTask = record
+    Title: string;
+    Description: string;
+    Category: string;
+    Priority: TTaskPriority;
+    DueDate: TDateTime;
+    EstimatedHours: Double;
     Tags: array of string;
+    Confidence: Double;         // Overall parsing confidence
+    ParsedSuccessfully: Boolean;
   end;
 ```
 
-## Templates & Automation (TTemplateTaskManager)
+#### Backup & Versioning
 
-### Task Templates
-
-```pascal
-// Create templates
-function CreateTaskTemplate(const AName, ATitle, ADescription, ACategory: string;
-                            APriority: TTaskPriority; AEstimatedHours: Double;
-                            ATags: array of string): Integer;
-
-// Use templates
-function CreateTaskFromTemplate(ATemplateID: Integer; ADueDate: TDateTime): Integer;
-function GetAllTemplates: TTemplateArray;
-```
-
-### Workflow Automation
+Comprehensive backup and restore capabilities:
 
 ```pascal
-// Define workflows
-function CreateWorkflow(const AName, ADescription: string): Integer;
-function AddWorkflowStep(AWorkflowID: Integer; const AStepName: string;
-                         ATemplateID: Integer; ADayOffset: Integer): Integer;
-
-// Execute workflows
-function ExecuteWorkflow(AWorkflowID: Integer; AStartDate: TDateTime): TTaskArray;
+var
+  Manager: TIntelligenceTaskManager;
+  VersionID, PointID: Integer;
+  Versions: TBackupVersionArray;
+  RestorePoints: TRestorePointArray;
+begin
+  Manager := TIntelligenceTaskManager.Create;
+  try
+    // Create manual backup
+    VersionID := Manager.CreateBackupVersion('Before major changes');
+    WriteLn('Backup created: Version ', VersionID);
+    
+    // Create restore point
+    PointID := Manager.CreateRestorePoint('Project milestone reached');
+    
+    // Enable automatic backups every 24 hours
+    Manager.EnableAutoBackup(True, 24);
+    
+    // ... make changes ...
+    
+    // Restore from version
+    if Manager.RestoreFromVersion(VersionID) then
+      WriteLn('Successfully restored from version ', VersionID);
+    
+    // Restore to restore point
+    if Manager.RestoreToPoint(PointID) then
+      WriteLn('Successfully restored to restore point');
+    
+    // List all backups
+    Versions := Manager.GetBackupVersions;
+    WriteLn('Available backups: ', Length(Versions));
+    for i := 0 to High(Versions) do
+      WriteLn('  Version ', Versions[i].VersionID, ': ', 
+              Versions[i].Description, ' (', 
+              DateTimeToStr(Versions[i].Timestamp), ')');
+    
+    // Delete old backup
+    Manager.DeleteBackupVersion(VersionID);
+  finally
+    Manager.Free;
+  end;
+end.
 ```
 
-## Focus & Productivity (TFocusTaskManager)
-
-### Pomodoro Timer
-
-```pascal
-// Start focus session
-function StartFocusSession(ATaskID: Integer; ADurationMinutes: Integer): Integer;
-function GetActiveFocusSession: TFocusSession;
-function CompleteFocusSession(ASessionID: Integer): Boolean;
-
-// Get focus statistics
-function GetFocusStats(AMemberID: Integer): TFocusStatsReport;
-function GetTotalFocusTime(AMemberID: Integer; AStartDate, AEndDate: TDateTime): Double;
-```
-
-### Distraction Management
-
-```pascal
-// Log distractions
-function LogDistraction(ASessionID: Integer; const ADescription: string): Integer;
-function GetDistractionReport(AMemberID: Integer): TDistractionReport;
-```
-
-## Lifestyle Integration (TLifestyleTaskManager)
-
-### Health & Wellness
-
-```pascal
-// Track wellness
-function LogWellnessScore(AMemberID: Integer; ADate: TDateTime; AScore: Integer): Boolean;
-function GetWellnessTrend(AMemberID: Integer; ADays: Integer): TWellnessReport;
-
-// Work-life balance
-function GetWorkLifeBalance(AMemberID: Integer): TBalanceReport;
-function GetBurnoutRisk(AMemberID: Integer): Double;
-```
-
-### Break Reminders
-
-```pascal
-// Configure breaks
-function SetBreakReminder(AMemberID: Integer; AIntervalMinutes: Integer): Boolean;
-function SuggestBreak(AMemberID: Integer): Boolean;
-```
-
-## Wellbeing Tracking (TWellbeingTaskManager)
-
-### Stress Management
-
-```pascal
-// Track stress levels
-function LogStressLevel(AMemberID: Integer; ADate: TDateTime; ALevel: Integer): Boolean;
-function GetStressAnalysis(AMemberID: Integer): TStressReport;
-function GetHighStressPeriods(AMemberID: Integer): TDateArray;
-```
-
-### Burnout Prevention
-
-```pascal
-// Detect burnout risk
-function CalculateBurnoutRisk(AMemberID: Integer): Double;
-function GetBurnoutIndicators(AMemberID: Integer): TIndicatorArray;
-function SuggestRecoveryActions(AMemberID: Integer): TActionArray;
-```
-
-## Comments & Discussions (TCommentTaskManager)
-
-### Comment Threading
-
-```pascal
-// Add comments
-function AddComment(ATaskID: Integer; AMemberID: Integer;
-                    const AComment: string): Integer;
-function AddReply(ACommentID: Integer; AMemberID: Integer;
-                  const AReply: string): Integer;
-
-// Get comments
-function GetTaskComments(ATaskID: Integer): TCommentArray;
-function GetCommentThread(ACommentID: Integer): TCommentArray;
-```
-
-### Mentions & Reactions
-
-```pascal
-// Mention team members
-function AddMention(ACommentID, AMentionedMemberID: Integer): Boolean;
-function GetMentions(AMemberID: Integer): TCommentArray;
-
-// React to comments
-function AddReaction(ACommentID: Integer; AMemberID: Integer;
-                     AReaction: TReactionType): Boolean;
-```
-
-## Gamification (TGamifiedTaskManager)
-
-### Points & Achievements
-
-```pascal
-// Track points
-function GetMemberPoints(AMemberID: Integer): Integer;
-function GetLeaderboard: TLeaderboardArray;
-
-// Unlock achievements
-function GetMemberAchievements(AMemberID: Integer): TAchievementArray;
-function GetAvailableAchievements: TAchievementArray;
-```
-
-### Challenges & Rewards
-
-```pascal
-// Create challenges
-function CreateChallenge(const AName, ADescription: string;
-                         AStartDate, AEndDate: TDateTime;
-                         APoints: Integer): Integer;
-
-// Track progress
-function GetChallengeProgress(AMemberID, AChallengeID: Integer): TChallengeProgress;
-```
-
-## Smart Features (TSmartTaskManager)
-
-### Auto-Scheduling
-
-```pascal
-// Smart scheduling
-function AutoScheduleTasks: Integer;  // Returns number of tasks scheduled
-function SuggestOptimalSchedule(ATasks: array of Integer): TScheduleSuggestion;
-```
-
-### Auto-Prioritization
-
-```pascal
-// Automatic priority adjustment
-function RecalculatePriorities: Integer;
-function SuggestPriorityChanges: TPriorityChangeArray;
-```
-
-## Compilation & Deployment
-
-### Building the Project
-
-```bash
-# Compile core module
-fpc taskmanager.pas -O2 -Mobjfpc
-
-# Compile demo programs
-fpc solution1.pas -obin/demo1 -O2 -Mobjfpc
-fpc solution2.pas -obin/demo2 -O2 -Mobjfpc
-# ... etc for all solution*.pas files
-
-# Compile with all optimizations
-fpc solution1.pas -obin/task_manager -O3 -Mobjfpc -CX -XX
-```
-
-### Compiler Flags Explained
-
-- `-Mobjfpc`: Enable Object Pascal mode
-- `-O2` / `-O3`: Optimization levels
-- `-CX`: Create smartlinked units
-- `-XX`: Enable smartlinking
-- `-o<filename>`: Specify output file
-
-### Running Demo Programs
-
-Each `solution*.pas` file demonstrates different features:
-
-```bash
-# Run basic demo
-./bin/demo1
-
-# Run extended features demo
-./bin/demo2
-
-# Run advanced analytics demo
-./bin/demo3
-```
-
-## Project Structure
-
-```
-solution1/
-├── src/
-│   └── taskmanager.pas           # Core module (compiled version)
-├── bin/
-│   ├── compile.sh                # Build script
-│   └── [compiled binaries]       # Executables
-├── taskmanager.pas               # Core task manager (987 lines)
-├── taskmanagerext.pas            # Extended features (958 lines)
-├── taskmanageradvanced.pas       # Advanced analytics (701 lines)
-├── taskmanagerenhanced.pas       # Enhanced features (1024 lines)
-├── taskmanagerteam.pas           # Team collaboration (1051 lines)
-├── taskmanagerboards.pas         # Kanban boards (962 lines)
-├── taskmanagernotifications.pas  # Notifications (1538 lines)
-├── taskmanagerintelligence.pas   # AI insights (713 lines)
-├── taskmanagerknowledge.pas      # Knowledge base (1284 lines)
-├── taskmanagerlifestyle.pas      # Lifestyle integration (1410 lines)
-├── taskmanagerfocus.pas          # Focus/Pomodoro (1370 lines)
-├── taskmanagertimetracking.pas   # Time tracking (1544 lines)
-├── taskmanagermeetings.pas       # Meetings (1084 lines)
-├── taskmanagerresource.pas       # Resources (1000 lines)
-├── taskmanagersearch.pas         # Search engine (942 lines)
-├── taskmanagertemplates.pas      # Templates (1147 lines)
-├── taskmanagersmart.pas          # Smart features (719 lines)
-├── taskmanagerrecurring.pas      # Recurring tasks (1043 lines)
-├── taskmanagercomments.pas       # Comments (1502 lines)
-├── taskmanagergamify.pas         # Gamification (844 lines)
-├── taskmanagerwellbeing.pas      # Wellbeing (1099 lines)
-├── solution1.pas                 # Demo: Core features
-├── solution2.pas                 # Demo: Extended features
-├── solution3.pas                 # Demo: Advanced analytics
-├── solution4.pas                 # Demo: Enhanced features
-├── solution5.pas                 # Demo: Team collaboration
-├── solution6.pas - solution22.pas # Additional demos
-└── README.md                     # This documentation
-```
-
-## Technical Implementation Details
-
-### Memory Management
-
-All classes use dynamic arrays (`array of`) for efficient memory usage:
-- No fixed-size limitations
-- Automatic memory management
-- Proper cleanup in destructors
+**Backup Types:**
 
 ```pascal
 type
-  TTaskArray = array of TTask;
-
-destructor TTaskManager.Destroy;
-begin
-  SetLength(FTasks, 0);  // Free dynamic array
-  inherited Destroy;
-end;
+  TBackupVersion = record
+    VersionID: Integer;
+    Timestamp: TDateTime;
+    Description: string;
+    FilePath: string;
+    FileSize: Int64;
+    TaskCount: Integer;
+    Checksum: string;       // Integrity verification
+  end;
+  
+  TRestorePoint = record
+    PointID: Integer;
+    Created: TDateTime;
+    Label_: string;
+    AutoCreated: Boolean;   // Auto vs manual
+    DataSnapshot: string;
+  end;
 ```
 
-### Sorting Algorithm
+#### Bulk Operations
 
-Custom QuickSort implementation with O(n log n) complexity:
+Perform operations on multiple tasks efficiently:
 
 ```pascal
-procedure QuickSort(var A: TTaskArray; L, R: Integer; Criteria: TSortCriteria);
 var
-  I, J: Integer;
-  P, T: TTask;
+  Manager: TIntelligenceTaskManager;
+  TaskIDs: array of Integer;
+  UpdatedCount: Integer;
+  History: TBulkOperationArray;
 begin
-  repeat
-    I := L;
-    J := R;
-    P := A[(L + R) shr 1];  // Pivot element
-    repeat
-      while CompareTask(A[I], P, Criteria) < 0 do Inc(I);
-      while CompareTask(A[J], P, Criteria) > 0 do Dec(J);
-      if I <= J then
-      begin
-        T := A[I];
-        A[I] := A[J];
-        A[J] := T;
-        Inc(I);
-        Dec(J);
-      end;
-    until I > J;
-    if L < J then QuickSort(A, L, J, Criteria);
-    L := I;
-  until I >= R;
-end;
+  Manager := TIntelligenceTaskManager.Create;
+  try
+    // Prepare task IDs
+    SetLength(TaskIDs, 3);
+    TaskIDs[0] := 1;
+    TaskIDs[1] := 2;
+    TaskIDs[2] := 3;
+    
+    // Bulk update status
+    UpdatedCount := Manager.BulkUpdateStatus(TaskIDs, tsInProgress);
+    WriteLn('Updated status for ', UpdatedCount, ' tasks');
+    
+    // Bulk update priority
+    UpdatedCount := Manager.BulkUpdatePriority(TaskIDs, tpHigh);
+    
+    // Bulk update category
+    UpdatedCount := Manager.BulkUpdateCategory(TaskIDs, 'Sprint 1');
+    
+    // Bulk add tag
+    UpdatedCount := Manager.BulkAddTag(TaskIDs, 'urgent');
+    
+    // Bulk archive with reason
+    UpdatedCount := Manager.BulkArchive(TaskIDs, 'Sprint completed');
+    WriteLn('Archived ', UpdatedCount, ' tasks');
+    
+    // View bulk operation history
+    History := Manager.GetBulkOperationHistory;
+    WriteLn('Total bulk operations: ', Length(History));
+    for i := 0 to High(History) do
+      WriteLn('  Op ', History[i].OperationID, ': ',
+              'Success=', History[i].SuccessCount,
+              ', Failed=', History[i].FailureCount);
+  finally
+    Manager.Free;
+  end;
+end.
 ```
 
-### File Format
-
-Custom text-based file format for persistence:
-
-```
-[TASK]
-ID=1
-Title=Implement feature
-Description=Add new functionality
-Status=InProgress
-Priority=High
-Category=Backend
-CreatedDate=2024-01-15
-DueDate=2024-02-01
-EstimatedHours=16.0
-ActualHours=8.5
-Tag=backend
-Tag=feature
-[/TASK]
-```
-
-### Performance Characteristics
-
-| Operation | Time Complexity | Space Complexity |
-|-----------|----------------|------------------|
-| Add Task | O(1) amortized | O(1) |
-| Delete Task | O(n) | O(1) |
-| Search by ID | O(n) | O(1) |
-| Filter | O(n) | O(k) where k = results |
-| Sort | O(n log n) | O(n) |
-| Save/Load | O(n) | O(n) |
-
-## Code Quality Features
-
-- ✅ **No fixed arrays**: All arrays are dynamic
-- ✅ **Memory safety**: Proper cleanup in destructors
-- ✅ **No user input**: Pure business logic (no ReadLn/WriteLn in units)
-- ✅ **OOP design**: Clean class hierarchy
-- ✅ **Type safety**: Strong typing with enumerations
-- ✅ **Error handling**: Boolean/Integer return codes
-- ✅ **Documentation**: Comprehensive inline comments
-- ✅ **Testing**: 22 self-test programs included
-
-## Integration Examples
-
-### Web API Integration
+**Bulk Operation Types:**
 
 ```pascal
-// Example: REST API wrapper
-function HTTPPostTask(const ATask: TTask): string;
-var
-  JSON: string;
-begin
-  JSON := TaskToJSON(ATask);
-  Result := HTTPPost('https://api.example.com/tasks', JSON);
-end;
+type
+  TBulkOperationType = (
+    boUpdateStatus,     // Change status for multiple tasks
+    boUpdatePriority,   // Change priority
+    boUpdateCategory,   // Change category
+    boAddTag,          // Add tag to multiple tasks
+    boRemoveTag,       // Remove tag
+    boDelete,          // Delete multiple tasks
+    boArchive,         // Archive multiple tasks
+    boAssignMember,    // Assign team member
+    boSetDueDate,      // Set due date
+    boAddToGoal        // Add to goal/milestone
+  );
+  
+  TBulkOperation = record
+    OperationID: Integer;
+    OpType: TBulkOperationType;
+    TargetTaskIDs: array of Integer;
+    Parameters: string;
+    ExecutedAt: TDateTime;
+    ExecutedBy: string;
+    SuccessCount: Integer;
+    FailureCount: Integer;
+    ResultLog: string;
+  end;
 ```
 
-### Database Integration
+#### Advanced Analytics
+
+Generate comprehensive analytics and predictions:
 
 ```pascal
-// Example: SQLite integration
-function SaveTaskToDB(DB: TSQLiteDatabase; const ATask: TTask): Boolean;
 var
-  SQL: string;
+  Manager: TIntelligenceTaskManager;
+  CompletionTrend: TTrendArray;
+  VelocityReport: TAnalyticsReport;
+  Heatmap, Analysis: string;
 begin
-  SQL := Format('INSERT INTO tasks (title, description, status, priority) ' +
-                'VALUES (%s, %s, %d, %d)',
-                [QuotedStr(ATask.Title), QuotedStr(ATask.Description),
-                 Ord(ATask.Status), Ord(ATask.Priority)]);
-  Result := DB.Execute(SQL);
-end;
+  Manager := TIntelligenceTaskManager.Create;
+  try
+    // Generate 30-day completion trend
+    CompletionTrend := Manager.GenerateCompletionTrend(30);
+    WriteLn('Completion trend points: ', Length(CompletionTrend));
+    
+    // Category-specific trend
+    CompletionTrend := Manager.GenerateCategoryTrend('Development', 30);
+    
+    // Priority distribution analysis
+    CompletionTrend := Manager.GeneratePriorityDistribution;
+    for i := 0 to High(CompletionTrend) do
+      WriteLn(CompletionTrend[i].Label_, ': ', CompletionTrend[i].Value:0:0, ' tasks');
+    
+    // Productivity heatmap (visual representation)
+    Heatmap := Manager.GenerateProductivityHeatmap;
+    WriteLn(Heatmap);
+    
+    // Team velocity report
+    VelocityReport := Manager.GenerateVelocityReport(4);  // 4 weeks
+    WriteLn('Velocity Report: ', VelocityReport.Summary);
+    
+    // Burndown chart for sprint
+    CompletionTrend := Manager.GenerateBurndownChart('Sprint 1');
+    
+    // Predictive analytics
+    CompletionTrend := Manager.PredictTaskCompletionTrend(7);  // Next 7 days
+    WriteLn('Predicted completions for next 7 days:');
+    for i := 0 to High(CompletionTrend) do
+      WriteLn('  ', DateToStr(CompletionTrend[i].Date), ': ', 
+              CompletionTrend[i].Value:0:1, ' tasks');
+    
+    // Top performing categories
+    Analysis := Manager.GetTopPerformingCategories(5);
+    WriteLn('Top Categories:', Analysis);
+    
+    // Bottleneck analysis
+    Analysis := Manager.GetBottleneckAnalysis;
+    WriteLn('Bottlenecks:', Analysis);
+  finally
+    Manager.Free;
+  end;
+end.
 ```
 
-### GUI Integration (Lazarus/Free Pascal)
+**Analytics Types:**
 
 ```pascal
-// Example: Populate ListBox with tasks
-procedure TMainForm.RefreshTaskList;
-var
-  Tasks: TTaskArray;
-  i: Integer;
-begin
-  TaskListBox.Clear;
-  Tasks := TaskManager.GetAllTasks;
-  for i := 0 to High(Tasks) do
-    TaskListBox.Items.Add(Tasks[i].Title);
-end;
+type
+  TTrendPoint = record
+    Date: TDateTime;
+    Value: Double;
+    Label_: string;
+  end;
+  
+  TAnalyticsReport = record
+    ReportID: Integer;
+    ReportType: string;
+    Generated: TDateTime;
+    TimeRange: string;
+    DataPoints: TTrendArray;
+    Summary: string;
+    Insights: array of string;
+  end;
 ```
 
-## Future Roadmap
+#### Smart Notifications
 
-### Planned Features
+Multi-channel notification system:
 
-- **Mobile Support**: iOS/Android apps using Free Pascal mobile
-- **Real-time Sync**: WebSocket-based synchronization
-- **Blockchain**: Immutable audit trail using blockchain
-- **Machine Learning**: Task duration prediction using neural networks
-- **Natural Language**: Create tasks from natural language input
-- **Voice Control**: Voice commands for task management
-- **AR/VR**: Virtual task boards in augmented reality
-- **Social Features**: Share tasks on social media
-- **Integration Hub**: Zapier/IFTTT-like automation
-- **Cloud Storage**: S3/Azure/GCP integration
-- **Export Formats**: Export to MS Project, Jira, Asana formats
+```pascal
+var
+  Manager: TIntelligenceTaskManager;
+  NotificationID: Integer;
+  Pending: TSmartNotificationArray;
+  SentCount: Integer;
+begin
+  Manager := TIntelligenceTaskManager.Create;
+  try
+    // Create notification
+    NotificationID := Manager.CreateNotification(
+      ncEmail,                    // Channel: console, file, email, webhook
+      npHigh,                     // Priority: low, normal, high, critical
+      'Task Overdue',             // Title
+      'Task #123 is overdue',     // Message
+      123                         // Task ID
+    );
+    
+    // Send specific notification
+    if Manager.SendNotification(NotificationID) then
+      WriteLn('Notification sent successfully');
+    
+    // Get pending notifications
+    Pending := Manager.GetPendingNotifications;
+    WriteLn('Pending notifications: ', Length(Pending));
+    
+    // Send all pending
+    SentCount := Manager.SendAllPendingNotifications;
+    WriteLn('Sent ', SentCount, ' notifications');
+    
+    // Check and create smart notifications automatically
+    Manager.CheckAndCreateSmartNotifications;
+  finally
+    Manager.Free;
+  end;
+end.
+```
 
-### Optimization Opportunities
+**Notification Types:**
 
-- **Database Backend**: Migrate to SQLite/PostgreSQL for scalability
-- **Caching Layer**: Implement smart caching for frequently accessed data
-- **Async Operations**: Background processing for heavy operations
-- **Parallel Processing**: Multi-threaded task processing
-- **Compression**: Compress large data exports
+```pascal
+type
+  TNotificationChannel = (
+    ncConsole,    // Console output
+    ncFile,       // File logging
+    ncEmail,      // Email notification
+    ncWebhook     // HTTP webhook
+  );
+  
+  TNotificationPriority = (
+    npLow,        // Low priority
+    npNormal,     // Normal priority
+    npHigh,       // High priority
+    npCritical    // Critical - immediate attention
+  );
+  
+  TSmartNotification = record
+    NotificationID: Integer;
+    Channel: TNotificationChannel;
+    Priority: TNotificationPriority;
+    Title: string;
+    Message: string;
+    TaskID: Integer;
+    CreatedAt: TDateTime;
+    SentAt: TDateTime;
+    IsSent: Boolean;
+    Context: string;
+  end;
+```
 
-## Performance Benchmarks
+#### Multi-Format Export
 
-Based on testing with 10,000 tasks:
+Export tasks to various formats:
 
-| Operation | Time (ms) | Notes |
-|-----------|-----------|-------|
-| Add 10,000 tasks | 245 | ~24 μs per task |
-| Search 10,000 tasks | 12 | Linear scan |
-| Sort 10,000 tasks | 89 | QuickSort |
-| Filter by category | 8 | Single pass |
-| Export to CSV | 156 | String building |
-| Save to file | 234 | I/O bound |
-| Load from file | 198 | I/O bound |
+```pascal
+var
+  Manager: TIntelligenceTaskManager;
+  Result: TExportResult;
+begin
+  Manager := TIntelligenceTaskManager.Create;
+  try
+    // Export to JSON
+    Result := Manager.ExportToJSON;
+    if Result.Success then
+      WriteLn('JSON exported: ', Result.FileSize, ' bytes');
+    
+    // Export to XML
+    Result := Manager.ExportToXML;
+    
+    // Export to iCalendar format
+    Result := Manager.ExportToICalendar;
+    
+    // Export to Markdown
+    Result := Manager.ExportToMarkdown;
+    
+    // Export to HTML
+    Result := Manager.ExportToHTML;
+    
+    // Generic export with format selection
+    Result := Manager.ExportWithFormat(efJSON);
+    if Result.Success then
+      WriteLn('Export successful: ', Result.Content)
+    else
+      WriteLn('Export failed: ', Result.ErrorMessage);
+  finally
+    Manager.Free;
+  end;
+end.
+```
 
-**Test Environment**: Intel i7-9700K, 16GB RAM, SSD, FPC 3.2.2, Linux
+**Export Types:**
 
-## Contributing
+```pascal
+type
+  TExportFormat = (
+    efJSON,        // JSON format
+    efXML,         // XML format
+    efICalendar,   // iCalendar (.ics) format
+    efMarkdown,    // Markdown format
+    efHTML,        // HTML format
+    efCSV          // CSV format
+  );
+  
+  TExportResult = record
+    Success: Boolean;
+    Format: TExportFormat;
+    Content: string;
+    FileSize: Integer;
+    ExportedAt: TDateTime;
+    ErrorMessage: string;
+  end;
+```
 
-This is a demonstration project showcasing Free Pascal capabilities. Feel free to:
+**Key Methods Summary:**
 
-- Use the code in your own projects
-- Extend with additional features
-- Submit improvements or bug fixes
-- Create bindings for other languages
-- Port to other platforms
+```pascal
+// NLP
+function ParseNaturalLanguageTask(const AInput: string): TParsedTask;
+function CreateTaskFromNL(const AInput: string): Integer;
+function BulkCreateFromNL(const AInputs: array of string): TIntArray;
 
-## Author & License
+// Backup & Versioning
+function CreateBackupVersion(const ADescription: string): Integer;
+function RestoreFromVersion(AVersionID: Integer): Boolean;
+function CreateRestorePoint(const ALabel: string): Integer;
+procedure EnableAutoBackup(AEnabled: Boolean; AIntervalHours: Integer);
 
-**Author**: Created as part of the Beyond Python SmolAgents project  
-**Repository**: https://github.com/joaopauloschuler/beyond-python-smolagents  
-**License**: Free to use and modify for any purpose  
-**Language**: Free Pascal (FPC) 3.2.2+  
-**Documentation**: Comprehensive markdown documentation included
+// Bulk Operations
+function BulkUpdateStatus(const ATaskIDs: array of Integer; ANewStatus: TTaskStatus): Integer;
+function BulkUpdatePriority(const ATaskIDs: array of Integer; ANewPriority: TTaskPriority): Integer;
+function BulkArchive(const ATaskIDs: array of Integer; const AReason: string): Integer;
 
-## Acknowledgments
+// Analytics
+function GenerateCompletionTrend(ADays: Integer): TTrendArray;
+function GenerateVelocityReport(AWeeks: Integer): TAnalyticsReport;
+function PredictTaskCompletionTrend(ADaysAhead: Integer): TTrendArray;
+function GetBottleneckAnalysis: string;
 
-- Free Pascal Compiler team for the excellent compiler
-- Lazarus IDE team for development tools
-- Open source community for inspiration and best practices
+// Notifications
+function CreateNotification(AChannel: TNotificationChannel; APriority: TNotificationPriority; 
+  const ATitle, AMessage: string; ATaskID: Integer): Integer;
+function SendAllPendingNotifications: Integer;
 
-## Version History
+// Export
+function ExportToJSON: TExportResult;
+function ExportToXML: TExportResult;
+function ExportToICalendar: TExportResult;
+function ExportWithFormat(AFormat: TExportFormat): TExportResult;
+```
 
-### Version 3.0 (Current) - December 2024
+
+## Development History
+
+### Version 3.0 - December 2024
 - Consolidated all 20+ modules into unified system
 - Added comprehensive documentation
 - Implemented 22 demonstration programs
-- Total: 39,338 lines of production code
+- Reached 30,842 lines of production code
+- Added compilation helper script
 
 ### Version 2.0 - November 2024
 - Added extended features (recurring tasks, subtasks)
@@ -1303,92 +1238,248 @@ This is a demonstration project showcasing Free Pascal capabilities. Feel free t
 - CSV export and file persistence
 - Statistics and analytics
 
----
+## Integration Guide
 
-## Quick Start Guide
-
-### 1. Install Free Pascal Compiler
-
-```bash
-# Ubuntu/Debian
-sudo apt-get install fpc
-
-# macOS
-brew install fpc
-
-# Windows
-# Download from: https://www.freepascal.org/download.html
-```
-
-### 2. Clone and Compile
-
-```bash
-# Navigate to solution1 folder
-cd solution1
-
-# Compile core module
-fpc taskmanager.pas -O2 -Mobjfpc
-
-# Compile and run first demo
-fpc solution1.pas -obin/demo1 -O2 -Mobjfpc
-./bin/demo1
-```
-
-### 3. Explore Features
-
-Each solution*.pas file demonstrates different capabilities:
-
-```bash
-# Core features
-./bin/demo1
-
-# Extended features (recurring tasks, subtasks)
-./bin/demo2
-
-# Advanced analytics
-./bin/demo3
-
-# Team collaboration
-./bin/demo5
-
-# Kanban boards
-# ... compile appropriate solution*.pas file
-```
-
-### 4. Integrate into Your Project
+### Basic Integration
 
 ```pascal
+program MyTaskApp;
+
+{$mode objfpc}{$H+}
+
 uses
+  SysUtils, DateUtils,
   taskmanager,  // Core module
   taskmanagerext,  // Extended features
-  // Add other modules as needed
-  ;
+  taskmanagerteam;  // Team features
 
 var
-  Manager: TExtendedTaskManager;
+  Manager: TTeamTaskManager;
+  TaskID, MemberID: Integer;
 
 begin
-  Manager := TExtendedTaskManager.Create;
+  Manager := TTeamTaskManager.Create;
   try
-    // Your code here
+    // Create task
+    TaskID := Manager.AddTask(
+      'My First Task',
+      'Task description',
+      'Work',
+      tpHigh,
+      Now + 7,
+      4.0
+    );
+    
+    // Add team member
+    MemberID := Manager.AddTeamMember(
+      'Alice',
+      'alice@example.com',
+      'Developer'
+    );
+    
+    // Assign task
+    Manager.AssignTask(TaskID, MemberID);
+    
+    // Save to file
+    Manager.SaveToFile('tasks.dat');
+    
+    WriteLn('Task created and assigned successfully!');
   finally
     Manager.Free;
   end;
 end.
 ```
 
-## Support & Community
+### Advanced Integration
 
-- **Issues**: Report bugs via GitHub issues
-- **Questions**: Discussion board on GitHub
+```pascal
+program AdvancedTaskApp;
+
+{$mode objfpc}{$H+}
+
+uses
+  SysUtils, DateUtils,
+  taskmanager, taskmanagerext, taskmanageradvanced,
+  taskmanagerenhanced, taskmanagerteam, taskmanagerboards,
+  taskmanagernotifications;
+
+var
+  Manager: TTeamTaskManager;
+  NotifManager: TNotificationTaskManager;
+  BoardManager: TBoardTaskManager;
+
+begin
+  // Initialize managers
+  Manager := TTeamTaskManager.Create;
+  NotifManager := TNotificationTaskManager.Create;
+  BoardManager := TBoardTaskManager.Create;
+  
+  try
+    // Your application logic here
+    // Combine features from multiple modules
+  finally
+    Manager.Free;
+    NotifManager.Free;
+    BoardManager.Free;
+  end;
+end.
+```
+
+## Best Practices
+
+### Memory Management
+
+Always use try-finally blocks:
+
+```pascal
+var
+  Manager: TTaskManager;
+begin
+  Manager := TTaskManager.Create;
+  try
+    // Your code here
+  finally
+    Manager.Free;  // Always free
+  end;
+end.
+```
+
+### Error Handling
+
+Check return values:
+
+```pascal
+if Manager.AddTask(...) > 0 then
+  WriteLn('Task created successfully')
+else
+  WriteLn('Error creating task');
+```
+
+### Performance Tips
+
+1. **Batch operations**: Use batch methods for multiple updates
+2. **Filtering**: Filter at the database/manager level, not in code
+3. **Indexing**: Use appropriate data structures for large datasets
+4. **Caching**: Cache frequently accessed data
+
+### Module Selection
+
+Choose modules based on needs:
+
+- **Small projects**: `taskmanager.pas` only
+- **Medium projects**: Add `taskmanagerext.pas` and `taskmanageradvanced.pas`
+- **Enterprise**: Include team, boards, notifications modules
+- **Full-featured**: Use all modules as needed
+
+## Testing
+
+Each demo program includes comprehensive self-tests:
+
+```bash
+# Run all demos sequentially
+for i in {1..22}; do
+  echo "Running demo $i..."
+  ./bin/demo$i
+done
+
+# Run specific feature test
+./bin/demo5  # Team collaboration
+./bin/demo15 # Kanban boards
+./bin/demo21 # Time tracking
+```
+
+## Troubleshooting
+
+### Compilation Errors
+
+**Error:** "Unknown identifier TTaskManager"
+```bash
+# Solution: Ensure taskmanager.pas is in the same directory or use -Fu flag
+fpc -Futaskmanager.pas solution1.pas
+```
+
+**Error:** "Can't open include file"
+```bash
+# Solution: Include files should be in same directory
+# Check taskmanagerintelligence_*.inc files are present
+```
+
+### Runtime Errors
+
+**Error:** "Access violation"
+- Check that all objects are created before use
+- Ensure proper try-finally blocks
+- Verify array bounds
+
+**Error:** "File not found"
+- Use absolute paths or ensure working directory is correct
+- Check file permissions
+
+## Contributing
+
+To extend the system:
+
+1. **Create new module**: Inherit from appropriate base class
+2. **Follow naming**: Use `TYourFeatureTaskManager` pattern
+3. **Document**: Add demo program (solution*.pas)
+4. **Test**: Include comprehensive self-tests
+
+Example new module:
+
+```pascal
+unit taskmanagercustom;
+
+{$mode objfpc}{$H+}
+
+interface
+
+uses
+  SysUtils, taskmanager;
+
+type
+  TCustomTaskManager = class(TTaskManager)
+  private
+    // Your private fields
+  public
+    constructor Create;
+    destructor Destroy; override;
+    // Your methods
+  end;
+
+implementation
+
+constructor TCustomTaskManager.Create;
+begin
+  inherited Create;
+  // Your initialization
+end;
+
+destructor TCustomTaskManager.Destroy;
+begin
+  // Your cleanup
+  inherited Destroy;
+end;
+
+end.
+```
+
+## Support & Resources
+
 - **Documentation**: This README and inline code comments
-- **Examples**: 22 complete demo programs included
+- **Examples**: 22 complete demo programs (solution1.pas - solution22.pas)
+- **Source Code**: All modules fully documented with Pascal doc comments
+- **Architecture**: See class hierarchy diagram above
+
+## License
+
+This is a demonstration project for educational purposes.
 
 ---
 
 **Last Updated**: December 2024  
-**Document Version**: 3.0  
-**Total Lines of Code**: 39,338+  
-**Total Documentation**: Comprehensive inline + this README
+**Document Version**: 4.0  
+**Total Lines of Code**: 30,842  
+**Compiler Required**: Free Pascal 3.0+  
+**Platform**: Cross-platform (Linux, macOS, Windows)
 
-Happy Task Managing! 🚀
+**Happy Task Managing!** 🚀
