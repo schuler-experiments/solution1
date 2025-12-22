@@ -1,0 +1,32 @@
+
+# Compiled Object files
+*.o
+*.obj
+*.ppu
+*.a
+*.lib
+
+# Executables
+*.exe
+*.app
+bin/task_manager
+bin/*
+
+# Data files
+*.dat
+
+# Export files
+*.csv
+*.txt
+tasks_export.*
+
+# IDE/Editor files
+*.lpi
+*.lps
+*.bak
+*.~*
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
