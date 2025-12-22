@@ -196,6 +196,175 @@ The system is organized into specialized modules, each providing distinct functi
 
 **Total:** 30,842 lines across 48 source files
 
+
+
+## File Structure and Organization
+
+Understanding the project's file organization is crucial for navigation and development.
+
+### Directory Layout
+
+```
+solution1/
+├── bin/                          # Compiled executables and build scripts
+│   └── compile.sh                # Automated compilation script
+├── src/                          # Alternative source location
+│   └── taskmanager.pas           # Core module (987 lines, newer version)
+├── taskmanager*.pas              # Task manager modules (root level)
+├── solution*.pas                 # Demo programs (solution1 - solution22)
+└── README.md                     # This documentation
+```
+
+### Important: Dual taskmanager.pas Files
+
+⚠️ **Note:** There are **two different** `taskmanager.pas` files in this project:
+
+1. **Root level:** `solution1/taskmanager.pas` (899 lines)
+2. **Src folder:** `solution1/src/taskmanager.pas` (987 lines)
+
+**Key Differences:**
+- The **src/taskmanager.pas** version is newer and more feature-complete (88 more lines)
+- When compiling, Free Pascal will use the file in the **current directory first**
+- Demo programs (solution*.pas) expect to use the **root level** taskmanager.pas
+- For development, consider which version to standardize on
+
+**Recommendation:** 
+```bash
+# To use the src/ version consistently, compile from within src/
+cd solution1/src
+fpc ../solution1.pas -obin/demo1
+
+# Or copy src/taskmanager.pas to root (after backing up)
+cp src/taskmanager.pas taskmanager.pas.backup
+cp src/taskmanager.pas .
+```
+
+### Module Files
+
+All task manager modules are in the root `solution1/` directory:
+
+| File Pattern | Purpose | Example |
+|--------------|---------|---------|
+| `taskmanager.pas` | Core base class | Base TTaskManager |
+| `taskmanagerext.pas` | Extended features | TExtendedTaskManager |
+| `taskmanager*.pas` | Specialized modules | taskmanagerfocus.pas, taskmanagerteam.pas |
+| `taskmanagerintelligence_*.inc` | Include files | Code split for organization |
+
+### Include Files (.inc)
+
+Some modules use include files to organize code:
+
+```pascal
+// In taskmanagerintelligence.pas
+{$I taskmanagerintelligence_analytics.inc}
+{$I taskmanagerintelligence_export.inc}
+```
+
+**Include Files:**
+- `taskmanagerintelligence_analytics.inc` (304 lines) - Analytics implementation
+- `taskmanagerintelligence_export.inc` (352 lines) - Export functionality
+
+**Purpose:** Breaking large modules into logical sections while maintaining single unit compilation.
+
+### Demo Programs (solution*.pas)
+
+22 demonstration programs showcase different features:
+
+**Organization Pattern:**
+```pascal
+program solution<N>;        // Program declaration
+{$mode objfpc}{$H+}        // Compiler directives
+uses                        // Module dependencies
+  SysUtils, taskmanager, taskmanagerXXX;
+var
+  Manager: TXXXTaskManager; // Specific manager type
+procedure SelfTest;         // Main test procedure
+begin
+  Manager := TXXXTaskManager.Create;
+  try
+    Manager.SelfTest;       // Most demos use built-in SelfTest
+  finally
+    Manager.Free;
+  end;
+end;
+begin
+  SelfTest;
+end.
+```
+
+**Categories:**
+- **solution1-5:** Core progression (basic → team)
+- **solution6-10:** Specialized features (focus, gamification, lifestyle)
+- **solution11-15:** Advanced features (recurring, resources, smart)
+- **solution16-20:** Intelligence and boards
+- **solution21-22:** Time tracking and knowledge base
+
+**Note:** Solutions 18-20 are minimal (28 lines each) and simply invoke the module's built-in `SelfTest` method.
+
+### The bin/ Folder
+
+**Purpose:** Contains compiled executables and build automation.
+
+**Contents:**
+- `compile.sh` - Automated compilation script for solution1.pas
+- Compiled executables (after running compile.sh or manual compilation)
+
+**compile.sh Functionality:**
+```bash
+#!/bin/bash
+cd "$(dirname "$0")/.."     # Navigate to solution1/ directory
+fpc -gl -o./bin/solution1 ./solution1.pas  # Compile with debug symbols
+# Check for errors and report
+```
+
+**Usage:**
+```bash
+cd solution1/bin
+./compile.sh               # Compiles solution1.pas → bin/solution1
+./solution1                # Run the compiled program
+```
+
+### Source Code Organization Strategy
+
+**Why Multiple Files?**
+1. **Modularity:** Each feature in its own unit
+2. **Inheritance:** Clear class hierarchy through separate files
+3. **Reusability:** Mix and match modules as needed
+4. **Maintainability:** Easier to locate and modify specific features
+
+**Dependency Pattern:**
+```
+solution1.pas (demo)
+    ↓ uses
+taskmanager.pas (base)
+    ↓ inherited by
+taskmanagerext.pas
+    ↓ inherited by
+taskmanageradvanced.pas
+    ↓ used by
+solution1.pas
+```
+
+### Working with the Source
+
+**To add a new feature:**
+
+1. Create new unit: `taskmanagermyfeature.pas`
+2. Inherit from appropriate base class
+3. Add interface and implementation
+4. Create demo: `solution23.pas`
+5. Update this README
+
+**To modify existing code:**
+
+1. Identify the correct module file
+2. Be aware of the dual taskmanager.pas situation
+3. Update dependent modules if interfaces change
+4. Test with relevant solution*.pas demos
+5. Recompile all affected demos
+
+
+
 ## Core Features
 
 ### Basic Task Management (TTaskManager)
