@@ -1217,6 +1217,530 @@ function ExportWithFormat(AFormat: TExportFormat): TExportResult;
 ```
 
 
+
+### Focus & Deep Work (TFocusTaskManager)
+
+**Module:** `taskmanagerfocus.pas`  
+**Inherits from:** TAdvancedTaskManager  
+**Lines of Code:** 1,370  
+**Key Features:** Pomodoro Technique, Deep Work Blocks, Flow State Analysis, Distraction Tracking, Context Switch Management
+
+The Focus Task Manager is a comprehensive productivity enhancement system that helps manage attention, track focus quality, and optimize deep work sessions. It implements proven productivity techniques including the Pomodoro Technique, distraction logging, and flow state analysis.
+
+#### Pomodoro Technique
+
+Implement the proven Pomodoro time management method:
+
+```pascal
+uses taskmanagerfocus;
+
+var
+  Manager: TFocusTaskManager;
+  TaskID, PomodoroID: Integer;
+begin
+  Manager := TFocusTaskManager.Create;
+  try
+    // Configure Pomodoro settings
+    // Parameters: work minutes, short break, long break, cycles before long break
+    Manager.SetPomodoroSettings(25, 5, 15, 4);
+    
+    // Create a task
+    TaskID := Manager.AddTask(
+      'Write Documentation',
+      'Complete API documentation',
+      tpHigh,
+      IncDay(Now, 3)
+    );
+    
+    // Start a Pomodoro session
+    PomodoroID := Manager.StartPomodoro(TaskID, 25);
+    WriteLn('Pomodoro session started. Focus for 25 minutes!');
+    
+    // ... work happens ...
+    
+    // Complete the Pomodoro with quality rating
+    Manager.CompletePomodoro(
+      PomodoroID,
+      fqExcellent,  // Quality: fqPoor, fqFair, fqGood, fqExcellent
+      'Great focus, completed 2 sections'
+    );
+    
+    // Or abandon if interrupted
+    // Manager.AbandonPomodoro(PomodoroID, 'Emergency meeting');
+    
+    // Get Pomodoro statistics
+    WriteLn(Manager.GetPomodoroStats(7));  // Last 7 days
+  finally
+    Manager.Free;
+  end;
+end.
+```
+
+**Pomodoro Types:**
+
+```pascal
+type
+  TFocusQuality = (fqPoor, fqFair, fqGood, fqExcellent);
+  
+  TPomodoroSession = record
+    ID: Integer;
+    TaskID: Integer;
+    StartTime: TDateTime;
+    EndTime: TDateTime;
+    PlannedMinutes: Integer;
+    ActualMinutes: Integer;
+    Quality: TFocusQuality;
+    Completed: Boolean;
+    Abandoned: Boolean;
+    AbandonReason: string;
+    Notes: string;
+  end;
+```
+
+#### Focus Sessions & Flow State
+
+Track deep work sessions and analyze flow states:
+
+```pascal
+var
+  Manager: TFocusTaskManager;
+  TaskID, SessionID: Integer;
+  Stats: TFocusStats;
+begin
+  Manager := TFocusTaskManager.Create;
+  try
+    // Set flow threshold (minimum minutes for flow state)
+    Manager.SetFlowThreshold(20);
+    
+    TaskID := Manager.AddTask('Complex Algorithm', 'Implement sorting', tpHigh, Now);
+    
+    // Start a focus session
+    SessionID := Manager.StartFocusSession(
+      TaskID,
+      ftDeepWork,     // ftShallowWork, ftDeepWork, ftCreative, ftAnalytical
+      8               // Energy level before (1-10)
+    );
+    
+    // ... focused work happens ...
+    
+    // End session with metrics
+    Manager.EndFocusSession(
+      SessionID,
+      9,              // Productivity rating (1-10)
+      6,              // Energy level after (1-10)
+      'Achieved flow state, made excellent progress'
+    );
+    
+    // Get focus statistics
+    Stats := Manager.GetFocusStats(30);  // Last 30 days
+    WriteLn('Total Focus Time: ', Stats.TotalFocusMinutes, ' minutes');
+    WriteLn('Flow Sessions: ', Stats.FlowSessions);
+    WriteLn('Average Session: ', Stats.AverageFocusMinutes:0:1, ' min');
+    WriteLn('Deep Work Ratio: ', Stats.DeepWorkRatio:0:1, '%');
+  finally
+    Manager.Free;
+  end;
+end.
+```
+
+**Focus Session Types:**
+
+```pascal
+type
+  TFocusType = (ftShallowWork, ftDeepWork, ftCreative, ftAnalytical);
+  TFlowState = (fsNoFlow, fsPartialFlow, fsFullFlow, fsSuperFlow);
+  
+  TFocusSession = record
+    ID: Integer;
+    TaskID: Integer;
+    FocusType: TFocusType;
+    StartTime: TDateTime;
+    EndTime: TDateTime;
+    FocusMinutes: Integer;
+    Productivity: Integer;        // 1-10
+    EnergyBefore: Integer;        // 1-10
+    EnergyAfter: Integer;         // 1-10
+    FlowState: TFlowState;
+    FlowScore: Integer;           // Calculated flow quality
+    Distractions: Integer;
+    ContextSwitches: Integer;
+    Notes: string;
+  end;
+  
+  TFocusStats = record
+    TotalSessions: Integer;
+    TotalFocusMinutes: Integer;
+    AverageFocusMinutes: Double;
+    FlowSessions: Integer;
+    DeepWorkRatio: Double;        // Percentage of deep work
+    AverageProductivity: Double;
+    AverageEnergyChange: Double;
+    TotalDistractions: Integer;
+    TotalContextSwitches: Integer;
+  end;
+```
+
+#### Distraction Tracking
+
+Log and analyze distractions to improve focus:
+
+```pascal
+var
+  Manager: TFocusTaskManager;
+  SessionID, DistractionID: Integer;
+begin
+  Manager := TFocusTaskManager.Create;
+  try
+    SessionID := Manager.StartFocusSession(TaskID, ftDeepWork, 8);
+    
+    // Log a distraction
+    DistractionID := Manager.LogDistraction(
+      SessionID,
+      TaskID,
+      dtExternal,       // dtInternal, dtExternal, dtDigital, dtEnvironmental
+      'Colleague question',
+      7,                // Impact: 1-10
+      True              // Was it avoidable?
+    );
+    
+    // Analyze distraction patterns
+    WriteLn(Manager.GetDistractionStats(30));
+    WriteLn('Most common: ', Manager.GetMostCommonDistractions);
+    WriteLn('Avoidable rate: ', 
+      Manager.GetAvoidableDistractionRate(30):0:1, '%');
+  finally
+    Manager.Free;
+  end;
+end.
+```
+
+**Distraction Types:**
+
+```pascal
+type
+  TDistractionType = (
+    dtInternal,        // Self-generated (thoughts, hunger, etc.)
+    dtExternal,        // People, phone calls
+    dtDigital,         // Emails, notifications, social media
+    dtEnvironmental    // Noise, temperature, lighting
+  );
+  
+  TDistraction = record
+    ID: Integer;
+    SessionID: Integer;
+    TaskID: Integer;
+    DistractionType: TDistractionType;
+    Source: string;
+    OccurredAt: TDateTime;
+    Impact: Integer;           // 1-10
+    Avoidable: Boolean;
+    RecoveryMinutes: Integer;
+  end;
+```
+
+#### Context Switching Analysis
+
+Track task switching costs and patterns:
+
+```pascal
+var
+  Manager: TFocusTaskManager;
+  FromTask, ToTask, SwitchID: Integer;
+  AverageCost: Double;
+begin
+  Manager := TFocusTaskManager.Create;
+  try
+    FromTask := Manager.AddTask('Feature A', 'Development', tpHigh, Now);
+    ToTask := Manager.AddTask('Bug Fix', 'Urgent fix', tpCritical, Now);
+    
+    // Log a context switch
+    SwitchID := Manager.LogContextSwitch(
+      FromTask,
+      ToTask,
+      'Critical bug reported',
+      False          // Was this switch planned?
+    );
+    
+    // Update with recovery cost
+    Manager.UpdateSwitchRecovery(
+      SwitchID,
+      15,            // Recovery time in minutes
+      8              // Productivity cost (1-10)
+    );
+    
+    // Analyze switching impact
+    WriteLn(Manager.GetSwitchingCost(30));
+    AverageCost := Manager.GetAverageSwitchCost;
+    WriteLn('Average switch cost: ', AverageCost:0:1, ' minutes');
+  finally
+    Manager.Free;
+  end;
+end.
+```
+
+**Context Switch Types:**
+
+```pascal
+type
+  TContextSwitch = record
+    ID: Integer;
+    FromTaskID: Integer;
+    ToTaskID: Integer;
+    SwitchedAt: TDateTime;
+    Reason: string;
+    Planned: Boolean;
+    RecoveryMinutes: Integer;
+    ProductivityCost: Integer;    // 1-10
+  end;
+```
+
+#### Deep Work Blocks
+
+Schedule and protect dedicated deep work time:
+
+```pascal
+var
+  Manager: TFocusTaskManager;
+  BlockID, TaskID: Integer;
+  StartTime, EndTime: TDateTime;
+begin
+  Manager := TFocusTaskManager.Create;
+  try
+    // Schedule a deep work block
+    StartTime := EncodeDate(2024, 12, 25) + EncodeTime(9, 0, 0, 0);
+    EndTime := EncodeDate(2024, 12, 25) + EncodeTime(12, 0, 0, 0);
+    
+    BlockID := Manager.ScheduleDeepWorkBlock(
+      'Morning Deep Work',
+      StartTime,
+      EndTime,
+      3              // Protection level: 1-3 (higher = stricter)
+    );
+    
+    // Add tasks to the block
+    TaskID := Manager.AddTask('Algorithm Design', 'Core logic', tpHigh, Now);
+    Manager.AddTaskToBlock(BlockID, TaskID);
+    
+    // Start the block
+    Manager.StartDeepWorkBlock(BlockID);
+    WriteLn('Deep work block started - minimize interruptions!');
+    
+    // ... deep work happens ...
+    
+    // End the block
+    Manager.EndDeepWorkBlock(BlockID, 'Completed algorithm design');
+    
+    // Analyze effectiveness
+    WriteLn(Manager.GetBlockEffectiveness);
+  finally
+    Manager.Free;
+  end;
+end.
+```
+
+**Deep Work Block Types:**
+
+```pascal
+type
+  TDeepWorkBlock = record
+    ID: Integer;
+    Title: string;
+    StartTime: TDateTime;
+    EndTime: TDateTime;
+    PlannedMinutes: Integer;
+    ActualMinutes: Integer;
+    ProtectionLevel: Integer;     // 1-3
+    TaskIDs: array of Integer;
+    Started: Boolean;
+    Completed: Boolean;
+    Productivity: Integer;        // 1-10
+    Notes: string;
+  end;
+```
+
+#### Flow Pattern Analysis
+
+Identify optimal conditions for deep work:
+
+```pascal
+var
+  Manager: TFocusTaskManager;
+  Patterns: TFlowPatternArray;
+  BestHour: Integer;
+  FlowPotential: Double;
+begin
+  Manager := TFocusTaskManager.Create;
+  try
+    // Identify when you achieve flow most easily
+    Patterns := Manager.IdentifyFlowPatterns;
+    for Pattern in Patterns do
+      WriteLn('Pattern: ', Pattern.Description, 
+              ' (confidence: ', Pattern.Confidence:0:1, '%)');
+    
+    // Find your best time for deep work
+    BestHour := Manager.GetBestTimeForDeepWork;
+    WriteLn('Best deep work time: ', BestHour, ':00');
+    
+    // Get personalized recommendations
+    WriteLn(Manager.GetFlowStateRecommendations);
+    
+    // Predict flow potential for a task at specific time
+    FlowPotential := Manager.PredictFlowPotential(TaskID, 9);  // 9 AM
+    WriteLn('Flow potential at 9 AM: ', FlowPotential:0:1, '%');
+  finally
+    Manager.Free;
+  end;
+end.
+```
+
+**Flow Pattern Types:**
+
+```pascal
+type
+  TFlowPattern = record
+    Description: string;
+    TimeOfDay: Integer;           // Hour 0-23
+    AverageFlowScore: Integer;
+    SessionCount: Integer;
+    Confidence: Double;           // 0-100%
+  end;
+```
+
+#### Productivity Analytics
+
+Generate comprehensive focus and productivity reports:
+
+```pascal
+var
+  Manager: TFocusTaskManager;
+  Efficiency, DeepWorkRatio: Double;
+begin
+  Manager := TFocusTaskManager.Create;
+  try
+    // Overall focus efficiency
+    Efficiency := Manager.GetFocusEfficiency(30);
+    WriteLn('Focus efficiency: ', Efficiency:0:1, '%');
+    
+    // Deep work vs shallow work ratio
+    DeepWorkRatio := Manager.GetDeepWorkRatio(30);
+    WriteLn('Deep work ratio: ', DeepWorkRatio:0:1, '%');
+    
+    // Interruption impact analysis
+    WriteLn(Manager.GetInterruptionImpact(30));
+    
+    // Get improvement suggestions
+    WriteLn(Manager.SuggestFocusImprovements);
+    
+    // Comprehensive focus report
+    WriteLn(Manager.GenerateFocusReport(30));
+    
+    // Productivity by time of day
+    WriteLn(Manager.GetProductivityByTimeOfDay);
+    
+    // Energy-productivity correlation
+    WriteLn(Manager.GetEnergyCorrelation);
+  finally
+    Manager.Free;
+  end;
+end.
+```
+
+#### Data Persistence
+
+Save and load focus data:
+
+```pascal
+var
+  Manager: TFocusTaskManager;
+begin
+  Manager := TFocusTaskManager.Create;
+  try
+    // Save all focus data
+    if Manager.SaveFocusDataToFile('focus_data.json') then
+      WriteLn('Focus data saved successfully');
+    
+    // Load previous data
+    if Manager.LoadFocusDataFromFile('focus_data.json') then
+      WriteLn('Focus data loaded successfully');
+  finally
+    Manager.Free;
+  end;
+end.
+```
+
+**Key Methods Summary:**
+
+```pascal
+// Pomodoro
+function StartPomodoro(ATaskID, AMinutes: Integer): Integer;
+function CompletePomodoro(APomodoroID: Integer; AQuality: TFocusQuality; 
+  const ANotes: string): Boolean;
+function AbandonPomodoro(APomodoroID: Integer; const AReason: string): Boolean;
+function GetPomodoroStats(ADays: Integer): string;
+
+// Focus Sessions
+function StartFocusSession(ATaskID: Integer; AFocusType: TFocusType; 
+  AEnergyBefore: Integer): Integer;
+function EndFocusSession(ASessionID, AProductivity, AEnergyAfter: Integer; 
+  const ANotes: string): Boolean;
+function GetFocusStats(ADays: Integer): TFocusStats;
+
+// Distraction Management
+function LogDistraction(ASessionID, ATaskID: Integer; AType: TDistractionType;
+  const ASource: string; AImpact: Integer; AAvoidable: Boolean): Integer;
+function GetDistractionStats(ADays: Integer): string;
+function GetMostCommonDistractions: string;
+function GetAvoidableDistractionRate(ADays: Integer): Double;
+
+// Context Switching
+function LogContextSwitch(AFromTask, AToTask: Integer; 
+  const AReason: string; APlanned: Boolean): Integer;
+function UpdateSwitchRecovery(ASwitchID, AMinutes, ACost: Integer): Boolean;
+function GetSwitchingCost(ADays: Integer): string;
+function GetAverageSwitchCost: Double;
+
+// Deep Work Blocks
+function ScheduleDeepWorkBlock(const ATitle: string; AStart, AEnd: TDateTime;
+  AProtectionLevel: Integer): Integer;
+function AddTaskToBlock(ABlockID, ATaskID: Integer): Boolean;
+function StartDeepWorkBlock(ABlockID: Integer): Boolean;
+function EndDeepWorkBlock(ABlockID: Integer; const ANotes: string): Boolean;
+function GetBlockEffectiveness: string;
+
+// Flow Analysis
+function IdentifyFlowPatterns: TFlowPatternArray;
+function GetBestTimeForDeepWork: Integer;
+function GetFlowStateRecommendations: string;
+function PredictFlowPotential(ATaskID, AHour: Integer): Double;
+
+// Analytics
+function GetFocusEfficiency(ADays: Integer): Double;
+function GetDeepWorkRatio(ADays: Integer): Double;
+function GetInterruptionImpact(ADays: Integer): string;
+function SuggestFocusImprovements: string;
+function GenerateFocusReport(ADays: Integer): string;
+
+// Configuration
+procedure SetPomodoroSettings(AWorkMinutes, AShortBreak, ALongBreak, ACycleCount: Integer);
+procedure SetFlowThreshold(AMinutes: Integer);
+
+// Persistence
+function SaveFocusDataToFile(const AFilename: string): Boolean;
+function LoadFocusDataFromFile(const AFilename: string): Boolean;
+```
+
+**Use Cases:**
+
+- **Time Management:** Implement Pomodoro technique for focused work sessions
+- **Deep Work:** Schedule and protect blocks of uninterrupted time
+- **Productivity Analysis:** Track and improve focus quality over time
+- **Distraction Management:** Identify and eliminate common interruptions
+- **Flow State Optimization:** Discover optimal conditions for peak productivity
+- **Context Switch Reduction:** Measure and minimize task switching costs
+- **Energy Management:** Correlate energy levels with productivity
+- **Personal Analytics:** Generate insights from focus patterns and trends
+
+
 ## Development History
 
 ### Version 3.0 - December 2024
