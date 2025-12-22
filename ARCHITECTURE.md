@@ -1,258 +1,488 @@
 
-# Task Manager Architecture Documentation
+# Task Manager - Architecture Documentation
 
-## System Overview
+## Version 2.0.0
 
-The Task Manager is designed with a layered architecture promoting separation of concerns, maintainability, and testability.
+## Overview
+
+The Task Manager is built with a clean, layered architecture following SOLID principles and separation of concerns. The system is composed of multiple specialized units, each responsible for a specific aspect of functionality.
 
 ## Architecture Layers
 
 ```
-┌─────────────────────────────────────┐
-│   Presentation Layer                │
-│   (TaskManagerMain.pas)             │
-│   - Self-test suite                 │
-│   - Output formatting               │
-└─────────────────────────────────────┘
-              ↓
-┌─────────────────────────────────────┐
-│   Business Logic Layer              │
-│   (TaskManager.pas)                 │
-│   - Task operations (CRUD)          │
-│   - Search & filtering              │
-│   - Statistics calculation          │
-└─────────────────────────────────────┘
-              ↓
-┌─────────────────────────────────────┐
-│   Data Access Layer                 │
-│   (TaskStorage.pas)                 │
-│   - File I/O operations             │
-│   - Serialization                   │
-│   - Export functionality            │
-└─────────────────────────────────────┘
-              ↓
-┌─────────────────────────────────────┐
-│   Data Model Layer                  │
-│   (TaskTypes.pas)                   │
-│   - Type definitions                │
-│   - Constants                       │
-│   - Helper functions                │
-└─────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────┐
+│          TaskManagerMain (Main Program)                 │
+│              - Self-test suite                          │
+│              - Orchestration                            │
+└─────────────────────────────────────────────────────────┘
+                          │
+        ┌─────────────────┴─────────────────┐
+        │                                   │
+┌───────▼──────────┐              ┌────────▼─────────┐
+│  TaskManager     │              │  TaskExport      │
+│  (Business Logic)│              │  (Export Layer)  │
+│                  │              │                  │
+│ - CRUD Ops       │              │ - JSON           │
+│ - Categories     │              │ - HTML           │
+│ - Dependencies   │              │ - Markdown       │
+│ - Time Tracking  │              │ - Reports        │
+│ - Statistics     │              └──────────────────┘
+└───────┬──────────┘
+        │
+┌───────▼──────────┐              ┌────────────────────┐
+│  TaskStorage     │              │  TaskHistory       │
+│  (Persistence)   │              │  (Audit Trail)     │
+│                  │              │                    │
+│ - Binary Storage │              │ - Change Tracking  │
+│ - Load/Save      │              │ - History Queries  │
+│ - CSV Export     │              │ - Persistence      │
+│ - Text Export    │              └────────────────────┘
+└───────┬──────────┘
+        │
+┌───────▼──────────┐
+│  TaskTypes       │
+│  (Data Layer)    │
+│                  │
+│ - Type Defs      │
+│ - Enumerations   │
+│ - Helpers        │
+└──────────────────┘
 ```
 
-## Component Details
+## Unit Descriptions
 
-### TaskTypes.pas - Data Model Layer
+### 1. TaskTypes.pas (Data Layer)
 
-**Purpose**: Define core data structures and types used throughout the system.
-
-**Key Components**:
-- `TTaskPriority`: Enumerated type for priority levels
-- `TTaskStatus`: Enumerated type for task states
-- `TTask`: Record containing all task properties
-- `TTaskArray`: Dynamic array type for task collections
-- `TSearchCriteria`: Record for search parameters
-- `TTaskStatistics`: Record for statistical data
-
-**Design Decisions**:
-- Used records instead of classes for lightweight data structures
-- Enumerations provide type safety for priority and status
-- Dynamic arrays for flexible collection sizes
-- Helper functions for string conversions
-
-**Dependencies**: SysUtils, DateUtils
-
-### TaskManager.pas - Business Logic Layer
-
-**Purpose**: Implement core task management functionality.
+**Purpose**: Core data structures, type definitions, and helper functions.
 
 **Key Components**:
-- `TTaskManagerCore`: Main class managing task operations
+- `TTask`: Main task record with all properties
+- `TTaskPriority`: Enumeration for priority levels
+- `TTaskStatus`: Enumeration for task states
+- `TTaskArray`: Dynamic array of tasks
+- `TSearchCriteria`: Search filter specification
+- `TTaskStatistics`: Overall statistics record
+- `TCategoryStatistics`: Per-category statistics record
+- `THistoryEntry`: Audit trail entry record
+- Helper arrays: `TIntegerArray`, `TStringArray`
 
-**Public Methods**:
-- `AddTask`: Create new task
-- `DeleteTask`: Soft delete (mark inactive)
-- `UpdateTask`: Modify task properties
+**Key Functions**:
+- Type conversion functions (Priority/Status to/from string)
+- DateTime formatting functions
+- Dependency management helpers
+- Category extraction functions
+
+**Version 2.0 Additions**:
+- Category field
+- DependsOnIDs field
+- EstimatedHours and ActualHours fields
+- LastModifiedDate field
+- Category and history-related types
+- Dependency helper functions
+
+### 2. TaskManager.pas (Business Logic Layer)
+
+**Purpose**: Core business logic for task management operations.
+
+**Key Components**:
+- `TTaskManagerCore`: Main task manager class
+
+**Key Methods**:
+
+*CRUD Operations*:
+- `AddTask`: Create new task (with optional category and time estimate)
+- `UpdateTask`: Modify existing task
+- `DeleteTask`: Soft delete task
 - `GetTask`: Retrieve single task
-- `SetTaskStatus`, `CompleteTask`, `CancelTask`: Status management
-- `GetAllTasks`, `GetActiveTasks`: Retrieve task lists
-- `SearchTasks`: Flexible search with criteria
-- `GetTasksByStatus`, `GetTasksByPriority`: Filtered retrieval
+
+*Status Management*:
+- `SetTaskStatus`: Change task status
+- `CompleteTask`: Mark as completed
+- `CancelTask`: Mark as cancelled
+
+*Category Management* (v2.0):
+- `SetTaskCategory`: Assign category to task
+- `GetTasksByCategory`: Filter tasks by category
+
+*Dependency Management* (v2.0):
+- `AddTaskDependency`: Create dependency relationship
+- `RemoveTaskDependency`: Remove dependency
+- `GetTaskDependencies`: Get prerequisite tasks
+- `CanStartTask`: Check if dependencies are met
+
+*Time Tracking* (v2.0):
+- `SetEstimatedHours`: Set time estimate
+- `SetActualHours`: Set actual time spent
+- `AddActualHours`: Increment time spent
+
+*Query Operations*:
+- `GetAllTasks`: All active tasks
+- `GetActiveTasks`: Non-completed tasks
+- `SearchTasks`: Custom criteria search
+- `GetTasksByStatus`: Filter by status
+- `GetTasksByPriority`: Filter by priority
 - `GetOverdueTasks`: Find overdue tasks
-- `GetStatistics`: Calculate statistics
-- `ClearAll`: Reset all tasks
-- `GetTasksArray`, `SetTasksArray`: Bulk operations for persistence
 
-**Private Fields**:
-- `FTasks`: Dynamic array storing all tasks
-- `FNextID`: Auto-increment counter for task IDs
-- `FModified`: Dirty flag for unsaved changes
+*Statistics* (Enhanced in v2.0):
+- `GetStatistics`: Overall statistics with time tracking
+- `GetCategoryStatistics`: Per-category breakdown
 
-**Private Methods**:
-- `FindTaskIndex`: Internal lookup by ID
-- `GetTaskCount`: Calculate active task count
+**Design Patterns**:
+- Repository pattern for task storage
+- Factory pattern for task creation
+- Strategy pattern for search criteria
 
-**Design Decisions**:
-- Class-based for encapsulation and state management
-- Soft delete preserves data integrity
-- Linear search acceptable for typical task counts
-- Filtered search using criteria record pattern
-- Statistics calculated on-demand (no caching)
+### 3. TaskStorage.pas (Persistence Layer)
 
-**Dependencies**: SysUtils, DateUtils, Math, TaskTypes
-
-### TaskStorage.pas - Data Access Layer
-
-**Purpose**: Handle persistence and export operations.
+**Purpose**: Handle file-based persistence and basic exports.
 
 **Key Components**:
-- `TTaskStorage`: Class managing file operations
+- `TTaskStorage`: Storage handler class
 
-**Public Methods**:
-- `SaveTasks`: Write tasks to binary file
-- `LoadTasks`: Read tasks from binary file
-- `ExportToCSV`: Export to CSV format
-- `ExportToText`: Export to human-readable text
-
-**Binary File Format**:
-```
-[4 bytes] Next ID
-[4 bytes] Task Count
-For each task:
-  [4 bytes] ID
-  [1 byte]  Priority (enum)
-  [1 byte]  Status (enum)
-  [8 bytes] Created Date (TDateTime)
-  [8 bytes] Due Date (TDateTime)
-  [8 bytes] Completed Date (TDateTime)
-  [1 byte]  IsActive (boolean)
-  [4 bytes] Title Length
-  [N bytes] Title String
-  [4 bytes] Description Length
-  [N bytes] Description String
-  [4 bytes] Tags Length
-  [N bytes] Tags String
-```
-
-**Design Decisions**:
+**Storage Format**:
 - Binary format for efficiency
-- Variable-length strings with length prefix
-- Fixed-field data written first for alignment
-- CSV with proper escaping for special characters
-- Text format optimized for human readability
-- Exception handling for all file operations
+- Versioned format (v2 with v1 backward compatibility)
+- TFileStream-based implementation
 
-**Dependencies**: SysUtils, Classes, TaskTypes
+**Key Methods**:
+- `SaveTasks`: Persist tasks to binary file
+- `LoadTasks`: Load tasks from file with version detection
+- `ExportToCSV`: Export to CSV with all fields
+- `ExportToText`: Export to formatted text
 
-### TaskManagerMain.pas - Presentation Layer
+**Version 2.0 Changes**:
+- Added version number to file format
+- Extended to save new fields (category, dependencies, time, lastModified)
+- Backward compatible loading of v1 format
+- Enhanced CSV/text exports with new fields
 
-**Purpose**: Demonstrate functionality through comprehensive testing.
+**File Format (v2)**:
+```
+[Version: integer]
+[NextID: integer]
+[Count: integer]
+For each task:
+  [Fixed fields: ID, Priority, Status, dates, hours, IsActive]
+  [Variable strings: Title, Description, Tags, Category, DependsOnIDs]
+```
+
+### 4. TaskExport.pas (Export Layer) - NEW in v2.0
+
+**Purpose**: Advanced export formats and report generation.
 
 **Key Components**:
-- `SelfTest`: Main test procedure
-- `PrintTask`: Format single task for display
-- `PrintTaskList`: Format task collection
-- `PrintStatistics`: Format statistics
+- `TTaskExporter`: Export handler class
 
-**Test Scenarios**:
-1. Task creation with various properties
-2. Listing and display operations
-3. Status updates and transitions
-4. Filtering and search operations
-5. Statistics calculation
-6. Persistence (save/load cycle)
-7. Export operations
-8. Data integrity verification
+**Export Formats**:
+1. **JSON**: Structured data interchange
+   - Proper JSON escaping
+   - Version and metadata included
+   - All task fields exported
 
-**Design Decisions**:
-- No user input (ReadLn) for automation
-- Comprehensive output for verification
-- Tests arranged in logical progression
-- Demonstrates both typical and edge cases
-- Clean resource management (try-finally)
+2. **HTML**: Beautiful web-ready output
+   - CSS styling with color coding
+   - Priority and status visualization
+   - Responsive table layout
 
-**Dependencies**: SysUtils, DateUtils, Math, TaskTypes, TaskManager, TaskStorage
+3. **Markdown**: Documentation-friendly format
+   - Table-based layout
+   - Compatible with GitHub/GitLab
+   - Easy to read and edit
 
-## Data Flow
+4. **HTML Reports**: Comprehensive reports
+   - Overall statistics section
+   - Category statistics tables
+   - Full task list with styling
+   - Metadata and timestamps
 
-### Creating a Task
+**Key Methods**:
+- `ExportToJSON`: Generate JSON output
+- `ExportToHTML`: Generate styled HTML
+- `ExportToMarkdown`: Generate markdown tables
+- `GenerateHTMLReport`: Create comprehensive report
+- `GetJSONString`: Get JSON without saving
+- `GetHTMLString`: Get HTML without saving
+
+**Design Features**:
+- Proper escaping for each format
+- Reusable template approach
+- Separation of data and presentation
+
+### 5. TaskHistory.pas (Audit Trail Layer) - NEW in v2.0
+
+**Purpose**: Track and persist all changes to tasks.
+
+**Key Components**:
+- `TTaskHistory`: History manager class
+- `THistoryEntry`: Change record
+
+**Key Methods**:
+
+*Logging*:
+- `LogChange`: Log generic field change
+- `LogTaskCreated`: Log task creation
+- `LogTaskDeleted`: Log task deletion
+- `LogStatusChange`: Log status change
+- `LogPriorityChange`: Log priority change
+
+*Querying*:
+- `GetTaskHistory`: Get history for specific task
+- `GetRecentHistory`: Get N most recent changes
+- `GetAllHistory`: Get complete history
+
+*Persistence*:
+- `SaveHistory`: Persist to binary file
+- `LoadHistory`: Load from file
+- `ClearHistory`: Remove all history
+- `ClearTaskHistory`: Remove history for one task
+
+**Storage Approach**:
+- TFileStream-based binary storage
+- String fields handled via length-prefixed format
+- Automatic trimming to max entries (default 1000)
+- Efficient append-style logging
+
+**Design Features**:
+- Non-critical (fails silently on errors)
+- Automatic save on destroy
+- Configurable maximum entries
+- Fast querying with in-memory array
+
+### 6. TaskManagerMain.pas (Application Layer)
+
+**Purpose**: Main program, orchestration, and testing.
+
+**Key Functions**:
+- `PrintTask`: Display single task details
+- `PrintTaskList`: Display list of tasks
+- `PrintStatistics`: Display statistics
+- `PrintCategoryStatistics`: Display category stats (v2.0)
+- `SelfTest`: Comprehensive test suite
+
+**Self-Test Coverage**:
+1. Task creation with categories and time estimates
+2. Dependency creation and validation
+3. Time tracking (add/set hours)
+4. Status updates with history logging
+5. Category-based queries
+6. Category filtering in search
+7. Dependency retrieval
+8. Overall statistics
+9. Category statistics
+10. File persistence (save/load)
+11. JSON export
+12. HTML export
+13. HTML report generation
+14. Markdown export
+15. CSV export
+16. History persistence
+17. History queries
+18. Data reload verification
+19. Final statistics verification
+
+## Data Model
+
+### Core Entity: TTask
+
+```pascal
+TTask = record
+  // Identity
+  ID: integer;
+  
+  // Content
+  Title: string;
+  Description: string;
+  
+  // Organization
+  Category: string;              // v2.0
+  Tags: string;
+  
+  // Classification
+  Priority: TTaskPriority;
+  Status: TTaskStatus;
+  
+  // Relationships
+  DependsOnIDs: string;          // v2.0 (comma-separated IDs)
+  
+  // Time Management
+  CreatedDate: TDateTime;
+  DueDate: TDateTime;
+  CompletedDate: TDateTime;
+  LastModifiedDate: TDateTime;   // v2.0
+  EstimatedHours: double;        // v2.0
+  ActualHours: double;           // v2.0
+  
+  // State
+  IsActive: boolean;
+end;
 ```
-User/Test → AddTask() → TaskManager.FTasks[] → FModified = true
+
+### Supporting Structures
+
+**THistoryEntry** (v2.0):
+```pascal
+THistoryEntry = record
+  TaskID: integer;
+  ChangeDate: TDateTime;
+  FieldName: string;
+  OldValue: string;
+  NewValue: string;
+  ChangeDescription: string;
+end;
 ```
 
-### Searching Tasks
-```
-SearchCriteria → SearchTasks() → Filter FTasks[] → Return TTaskArray
-```
-
-### Persisting Tasks
-```
-TaskManager.GetTasksArray() → TaskStorage.SaveTasks() → Binary File
-```
-
-### Loading Tasks
-```
-Binary File → TaskStorage.LoadTasks() → TaskManager.SetTasksArray()
+**TCategoryStatistics** (v2.0):
+```pascal
+TCategoryStatistics = record
+  CategoryName: string;
+  TotalTasks: integer;
+  CompletedTasks: integer;
+  ActiveTasks: integer;
+  EstimatedHours: double;
+  ActualHours: double;
+end;
 ```
 
-## Memory Management
+## Design Principles
 
-- **Dynamic Arrays**: All task collections use dynamic arrays
-- **String Management**: Automatic (long strings with reference counting)
-- **Object Lifecycle**: Manual (Create/Free pattern)
-- **No Memory Leaks**: Proper cleanup in destructors
+### 1. Separation of Concerns
+- Each unit has a single, well-defined responsibility
+- Clear boundaries between layers
+- Minimal coupling between units
 
-## Error Handling Strategy
+### 2. Modularity
+- Units can be used independently
+- Easy to test individual components
+- Facilitates future extensions
 
-- **File Operations**: Try-except with WriteLn error messages
-- **Search Operations**: Return empty arrays on no match
-- **Lookup Operations**: Return boolean success flag
-- **Invalid Input**: Return false or default values
+### 3. Type Safety
+- Strong typing throughout
+- Custom types for dynamic arrays
+- Enumerations for categorical data
 
-## Performance Characteristics
+### 4. Backward Compatibility
+- Versioned file format
+- Old data can be loaded and upgraded
+- Graceful handling of missing fields
 
-- **Task Lookup**: O(n) linear search
-- **Task Creation**: O(1) amortized (dynamic array growth)
-- **Task Deletion**: O(n) (soft delete, mark inactive)
-- **Search**: O(n) with early termination
-- **Statistics**: O(n) single pass
+### 5. Error Handling
+- Non-critical features fail gracefully (history)
+- Critical features report errors
+- No silent data corruption
 
-## Scalability Considerations
+### 6. Testability
+- Comprehensive self-test suite
+- No external dependencies for basic testing
+- All features demonstrated in tests
 
-**Current Design**:
-- Suitable for hundreds to low thousands of tasks
-- All tasks loaded in memory
-- Linear search acceptable for small datasets
+## Extension Points
 
-**Future Optimizations** (if needed):
-- Hash table for O(1) ID lookup
-- Indexed searches for common queries
-- Lazy loading for large datasets
-- Database backend for persistence
-- Pagination for large result sets
+The architecture supports easy extension in several areas:
 
-## Extensibility Points
+### 1. New Export Formats
+- Add methods to `TTaskExporter`
+- Implement format-specific escaping
+- Follow existing pattern
 
-1. **New Task Properties**: Add to TTask record
-2. **New Search Criteria**: Extend TSearchCriteria
-3. **New Export Formats**: Add methods to TTaskStorage
-4. **New Statistics**: Add fields to TTaskStatistics
-5. **Custom Sorting**: Add comparison functions
-6. **Validation Rules**: Add to TaskManager methods
+### 2. New Query Types
+- Add methods to `TTaskManagerCore`
+- Use existing `TSearchCriteria` or extend
+- Return `TTaskArray`
+
+### 3. New Statistics
+- Extend `TTaskStatistics` record
+- Update `GetStatistics` method
+- Add to reports
+
+### 4. New Task Properties
+- Add field to `TTask` record
+- Update `TaskStorage` save/load (increment version)
+- Update exports to include new field
+- Maintain backward compatibility
+
+### 5. Database Backend
+- Create new `TDatabaseStorage` class
+- Implement same interface as `TTaskStorage`
+- Swap in `TTaskManagerCore`
+
+### 6. Web Interface (mORMot2)
+- Create REST API layer on top of `TTaskManagerCore`
+- Use existing business logic
+- Add authentication/authorization layer
+
+## Performance Considerations
+
+### Current Implementation
+- **In-memory storage**: All tasks loaded into memory
+- **Linear search**: O(n) for most queries
+- **File I/O**: Sequential read/write
+- **Suitable for**: Hundreds to low thousands of tasks
+
+### Optimization Opportunities
+1. **Indexing**: Add hash maps for ID and category lookups
+2. **Lazy Loading**: Load tasks on demand
+3. **Caching**: Cache commonly-used queries
+4. **Database**: Use SQLite for larger datasets
+5. **Pagination**: Implement paging for large result sets
+
+## Security Considerations
+
+### Current Implementation
+- File-based storage (local only)
+- No authentication or authorization
+- No encryption
+- Suitable for: Single-user desktop application
+
+### Future Security Enhancements
+1. User authentication
+2. Role-based access control
+3. Data encryption at rest
+4. Secure API endpoints
+5. Input validation and sanitization
+6. SQL injection prevention (when using database)
 
 ## Testing Strategy
 
-- **Unit-level**: Each module compilable independently
-- **Integration**: SelfTest validates cross-module operations
-- **Data Integrity**: Load/save cycle verification
-- **Edge Cases**: Empty lists, invalid IDs, overdue detection
-- **Output Verification**: All operations produce visible output
+### Current Approach
+- Comprehensive self-test in `TaskManagerMain`
+- Tests all features end-to-end
+- Verifies persistence and reload
+- Checks all export formats
 
-## Code Quality Standards
+### Future Testing
+1. **Unit Tests**: Individual function testing
+2. **Integration Tests**: Multi-unit testing
+3. **Performance Tests**: Load and stress testing
+4. **Regression Tests**: Automated test suite
+5. **User Acceptance Tests**: Real-world scenarios
 
-- **Naming**: Descriptive names with type prefixes (T for types, F for fields, a for parameters)
-- **Documentation**: Comments for all public interfaces
-- **Error Messages**: Descriptive error output
-- **Magic Numbers**: Named constants
-- **Code Layout**: Consistent indentation and spacing
-- **Type Safety**: Strong typing, enumerations over integers
+## Version History
+
+### Version 2.0.0 (Current)
+- Added categories/projects
+- Added task dependencies
+- Added time tracking
+- Added audit trail
+- Added JSON/HTML/Markdown exports
+- Added comprehensive reports
+- Enhanced statistics
+- Versioned storage format
+
+### Version 1.0.0
+- Initial implementation
+- Basic CRUD operations
+- Binary file storage
+- CSV and text export
+- Basic statistics
+- Search and filtering
+
+## Conclusion
+
+The Task Manager architecture is designed to be:
+- **Modular**: Easy to understand and maintain
+- **Extensible**: Ready for future enhancements
+- **Testable**: Comprehensive testing built-in
+- **Efficient**: Suitable for typical use cases
+- **Clean**: Following best practices and SOLID principles
+
+The layered approach ensures that each component can evolve independently while maintaining a cohesive system overall.

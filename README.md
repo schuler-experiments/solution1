@@ -4,18 +4,23 @@
 A modular, feature-rich task management system written in Plain Pascal (Free Pascal Compiler).
 
 ## Version
-1.0.0
+**2.0.0** - Enhanced with Categories, Dependencies, Time Tracking, and Advanced Exports
 
 ## Overview
 
-This is a complete task manager implementation featuring:
+This is a comprehensive task manager implementation featuring:
 - **Modular Architecture**: Clean separation of concerns across multiple units
 - **CRUD Operations**: Create, Read, Update, and Delete tasks
-- **Task Properties**: ID, Title, Description, Priority, Status, Dates, Tags
-- **Persistence**: Binary file storage for tasks
-- **Search & Filter**: Multiple search criteria and filtering options
-- **Export Capabilities**: CSV and text format exports
-- **Statistics**: Comprehensive task statistics and reporting
+- **Task Properties**: ID, Title, Description, Priority, Status, Dates, Tags, Categories
+- **Categories/Projects**: Organize tasks into categories or projects
+- **Task Dependencies**: Define prerequisite tasks and dependency chains
+- **Time Tracking**: Track estimated and actual hours for each task
+- **Audit Trail**: Complete history of all task changes
+- **Persistence**: Binary file storage with versioned format (backward compatible)
+- **Search & Filter**: Multiple search criteria including category filtering
+- **Export Capabilities**: JSON, HTML, Markdown, CSV, and text format exports
+- **Comprehensive Reports**: HTML reports with statistics and category breakdowns
+- **Statistics**: Overall and category-based task statistics
 - **Self-Testing**: Built-in test suite demonstrating all functionality
 
 ## Project Structure
@@ -25,14 +30,22 @@ solution1/
 ├── src/
 │   ├── TaskTypes.pas         - Core data types and constants
 │   ├── TaskManager.pas        - Task management operations
-│   ├── TaskStorage.pas        - File persistence layer
-│   └── TaskManagerMain.pas    - Main program with self-test
+│   ├── TaskStorage.pas        - File persistence layer (v2 format)
+│   ├── TaskExport.pas         - Export to JSON, HTML, Markdown
+│   ├── TaskHistory.pas        - Audit trail and change history
+│   └── TaskManagerMain.pas    - Main program with comprehensive self-test
 ├── bin/
 │   └── task_manager           - Compiled executable
-├── tasks.dat                  - Binary task storage file
-├── tasks_export.csv           - CSV export file
-├── tasks_export.txt           - Text export file
-└── README.md                  - This file
+├── tasks.dat                  - Binary task storage file (v2 format)
+├── tasks_history.dat          - Task change history
+├── tasks_export.json          - JSON export
+├── tasks_export.html          - HTML export
+├── tasks_export.md            - Markdown export
+├── tasks_export.csv           - CSV export
+├── tasks_report.html          - Comprehensive HTML report
+├── README.md                  - This file
+├── ARCHITECTURE.md            - Architecture documentation
+└── CHANGELOG.md               - Version history
 ```
 
 ## Compilation
@@ -61,147 +74,179 @@ Each task includes:
 - **ID**: Unique identifier (auto-incremented)
 - **Title**: Short task description
 - **Description**: Detailed task information
+- **Category**: Project or category name for organization
 - **Priority**: Low, Medium, High, or Critical
 - **Status**: New, Pending, In Progress, Completed, or Cancelled
 - **Created Date**: Automatically set on creation
 - **Due Date**: Optional deadline
 - **Completed Date**: Automatically set when completed
-- **Tags**: Comma-separated tags for organization
+- **Last Modified Date**: Tracks when task was last changed
+- **Tags**: Comma-separated tags for flexible organization
+- **Dependencies**: IDs of prerequisite tasks that must be completed first
+- **Estimated Hours**: Estimated time to complete the task
+- **Actual Hours**: Actual time spent on the task
 - **Active Flag**: Soft delete mechanism
 
 ### Task Operations
 
-1. **Create Tasks**: Add new tasks with title, description, priority, and due date
-2. **Update Tasks**: Modify task properties
+1. **Create Tasks**: Add new tasks with category, time estimates, and all properties
+2. **Update Tasks**: Modify task properties with automatic last-modified tracking
 3. **Delete Tasks**: Soft delete (mark as inactive)
-4. **Set Status**: Change task status (New, Pending, In Progress, Completed, Cancelled)
+4. **Set Status**: Change task status with history tracking
 5. **Complete Task**: Shortcut to mark as completed with timestamp
 6. **Cancel Task**: Mark task as cancelled
+
+### Category Management
+
+1. **Set Category**: Assign tasks to categories or projects
+2. **Get by Category**: Retrieve all tasks in a specific category
+3. **Category Statistics**: Get statistics broken down by category
+
+### Dependency Management
+
+1. **Add Dependency**: Define that a task depends on another task
+2. **Remove Dependency**: Remove a dependency relationship
+3. **Get Dependencies**: Get list of all prerequisite tasks
+4. **Can Start Task**: Check if all dependencies are completed
+
+### Time Tracking
+
+1. **Set Estimated Hours**: Define expected time for task completion
+2. **Set Actual Hours**: Record actual time spent
+3. **Add Actual Hours**: Incrementally add time spent on task
+4. **Time Statistics**: Track total estimated vs actual hours
 
 ### Query Operations
 
 1. **Get All Tasks**: Retrieve all active tasks
 2. **Get Active Tasks**: Retrieve tasks that aren't completed or cancelled
-3. **Search Tasks**: Search with custom criteria (title, description, status, priority, tags)
+3. **Search Tasks**: Search with custom criteria (title, description, status, priority, tags, category)
 4. **Get by Status**: Filter tasks by specific status
 5. **Get by Priority**: Filter tasks by priority level
 6. **Get Overdue**: Find tasks past their due date
+7. **Get by Category**: Filter tasks by category
+
+### History & Audit Trail
+
+1. **Track Changes**: Automatically log all task modifications
+2. **Task History**: View complete change history for any task
+3. **Recent History**: Get most recent changes across all tasks
+4. **Field-Level Tracking**: See what changed, when, and what the old/new values were
 
 ### Persistence
 
-1. **Binary Storage**: Efficient binary file format for task storage
-2. **Load/Save**: Load tasks from file or save to file
-3. **Auto-Save**: Modified flag tracking
+1. **Binary Storage**: Efficient binary file format for task storage (v2)
+2. **Versioned Format**: Backward compatible with v1 format
+3. **Load/Save**: Load tasks from file or save to file
+4. **History Storage**: Separate history file for audit trail
 
 ### Export Formats
 
-1. **CSV Export**: Standard comma-separated values format
-2. **Text Export**: Human-readable text format with formatting
+1. **JSON Export**: Modern data interchange format with proper escaping
+2. **HTML Export**: Beautiful styled HTML tables with color coding
+3. **Markdown Export**: Documentation-friendly markdown tables
+4. **CSV Export**: Standard comma-separated values with all fields
+5. **Text Export**: Human-readable formatted text
+6. **HTML Reports**: Comprehensive reports with statistics and category breakdowns
 
 ### Statistics
 
-Track important metrics:
-- Total tasks
-- Active tasks (not completed/cancelled)
-- Completed tasks
-- Cancelled tasks
-- High priority tasks
-- Overdue tasks
+1. **Overall Statistics**:
+   - Total, Active, Completed, Cancelled tasks
+   - High priority task count
+   - Overdue task count
+   - Total estimated and actual hours
+   - Tasks with dependencies count
 
-## Module Documentation
+2. **Category Statistics**:
+   - Per-category task counts
+   - Active vs completed breakdown
+   - Estimated and actual hours by category
 
-### TaskTypes.pas
+## What's New in Version 2.0.0
 
-Core data types and helper functions:
-- `TTaskPriority`: Enumeration for priority levels
-- `TTaskStatus`: Enumeration for task status
-- `TTask`: Main task record structure
-- `TTaskArray`: Dynamic array of tasks
-- `TSearchCriteria`: Search filter parameters
-- `TTaskStatistics`: Statistics record
-- Helper functions for type conversions and formatting
+### Major Features Added
 
-### TaskManager.pas
+1. **Categories/Projects**
+   - Organize tasks into logical groups
+   - Category-based filtering and statistics
+   - Multi-project support
 
-Main business logic:
-- `TTaskManagerCore`: Primary task management class
-- Task CRUD operations
-- Search and filtering functionality
-- Statistics calculation
-- In-memory task storage with dynamic arrays
+2. **Task Dependencies**
+   - Define prerequisite tasks
+   - Dependency chain tracking
+   - Check if tasks can start based on dependencies
 
-### TaskStorage.pas
+3. **Time Tracking**
+   - Estimated hours for planning
+   - Actual hours for tracking effort
+   - Time statistics overall and by category
 
-Persistence layer:
-- `TTaskStorage`: File I/O operations
-- Binary file format for efficient storage
-- CSV export functionality
-- Text export functionality
-- Error handling for file operations
+4. **Audit Trail**
+   - Complete history of all changes
+   - Field-level change tracking
+   - View history by task or overall
 
-### TaskManagerMain.pas
+5. **Enhanced Exports**
+   - JSON export for data interchange
+   - Beautiful HTML reports with styling
+   - Markdown export for documentation
+   - Comprehensive reports with statistics
 
-Main program:
-- Comprehensive self-test suite
-- Demonstrates all features
-- Creates sample tasks
-- Tests all operations
-- Verifies persistence
-- Displays results
+6. **Enhanced Data Model**
+   - LastModifiedDate tracking
+   - Versioned storage format (v2)
+   - Backward compatible with v1
 
-## Design Principles
+### Technical Improvements
 
-1. **Modularity**: Separate units for types, logic, storage, and presentation
-2. **Encapsulation**: Class-based design with private fields and public methods
-3. **Dynamic Memory**: Uses dynamic arrays instead of fixed-size arrays
-4. **Error Handling**: Try-except blocks for file operations
-5. **No User Input**: Designed for integration (no ReadLn calls)
-6. **Self-Testing**: Built-in test suite for verification
-7. **Documentation**: Comprehensive comments throughout source code
+- Modular architecture with separate units for export and history
+- Type-safe dynamic array handling
+- TFileStream-based binary storage
+- Proper HTML/JSON escaping
+- Category-based statistics aggregation
 
-## Test Coverage
+## Architecture
 
-The self-test suite covers:
-1. Task creation (4 sample tasks with different properties)
-2. Listing all tasks
-3. Updating task status
-4. Getting active tasks
-5. Searching by priority
-6. Finding overdue tasks
-7. Custom search criteria
-8. Statistics calculation
-9. Saving to binary file
-10. Exporting to CSV
-11. Exporting to text
-12. Clearing and reloading from file
-13. Verifying loaded data integrity
-14. Deleting tasks
-15. Final statistics
+The system is built with a clean, modular architecture:
 
-## Future Enhancement Ideas
+- **TaskTypes**: Core data types, enumerations, and helper functions
+- **TaskManager**: Business logic and task operations
+- **TaskStorage**: Binary persistence with versioned format
+- **TaskExport**: Multiple export formats (JSON, HTML, Markdown)
+- **TaskHistory**: Audit trail and change tracking
+- **TaskManagerMain**: Main program and comprehensive self-test
 
-- Task dependencies (prerequisite tasks)
+See [ARCHITECTURE.md](ARCHITECTURE.md) for detailed architecture documentation.
+
+## Development
+
+### Code Style
+- All Pascal reserved words in lowercase
+- Modular design with single responsibility
+- Comprehensive inline documentation
+- Type-safe dynamic arrays
+- No global variables in business logic
+
+### Testing
+- Built-in self-test in TaskManagerMain
+- Tests all CRUD operations
+- Tests all new features (categories, dependencies, time tracking)
+- Tests all export formats
+- Verifies persistence and reload
+
+## Future Enhancements
+
+Potential areas for future development:
+- Web-based interface (mORMot2 integration)
+- SQLite database backend
+- User authentication and multi-user support
+- Task attachments and comments
+- Email notifications for due dates
 - Recurring tasks
-- Task categories/projects
-- Task comments/notes history
-- Time tracking
-- Task attachments/file references
-- Multi-user support
-- Task assignments
-- Reminders and notifications
-- Import from CSV
-- JSON export/import
-- Database backend (SQLite)
-- Web API interface
-- Client-server architecture
-
-## Technical Notes
-
-- Compiled with Free Pascal Compiler (FPC) version 3.2.2+
-- Uses Object Pascal mode (`{$mode objfpc}`)
-- Long strings enabled (`{$H+}`)
-- Optimization level 1 (`-O1`)
-- No external dependencies beyond FPC RTL
+- Task templates
+- Gantt chart visualization
+- REST API for integration
 
 ## License
 
@@ -209,4 +254,8 @@ Open source - free to use and modify.
 
 ## Author
 
-Created as part of the Beyond Python SmolaAgents task manager project.
+Created with passion for clean, modular Pascal code.
+
+---
+
+**Task Manager v2.0.0** - A powerful, flexible task management solution in Plain Pascal.
