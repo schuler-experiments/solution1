@@ -7067,3 +7067,824 @@ The Free Pascal Task Manager source code organization:
 - **Maintains clarity** with comprehensive documentation
 
 This organization ensures the codebase remains maintainable and extensible as the project grows.
+
+
+
+## 11. Testing Strategies and Coverage
+
+### 11.1 Overview
+
+The Free Pascal Task Manager employs a comprehensive testing strategy to ensure code quality, reliability, and maintainability. Testing is organized into multiple layers corresponding to the architectural structure, with emphasis on automated testing, continuous integration, and maintainable test code.
+
+### 11.2 Testing Philosophy
+
+#### 11.2.1 Core Principles
+
+- **Test-Driven Development (TDD):** Write tests before implementation where practical
+- **Automated Testing:** All tests must be executable without manual intervention
+- **Fast Feedback:** Unit tests should execute quickly (< 1 second per test)
+- **Isolation:** Each test should be independent and not rely on execution order
+- **Repeatability:** Tests must produce consistent results across runs
+- **Clear Assertions:** Each test should have a clear, specific purpose
+
+#### 11.2.2 Testing Pyramid
+
+```
+         ┌─────────────┐
+         │   E2E Tests │  (5%)  - Full system integration
+         │             │
+         ├─────────────┤
+         │ Integration │  (20%) - Module interaction
+         │   Tests     │
+         ├─────────────┤
+         │    Unit     │  (75%) - Individual components
+         │    Tests    │
+         └─────────────┘
+```
+
+### 11.3 Testing Framework and Tools
+
+#### 11.3.1 Primary Testing Framework: FPCUnit
+
+**FPCUnit** is the standard unit testing framework for Free Pascal:
+
+```pascal
+unit TaskServiceTests;
+
+{$mode objfpc}{$H+}
+
+interface
+
+uses
+  Classes, SysUtils, fpcunit, testregistry,
+  task_models, task_services, task_services_impl;
+
+type
+  TTaskServiceTest = class(TTestCase)
+  private
+    FService: ITaskService;
+    FTaskID: Int64;
+  protected
+    procedure SetUp; override;
+    procedure TearDown; override;
+  published
+    procedure TestCreateTask;
+    procedure TestGetTask;
+    procedure TestUpdateTask;
+    procedure TestDeleteTask;
+    procedure TestListTasks;
+  end;
+
+implementation
+
+procedure TTaskServiceTest.SetUp;
+begin
+  // Initialize test fixtures
+  FService := TTaskServiceImpl.Create;
+end;
+
+procedure TTaskServiceTest.TearDown;
+begin
+  // Clean up
+  FService := nil;
+end;
+
+procedure TTaskServiceTest.TestCreateTask;
+var
+  Task: TTaskModel;
+begin
+  Task := TTaskModel.Create;
+  try
+    Task.Title := 'Test Task';
+    Task.Description := 'Test Description';
+    Task.Priority := tpHigh;
+    
+    FTaskID := FService.CreateTask(Task);
+    
+    AssertTrue('Task ID should be positive', FTaskID > 0);
+  finally
+    Task.Free;
+  end;
+end;
+
+procedure TTaskServiceTest.TestGetTask;
+var
+  Task: TTaskModel;
+begin
+  // Arrange - Create a task first
+  Task := TTaskModel.Create;
+  try
+    Task.Title := 'Retrieval Test';
+    FTaskID := FService.CreateTask(Task);
+  finally
+    Task.Free;
+  end;
+  
+  // Act - Retrieve the task
+  Task := FService.GetTask(FTaskID);
+  try
+    // Assert
+    AssertNotNull('Retrieved task should not be nil', Task);
+    AssertEquals('Title should match', 'Retrieval Test', Task.Title);
+  finally
+    Task.Free;
+  end;
+end;
+
+initialization
+  RegisterTest(TTaskServiceTest);
+end.
+```
+
+#### 11.3.2 Alternative Framework: DUnit2
+
+DUnit2 can be used as an alternative with similar patterns:
+
+```pascal
+unit TaskServiceDUnitTests;
+
+interface
+
+uses
+  TestFramework, task_services;
+
+type
+  TTaskServiceDUnitTest = class(TTestCase)
+  published
+    procedure TestTaskCreation;
+  end;
+
+implementation
+
+procedure TTaskServiceDUnitTest.TestTaskCreation;
+begin
+  CheckNotNull(FService, 'Service should be initialized');
+end;
+
+initialization
+  RegisterTest(TTaskServiceDUnitTest.Suite);
+end.
+```
+
+#### 11.3.3 mORMot Testing Utilities
+
+mORMot provides built-in testing utilities:
+
+```pascal
+uses
+  mormot.core.test;
+
+type
+  TTaskModelTest = class(TSynTestCase)
+  published
+    procedure TestTaskModelValidation;
+    procedure TestTaskModelSerialization;
+  end;
+
+procedure TTaskModelTest.TestTaskModelValidation;
+var
+  Task: TTaskModel;
+begin
+  Task := TTaskModel.Create;
+  try
+    Task.Title := 'Valid Task';
+    Check(ValidateTask(Task), 'Task should be valid');
+    
+    Task.Title := '';  // Invalid - empty title
+    Check(not ValidateTask(Task), 'Task should be invalid with empty title');
+  finally
+    Task.Free;
+  end;
+end;
+```
+
+### 11.4 Unit Testing Strategy
+
+#### 11.4.1 Model Testing
+
+Test all domain models for:
+
+- **Validation logic**
+- **Property setters/getters**
+- **Business rules**
+- **Serialization/deserialization**
+
+```pascal
+unit TaskModelTests;
+
+type
+  TTaskModelTest = class(TTestCase)
+  published
+    procedure TestTaskCreation;
+    procedure TestTaskValidation;
+    procedure TestPriorityEnum;
+    procedure TestStatusEnum;
+    procedure TestDeadlineValidation;
+  end;
+
+procedure TTaskModelTest.TestDeadlineValidation;
+var
+  Task: TTaskModel;
+begin
+  Task := TTaskModel.Create;
+  try
+    // Test 1: Deadline in the past should be flagged
+    Task.Deadline := EncodeDate(2020, 1, 1);
+    AssertTrue('Past deadline should be detected', Task.IsOverdue);
+    
+    // Test 2: Future deadline should not be flagged
+    Task.Deadline := EncodeDate(2030, 12, 31);
+    AssertFalse('Future deadline should not be overdue', Task.IsOverdue);
+  finally
+    Task.Free;
+  end;
+end;
+```
+
+#### 11.4.2 Service Testing
+
+Test service layer with focus on:
+
+- **CRUD operations**
+- **Business logic**
+- **Error handling**
+- **Edge cases**
+
+```pascal
+unit TagServiceTests;
+
+type
+  TTagServiceTest = class(TTestCase)
+  published
+    procedure TestCreateTag;
+    procedure TestDuplicateTagPrevention;
+    procedure TestTagAssociation;
+    procedure TestTagSearch;
+  end;
+
+procedure TTagServiceTest.TestDuplicateTagPrevention;
+var
+  Tag1, Tag2: TTagModel;
+  ID1, ID2: Int64;
+begin
+  Tag1 := TTagModel.Create;
+  Tag2 := TTagModel.Create;
+  try
+    Tag1.Name := 'urgent';
+    ID1 := FService.CreateTag(Tag1);
+    AssertTrue('First tag should be created', ID1 > 0);
+    
+    Tag2.Name := 'urgent';  // Duplicate
+    ID2 := FService.CreateTag(Tag2);
+    AssertEquals('Duplicate tag should return existing ID', ID1, ID2);
+  finally
+    Tag1.Free;
+    Tag2.Free;
+  end;
+end;
+```
+
+#### 11.4.3 Validation Testing
+
+Test validation framework extensively:
+
+```pascal
+unit ValidationTests;
+
+type
+  TValidationTest = class(TTestCase)
+  published
+    procedure TestTaskTitleValidation;
+    procedure TestEmailValidation;
+    procedure TestDateRangeValidation;
+  end;
+
+procedure TValidationTest.TestTaskTitleValidation;
+var
+  Result: TValidationResult;
+begin
+  Result := ValidateTaskTitle('');
+  AssertFalse('Empty title should fail', Result.IsValid);
+  
+  Result := ValidateTaskTitle('A');  // Too short
+  AssertFalse('Single character title should fail', Result.IsValid);
+  
+  Result := ValidateTaskTitle('Valid Task Title');
+  AssertTrue('Valid title should pass', Result.IsValid);
+end;
+```
+
+### 11.5 Integration Testing Strategy
+
+#### 11.5.1 Database Integration Tests
+
+Test interaction with SQLite database:
+
+```pascal
+unit DatabaseIntegrationTests;
+
+type
+  TDatabaseIntegrationTest = class(TTestCase)
+  private
+    FDB: TSQLRestServerDB;
+    FClient: TSQLRestClientDB;
+  protected
+    procedure SetUp; override;
+    procedure TearDown; override;
+  published
+    procedure TestTaskPersistence;
+    procedure TestTaskQuery;
+    procedure TestTransactionRollback;
+  end;
+
+procedure TDatabaseIntegrationTest.SetUp;
+begin
+  // Create in-memory database for testing
+  FDB := TSQLRestServerDB.Create(TSQLModel.Create([TTaskModel]), ':memory:');
+  FDB.CreateMissingTables;
+  FClient := TSQLRestClientDB.Create(FDB);
+end;
+
+procedure TDatabaseIntegrationTest.TestTaskPersistence;
+var
+  Task: TTaskModel;
+  RetrievedTask: TTaskModel;
+  ID: Int64;
+begin
+  Task := TTaskModel.Create;
+  try
+    Task.Title := 'Persistence Test';
+    Task.Priority := tpHigh;
+    
+    // Add to database
+    ID := FClient.Add(Task, True);
+    AssertTrue('Task should be added', ID > 0);
+    
+    // Retrieve from database
+    RetrievedTask := TTaskModel.Create(FClient, ID);
+    try
+      AssertEquals('Title should match', 'Persistence Test', RetrievedTask.Title);
+      AssertEquals('Priority should match', Ord(tpHigh), Ord(RetrievedTask.Priority));
+    finally
+      RetrievedTask.Free;
+    end;
+  finally
+    Task.Free;
+  end;
+end;
+```
+
+#### 11.5.2 Service Integration Tests
+
+Test interaction between multiple services:
+
+```pascal
+unit ServiceIntegrationTests;
+
+type
+  TServiceIntegrationTest = class(TTestCase)
+  private
+    FTaskService: ITaskService;
+    FCommentService: ICommentService;
+    FTagService: ITagService;
+  published
+    procedure TestTaskWithComments;
+    procedure TestTaskWithTags;
+    procedure TestCompleteWorkflow;
+  end;
+
+procedure TServiceIntegrationTest.TestCompleteWorkflow;
+var
+  TaskID, CommentID, TagID: Int64;
+  Task: TTaskModel;
+  Comment: TCommentModel;
+  Tag: TTagModel;
+begin
+  // Create task
+  Task := TTaskModel.Create;
+  try
+    Task.Title := 'Integration Test Task';
+    TaskID := FTaskService.CreateTask(Task);
+  finally
+    Task.Free;
+  end;
+  
+  // Add comment to task
+  Comment := TCommentModel.Create;
+  try
+    Comment.TaskID := TaskID;
+    Comment.Content := 'Test comment';
+    CommentID := FCommentService.AddComment(Comment);
+  finally
+    Comment.Free;
+  end;
+  
+  // Add tag to task
+  Tag := TTagModel.Create;
+  try
+    Tag.Name := 'test';
+    TagID := FTagService.CreateTag(Tag);
+    FTagService.AssociateTagWithTask(TagID, TaskID);
+  finally
+    Tag.Free;
+  end;
+  
+  // Verify all associations
+  AssertTrue('Task should exist', FTaskService.TaskExists(TaskID));
+  AssertEquals('Task should have 1 comment', 1, FCommentService.GetCommentCount(TaskID));
+  AssertEquals('Task should have 1 tag', 1, FTagService.GetTaskTagCount(TaskID));
+end;
+```
+
+### 11.6 Test Coverage Goals
+
+#### 11.6.1 Coverage Targets
+
+| Component Type | Target Coverage | Minimum Coverage |
+|---|---|---|
+| Domain Models | 95% | 85% |
+| Service Interfaces | 100% | 90% |
+| Service Implementations | 90% | 75% |
+| Validation Logic | 100% | 95% |
+| Feature Modules | 80% | 65% |
+| Utilities | 85% | 70% |
+| Overall Project | 85% | 75% |
+
+#### 11.6.2 Coverage Measurement
+
+Use `fpcov` or manual coverage tracking:
+
+```bash
+# Generate coverage report
+fpc -Criot -gl tests/alltests.pas
+./tests/alltests
+# Analyze coverage data
+```
+
+### 11.7 Mocking and Test Doubles
+
+#### 11.7.1 Interface Mocking
+
+Use interface-based mocking for dependencies:
+
+```pascal
+type
+  TMockTaskService = class(TInterfacedObject, ITaskService)
+  private
+    FCreateCalled: Boolean;
+    FLastCreatedTask: TTaskModel;
+  public
+    function CreateTask(const ATask: TTaskModel): Int64;
+    function GetTask(ATaskID: Int64): TTaskModel;
+    // ... other interface methods
+    
+    property CreateCalled: Boolean read FCreateCalled;
+    property LastCreatedTask: TTaskModel read FLastCreatedTask;
+  end;
+
+function TMockTaskService.CreateTask(const ATask: TTaskModel): Int64;
+begin
+  FCreateCalled := True;
+  FLastCreatedTask := ATask;
+  Result := 123;  // Mock ID
+end;
+
+// Usage in tests
+procedure TFeatureTest.TestWithMock;
+var
+  MockService: TMockTaskService;
+begin
+  MockService := TMockTaskService.Create;
+  try
+    // Test code using mock service
+    FFeature.TaskService := MockService;
+    FFeature.DoSomething;
+    
+    AssertTrue('CreateTask should be called', MockService.CreateCalled);
+  finally
+    MockService.Free;
+  end;
+end;
+```
+
+#### 11.7.2 Database Mocking
+
+Use in-memory SQLite for database mocking:
+
+```pascal
+procedure TTestCase.SetUpInMemoryDB;
+begin
+  FModel := TSQLModel.Create([TTaskModel, TCommentModel, TTagModel]);
+  FDB := TSQLRestServerDB.Create(FModel, ':memory:');
+  FDB.CreateMissingTables;
+end;
+```
+
+### 11.8 Test Organization
+
+#### 11.8.1 Test Directory Structure
+
+```
+tests/
+├── unit/
+│   ├── models/
+│   │   ├── TaskModelTests.pas
+│   │   ├── CommentModelTests.pas
+│   │   └── TagModelTests.pas
+│   ├── services/
+│   │   ├── TaskServiceTests.pas
+│   │   ├── CommentServiceTests.pas
+│   │   └── TagServiceTests.pas
+│   └── validation/
+│       └── ValidationTests.pas
+├── integration/
+│   ├── DatabaseIntegrationTests.pas
+│   ├── ServiceIntegrationTests.pas
+│   └── FeatureIntegrationTests.pas
+├── performance/
+│   ├── BulkOperationTests.pas
+│   └── QueryPerformanceTests.pas
+└── AllTests.pas  // Main test runner
+```
+
+#### 11.8.2 Test Runner
+
+```pascal
+program AllTests;
+
+{$mode objfpc}{$H+}
+
+uses
+  Classes, ConsoleTestRunner,
+  // Unit tests
+  TaskModelTests, CommentModelTests, TagModelTests,
+  TaskServiceTests, CommentServiceTests, TagServiceTests,
+  // Integration tests
+  DatabaseIntegrationTests, ServiceIntegrationTests,
+  // Performance tests
+  BulkOperationTests;
+
+var
+  Application: TTestRunner;
+
+begin
+  Application := TTestRunner.Create(nil);
+  try
+    Application.Initialize;
+    Application.Title := 'Free Pascal Task Manager Test Suite';
+    Application.Run;
+  finally
+    Application.Free;
+  end;
+end.
+```
+
+### 11.9 Continuous Integration
+
+#### 11.9.1 CI Configuration
+
+Example GitHub Actions workflow:
+
+```yaml
+name: Tests
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      
+      - name: Install Free Pascal
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y fpc
+      
+      - name: Run Tests
+        run: |
+          cd tests
+          fpc AllTests.pas
+          ./AllTests --format=plain --all
+      
+      - name: Upload Coverage
+        run: |
+          # Upload coverage reports
+```
+
+#### 11.9.2 Automated Test Execution
+
+Build script for automated testing:
+
+```bash
+#!/bin/bash
+# build-and-test.sh
+
+set -e
+
+echo "Building project..."
+fpc -B -MObjFPC -Scghi -O3 -g -gl -l -vewnhibq \
+    -Fu./src/models -Fu./src/services -Fu./src/managers \
+    project.pas
+
+echo "Building tests..."
+cd tests
+fpc -B -MObjFPC -Scghi -g -gl -Fu../src/models -Fu../src/services \
+    AllTests.pas
+
+echo "Running tests..."
+./AllTests --format=plain --all
+
+echo "Tests completed successfully!"
+```
+
+### 11.10 Performance Testing
+
+#### 11.10.1 Benchmark Tests
+
+```pascal
+unit BulkOperationTests;
+
+type
+  TBulkOperationTest = class(TTestCase)
+  published
+    procedure TestBulkTaskCreation;
+    procedure TestLargeQueryPerformance;
+  end;
+
+procedure TBulkOperationTest.TestBulkTaskCreation;
+var
+  StartTime, EndTime: TDateTime;
+  i: Integer;
+  Task: TTaskModel;
+const
+  TASK_COUNT = 10000;
+begin
+  StartTime := Now;
+  
+  for i := 1 to TASK_COUNT do
+  begin
+    Task := TTaskModel.Create;
+    try
+      Task.Title := Format('Bulk Task %d', [i]);
+      FService.CreateTask(Task);
+    finally
+      Task.Free;
+    end;
+  end;
+  
+  EndTime := Now;
+  
+  WriteLn(Format('Created %d tasks in %.2f seconds',
+    [TASK_COUNT, (EndTime - StartTime) * 86400]));
+  
+  // Assert performance threshold (e.g., < 5 seconds)
+  AssertTrue('Bulk creation should complete within 5 seconds',
+    (EndTime - StartTime) * 86400 < 5.0);
+end;
+```
+
+### 11.11 Test Data Management
+
+#### 11.11.1 Test Fixtures
+
+```pascal
+unit TestFixtures;
+
+interface
+
+type
+  TTaskFixtures = class
+  public
+    class function CreateSampleTask: TTaskModel;
+    class function CreateHighPriorityTask: TTaskModel;
+    class function CreateOverdueTask: TTaskModel;
+  end;
+
+implementation
+
+class function TTaskFixtures.CreateSampleTask: TTaskModel;
+begin
+  Result := TTaskModel.Create;
+  Result.Title := 'Sample Task';
+  Result.Description := 'This is a sample task for testing';
+  Result.Priority := tpMedium;
+  Result.Status := tsNotStarted;
+  Result.CreatedAt := Now;
+end;
+
+class function TTaskFixtures.CreateHighPriorityTask: TTaskModel;
+begin
+  Result := CreateSampleTask;
+  Result.Priority := tpHigh;
+  Result.Deadline := IncDay(Now, 1);
+end;
+```
+
+### 11.12 Error Handling Tests
+
+```pascal
+procedure TErrorHandlingTest.TestInvalidTaskID;
+var
+  Task: TTaskModel;
+begin
+  // Test accessing non-existent task
+  Task := FService.GetTask(-1);
+  AssertNull('Getting invalid task ID should return nil', Task);
+  
+  Task := FService.GetTask(999999);
+  AssertNull('Getting non-existent task should return nil', Task);
+end;
+
+procedure TErrorHandlingTest.TestDatabaseConnectionFailure;
+begin
+  // Simulate database failure
+  FDB.Close;
+  
+  try
+    FService.CreateTask(TTaskFixtures.CreateSampleTask);
+    Fail('Should raise exception on database failure');
+  except
+    on E: Exception do
+      AssertTrue('Should be database exception', E is EDatabaseError);
+  end;
+end;
+```
+
+### 11.13 Testing Best Practices
+
+#### 11.13.1 Test Naming Conventions
+
+- **Test class:** `T<ComponentName>Test` or `T<ComponentName>Tests`
+- **Test method:** `Test<MethodName><Scenario>` or `Test<Scenario>`
+- Examples:
+  - `TestCreateTaskWithValidData`
+  - `TestGetTaskReturnsNullForInvalidID`
+  - `TestUpdateTaskChangesModifiedDate`
+
+#### 11.13.2 AAA Pattern (Arrange-Act-Assert)
+
+```pascal
+procedure TExampleTest.TestSomething;
+var
+  // Arrange - declare variables
+  Task: TTaskModel;
+  Result: Boolean;
+begin
+  // Arrange - set up test data
+  Task := TTaskModel.Create;
+  try
+    Task.Title := 'Test';
+    
+    // Act - perform the action
+    Result := FService.ValidateTask(Task);
+    
+    // Assert - verify the result
+    AssertTrue('Task should be valid', Result);
+  finally
+    Task.Free;
+  end;
+end;
+```
+
+#### 11.13.3 Test Independence
+
+- Each test should clean up after itself
+- Use `SetUp` and `TearDown` for common initialization/cleanup
+- Don't rely on test execution order
+- Don't share state between tests
+
+### 11.14 Documentation Testing
+
+#### 11.14.1 Example Code Testing
+
+Ensure all code examples in documentation compile and work:
+
+```pascal
+unit DocumentationExampleTests;
+
+type
+  TDocExampleTest = class(TTestCase)
+  published
+    procedure TestQuickStartExample;
+    procedure TestAPIUsageExample;
+  end;
+
+procedure TDocExampleTest.TestQuickStartExample;
+begin
+  // Copy the code from documentation and verify it works
+  // This ensures documentation stays current with code
+end;
+```
+
+### 11.15 Summary
+
+The testing strategy ensures:
+
+- **High code quality** through comprehensive unit and integration tests
+- **Confidence in changes** through automated test execution
+- **Maintainability** through well-organized, documented test code
+- **Performance validation** through benchmark tests
+- **Reliability** through edge case and error handling tests
+
+All developers must write tests for new features and maintain existing tests when modifying code.
