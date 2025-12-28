@@ -465,6 +465,871 @@ type
   TTaskArray = array of TTask;
 ```
 
+
+## API Reference
+
+This section provides detailed documentation for the core classes and their methods. The task manager uses an object-oriented architecture with three main classes working together.
+
+### Class Architecture
+
+```
+TTaskManager
+  └── manages → TTaskList (root tasks)
+                  └── contains → TTask (individual tasks)
+                                   └── may have → TTaskList (subtasks)
+```
+
+### TTask Class
+
+The `TTask` class represents an individual task with properties and methods for task manipulation.
+
+#### Constructor
+
+```pascal
+constructor Create(const AName: string; 
+                  const ADescription: string; 
+                  APriority: integer = 0);
+```
+
+**Parameters:**
+- `AName`: The task name/title (required)
+- `ADescription`: Detailed description of the task (required)
+- `APriority`: Priority level as integer (default: 0, higher = more important)
+
+**Example:**
+```pascal
+var
+  Task: TTask;
+begin
+  Task := TTask.Create('Implement authentication', 
+                       'Add OAuth2 login system', 
+                       10);
+  try
+    // Use the task
+    WriteLn('Task: ', Task.Name);
+    WriteLn('Priority: ', Task.Priority);
+  finally
+    Task.Free;
+  end;
+end;
+```
+
+#### Properties
+
+| Property | Type | Access | Description |
+|----------|------|--------|-------------|
+| `Name` | string | Read-only | Task name/title |
+| `Description` | string | Read-only | Task description |
+| `Priority` | integer | Read/Write | Priority level (higher = more important) |
+| `Completed` | boolean | Read/Write | Completion status |
+| `Parent` | TTask | Read-only | Parent task (nil if root task) |
+| `Subtasks` | TTaskList | Read-only | List of subtasks |
+
+**Example:**
+```pascal
+Task.Priority := 15;
+Task.Completed := True;
+
+if Task.Completed then
+  WriteLn('Task "', Task.Name, '" is complete');
+```
+
+#### Methods
+
+##### Execute
+
+```pascal
+procedure Execute;
+```
+
+Executes the task's associated procedure (if set via `SetExecuteProc`).
+
+**Example:**
+```pascal
+procedure MyTaskAction;
+begin
+  WriteLn('Executing custom task logic');
+end;
+
+Task.SetExecuteProc(@MyTaskAction);
+Task.Execute;  // Calls MyTaskAction
+```
+
+##### AddSubtask
+
+```pascal
+procedure AddSubtask(ATask: TTask);
+```
+
+Adds a subtask to this task, creating a parent-child relationship.
+
+**Parameters:**
+- `ATask`: The task to add as a subtask
+
+**Example:**
+```pascal
+var
+  ParentTask, SubTask: TTask;
+begin
+  ParentTask := TTask.Create('Develop feature', 'Main feature', 10);
+  SubTask := TTask.Create('Write tests', 'Unit tests', 5);
+  
+  ParentTask.AddSubtask(SubTask);  // SubTask is now child of ParentTask
+  
+  // ParentTask now owns SubTask - it will be freed with ParentTask
+end;
+```
+
+##### RemoveSubtask
+
+```pascal
+procedure RemoveSubtask(ATask: TTask);
+```
+
+Removes a subtask from this task's subtask list.
+
+**Parameters:**
+- `ATask`: The subtask to remove
+
+##### HasSubtasks
+
+```pascal
+function HasSubtasks: boolean;
+```
+
+Returns `True` if the task has any subtasks.
+
+**Example:**
+```pascal
+if Task.HasSubtasks then
+  WriteLn('This task has ', Task.Subtasks.Count, ' subtasks');
+```
+
+##### GetSubtasks
+
+```pascal
+function GetSubtasks: TTaskList;
+```
+
+Returns the list of subtasks. Same as accessing the `Subtasks` property.
+
+---
+
+### TTaskList Class
+
+The `TTaskList` class manages a collection of tasks with filtering, sorting, and execution capabilities.
+
+#### Constructor
+
+```pascal
+constructor Create(AOwner: TTask = nil);
+```
+
+**Parameters:**
+- `AOwner`: Optional owner task (for subtask lists). Pass `nil` for independent lists.
+
+**Example:**
+```pascal
+var
+  TaskList: TTaskList;
+begin
+  TaskList := TTaskList.Create(nil);
+  try
+    // Use the task list
+  finally
+    TaskList.Free;
+  end;
+end;
+```
+
+#### Methods
+
+##### Add
+
+```pascal
+procedure Add(ATask: TTask);
+```
+
+Adds a task to the list.
+
+**Example:**
+```pascal
+var
+  TaskList: TTaskList;
+  Task1, Task2: TTask;
+begin
+  TaskList := TTaskList.Create(nil);
+  Task1 := TTask.Create('Task 1', 'Description 1', 5);
+  Task2 := TTask.Create('Task 2', 'Description 2', 10);
+  
+  TaskList.Add(Task1);
+  TaskList.Add(Task2);
+  
+  WriteLn('Task count: ', TaskList.Count);  // Output: 2
+end;
+```
+
+##### Remove
+
+```pascal
+procedure Remove(ATask: TTask);
+```
+
+Removes a task from the list (does not free the task object).
+
+##### Clear
+
+```pascal
+procedure Clear;
+```
+
+Removes all tasks from the list and frees them.
+
+**Warning:** Only call this if the list owns the tasks.
+
+##### Count
+
+```pascal
+function Count: integer;
+```
+
+Returns the number of tasks in the list.
+
+##### GetTask
+
+```pascal
+function GetTask(Index: integer): TTask;
+```
+
+Returns the task at the specified index (0-based).
+
+**Example:**
+```pascal
+var
+  i: integer;
+  Task: TTask;
+begin
+  for i := 0 to TaskList.Count - 1 do
+  begin
+    Task := TaskList.GetTask(i);
+    WriteLn(i, ': ', Task.Name);
+  end;
+end;
+```
+
+##### GetTaskByName
+
+```pascal
+function GetTaskByName(const AName: string): TTask;
+```
+
+Finds and returns the first task with the specified name. Returns `nil` if not found.
+
+**Example:**
+```pascal
+var
+  Task: TTask;
+begin
+  Task := TaskList.GetTaskByName('Implement authentication');
+  if Task <> nil then
+    WriteLn('Found: ', Task.Description)
+  else
+    WriteLn('Task not found');
+end;
+```
+
+##### GetTaskByPriority
+
+```pascal
+function GetTaskByPriority(APriority: integer): TTask;
+```
+
+Finds and returns the first task with the specified priority. Returns `nil` if not found.
+
+##### ExecuteAll
+
+```pascal
+procedure ExecuteAll;
+```
+
+Executes all tasks in the list that have an execution procedure set.
+
+##### ExecuteCompletedTasks
+
+```pascal
+procedure ExecuteCompletedTasks;
+```
+
+Executes only tasks marked as completed.
+
+##### ExecuteIncompleteTasks
+
+```pascal
+procedure ExecuteIncompleteTasks;
+```
+
+Executes only tasks not marked as completed.
+
+##### ExecuteHighPriorityTasks
+
+```pascal
+procedure ExecuteHighPriorityTasks;
+```
+
+Executes tasks with priority ≥ 5.
+
+##### ExecuteLowPriorityTasks
+
+```pascal
+procedure ExecuteLowPriorityTasks;
+```
+
+Executes tasks with priority < 5.
+
+---
+
+### TTaskManager Class
+
+The `TTaskManager` class is the main interface for managing tasks, providing high-level operations.
+
+#### Constructor
+
+```pascal
+constructor Create;
+```
+
+Creates a new task manager instance.
+
+**Example:**
+```pascal
+var
+  Manager: TTaskManager;
+begin
+  Manager := TTaskManager.Create;
+  try
+    // Use the manager
+  finally
+    Manager.Free;
+  end;
+end;
+```
+
+#### Task Management Methods
+
+##### AddTask
+
+```pascal
+procedure AddTask(ATask: TTask);
+```
+
+Adds a root-level task to the manager.
+
+**Example:**
+```pascal
+var
+  Manager: TTaskManager;
+  Task: TTask;
+begin
+  Manager := TTaskManager.Create;
+  Task := TTask.Create('New feature', 'Implement new feature', 10);
+  
+  Manager.AddTask(Task);
+  // Manager now owns Task - it will be freed with Manager
+end;
+```
+
+##### RemoveTask
+
+```pascal
+procedure RemoveTask(ATask: TTask);
+```
+
+Removes a root-level task from the manager.
+
+##### Clear
+
+```pascal
+procedure Clear;
+```
+
+Removes and frees all tasks from the manager.
+
+##### Count
+
+```pascal
+function Count: integer;
+```
+
+Returns the total number of root-level tasks.
+
+##### GetTask
+
+```pascal
+function GetTask(Index: integer): TTask;
+```
+
+Returns the root-level task at the specified index.
+
+##### GetTaskByName
+
+```pascal
+function GetTaskByName(const AName: string): TTask;
+```
+
+Finds a task by name (searches root tasks only).
+
+##### GetTaskByPriority
+
+```pascal
+function GetTaskByPriority(APriority: integer): TTask;
+```
+
+Finds the first task with the specified priority (searches root tasks only).
+
+#### Execution Methods
+
+##### ExecuteAllTasks
+
+```pascal
+procedure ExecuteAllTasks;
+```
+
+Executes all root-level tasks.
+
+##### ExecuteTaskByName
+
+```pascal
+procedure ExecuteTaskByName(const AName: string);
+```
+
+Finds and executes a specific task by name.
+
+**Example:**
+```pascal
+Manager.ExecuteTaskByName('Backup database');
+```
+
+##### ExecuteTaskByPriority
+
+```pascal
+procedure ExecuteTaskByPriority(APriority: integer);
+```
+
+Executes the first task found with the specified priority.
+
+##### ExecuteHighPriorityTasks
+
+```pascal
+procedure ExecuteHighPriorityTasks;
+```
+
+Executes all high-priority tasks (priority ≥ 5).
+
+##### ExecuteLowPriorityTasks
+
+```pascal
+procedure ExecuteLowPriorityTasks;
+```
+
+Executes all low-priority tasks (priority < 5).
+
+##### ExecuteCompletedTasks
+
+```pascal
+procedure ExecuteCompletedTasks;
+```
+
+Executes all completed tasks.
+
+##### ExecuteIncompleteTasks
+
+```pascal
+procedure ExecuteIncompleteTasks;
+```
+
+Executes all incomplete tasks.
+
+##### ExecuteTaskRecursively
+
+```pascal
+procedure ExecuteTaskRecursively(ATask: TTask);
+```
+
+Executes a task and all its subtasks recursively.
+
+**Example:**
+```pascal
+var
+  Task: TTask;
+begin
+  Task := Manager.GetTaskByName('Project A');
+  if Task <> nil then
+    Manager.ExecuteTaskRecursively(Task);  // Executes task and all subtasks
+end;
+```
+
+##### ExecuteTaskList
+
+```pascal
+procedure ExecuteTaskList(ATaskList: TTaskList);
+```
+
+Executes all tasks in the provided task list.
+
+#### Search and Filter Methods
+
+##### FindTaskByName
+
+```pascal
+function FindTaskByName(const AName: string): TTask;
+```
+
+Searches all tasks (including subtasks) for a task with the specified name.
+
+**Example:**
+```pascal
+var
+  Task: TTask;
+begin
+  Task := Manager.FindTaskByName('Write documentation');
+  if Task <> nil then
+  begin
+    WriteLn('Found task: ', Task.Description);
+    WriteLn('Parent: ', Task.Parent.Name);
+  end;
+end;
+```
+
+##### FindTaskByDescription
+
+```pascal
+function FindTaskByDescription(const ADescription: string): TTask;
+```
+
+Searches all tasks for one containing the specified description text.
+
+##### SearchTasks
+
+```pascal
+function SearchTasks(const AKeyword: string): TTaskList;
+```
+
+Searches for tasks containing the keyword in name or description. Returns a new `TTaskList` with matching tasks.
+
+**Example:**
+```pascal
+var
+  Results: TTaskList;
+  i: integer;
+begin
+  Results := Manager.SearchTasks('authentication');
+  try
+    WriteLn('Found ', Results.Count, ' tasks:');
+    for i := 0 to Results.Count - 1 do
+      WriteLn('  - ', Results.GetTask(i).Name);
+  finally
+    Results.Free;
+  end;
+end;
+```
+
+##### GetCompletedTasks
+
+```pascal
+function GetCompletedTasks: TTaskList;
+```
+
+Returns a new list containing only completed tasks.
+
+**Note:** You must free the returned list when done.
+
+##### GetIncompleteTasks
+
+```pascal
+function GetIncompleteTasks: TTaskList;
+```
+
+Returns a new list containing only incomplete tasks.
+
+##### GetHighPriorityTasks
+
+```pascal
+function GetHighPriorityTasks: TTaskList;
+```
+
+Returns a new list containing only high-priority tasks (priority ≥ 5).
+
+##### GetLowPriorityTasks
+
+```pascal
+function GetLowPriorityTasks: TTaskList;
+```
+
+Returns a new list containing only low-priority tasks (priority < 5).
+
+##### GetTasksByPriority
+
+```pascal
+function GetTasksByPriority(APriority: integer): TTaskList;
+```
+
+Returns a new list containing only tasks with the exact priority specified.
+
+##### GetLeafTasks
+
+```pascal
+function GetLeafTasks: TTaskList;
+```
+
+Returns a new list containing only leaf tasks (tasks with no subtasks).
+
+##### GetRootTasks
+
+```pascal
+function GetRootTasks: TTaskList;
+```
+
+Returns the internal list of root-level tasks.
+
+**Warning:** Do not free this list as it's owned by the manager.
+
+#### Filtering and Sorting Methods
+
+##### FilterTasksByPriority
+
+```pascal
+procedure FilterTasksByPriority(ATaskList: TTaskList; APriority: integer);
+```
+
+Filters the provided task list in-place, removing tasks that don't match the priority.
+
+**Example:**
+```pascal
+var
+  Tasks: TTaskList;
+begin
+  Tasks := Manager.GetRootTasks;
+  Manager.FilterTasksByPriority(Tasks, 10);
+  // Tasks now contains only priority-10 tasks
+end;
+```
+
+##### FilterTasksByCompletion
+
+```pascal
+procedure FilterTasksByCompletion(ATaskList: TTaskList; ACompleted: boolean);
+```
+
+Filters the provided task list in-place, keeping only tasks matching the completion status.
+
+##### SortTasksByPriority
+
+```pascal
+procedure SortTasksByPriority(ATaskList: TTaskList);
+```
+
+Sorts the provided task list by priority (highest first).
+
+**Example:**
+```pascal
+var
+  Tasks: TTaskList;
+  i: integer;
+begin
+  Tasks := TTaskList.Create(nil);
+  try
+    // Add tasks...
+    Manager.SortTasksByPriority(Tasks);
+    
+    for i := 0 to Tasks.Count - 1 do
+      WriteLn(Tasks.GetTask(i).Priority, ': ', Tasks.GetTask(i).Name);
+  finally
+    Tasks.Free;
+  end;
+end;
+```
+
+##### SortTasksByName
+
+```pascal
+procedure SortTasksByName(ATaskList: TTaskList);
+```
+
+Sorts the provided task list alphabetically by name.
+
+#### Properties
+
+##### CurrentTask
+
+```pascal
+property CurrentTask: TTask read FCurrentTask write FCurrentTask;
+```
+
+Gets or sets the currently active task.
+
+**Example:**
+```pascal
+Manager.CurrentTask := Manager.GetTaskByName('Active feature');
+if Manager.CurrentTask <> nil then
+  WriteLn('Working on: ', Manager.CurrentTask.Name);
+```
+
+##### RootTasks
+
+```pascal
+property RootTasks: TTaskList read GetRootTasks;
+```
+
+Returns the list of root-level tasks (same as calling `GetRootTasks`).
+
+---
+
+### Complete Usage Example
+
+Here's a comprehensive example demonstrating the core API:
+
+```pascal
+program TaskManagerExample;
+
+{$mode objfpc}{$H+}
+
+uses
+  SysUtils, taskmanager;
+
+var
+  Manager: TTaskManager;
+  ProjectTask, DesignTask, CodeTask, TestTask: TTask;
+  HighPriorityTasks, SearchResults: TTaskList;
+  i: integer;
+
+begin
+  // Create the task manager
+  Manager := TTaskManager.Create;
+  try
+    WriteLn('=== Task Manager Example ===');
+    WriteLn;
+    
+    // Create a project with subtasks
+    ProjectTask := TTask.Create('Website Redesign', 
+                                'Complete website overhaul', 
+                                10);
+    
+    DesignTask := TTask.Create('Design mockups', 
+                              'Create UI/UX designs', 
+                              8);
+    CodeTask := TTask.Create('Implement design', 
+                            'Code the new design', 
+                            9);
+    TestTask := TTask.Create('Testing', 
+                            'QA and user testing', 
+                            7);
+    
+    // Build the hierarchy
+    ProjectTask.AddSubtask(DesignTask);
+    ProjectTask.AddSubtask(CodeTask);
+    ProjectTask.AddSubtask(TestTask);
+    
+    // Add to manager
+    Manager.AddTask(ProjectTask);
+    
+    // Add more root tasks
+    Manager.AddTask(TTask.Create('Fix bug #123', 
+                                 'Memory leak in payment module', 
+                                 15));
+    Manager.AddTask(TTask.Create('Update documentation', 
+                                 'Document new API endpoints', 
+                                 5));
+    
+    WriteLn('Total root tasks: ', Manager.Count);
+    WriteLn;
+    
+    // Mark some tasks complete
+    DesignTask.Completed := True;
+    WriteLn('Marked "', DesignTask.Name, '" as completed');
+    WriteLn;
+    
+    // Search for tasks
+    SearchResults := Manager.SearchTasks('design');
+    try
+      WriteLn('Tasks containing "design": ', SearchResults.Count);
+      for i := 0 to SearchResults.Count - 1 do
+        WriteLn('  - ', SearchResults.GetTask(i).Name);
+      WriteLn;
+    finally
+      SearchResults.Free;
+    end;
+    
+    // Get high priority tasks
+    HighPriorityTasks := Manager.GetHighPriorityTasks;
+    try
+      WriteLn('High priority tasks:');
+      Manager.SortTasksByPriority(HighPriorityTasks);
+      for i := 0 to HighPriorityTasks.Count - 1 do
+        WriteLn('  Priority ', HighPriorityTasks.GetTask(i).Priority, 
+                ': ', HighPriorityTasks.GetTask(i).Name);
+      WriteLn;
+    finally
+      HighPriorityTasks.Free;
+    end;
+    
+    // Execute incomplete high-priority tasks
+    WriteLn('Executing incomplete high-priority tasks...');
+    Manager.ExecuteHighPriorityTasks;
+    
+    WriteLn;
+    WriteLn('=== Example completed ===');
+    
+  finally
+    Manager.Free;  // Frees all tasks automatically
+  end;
+end.
+```
+
+### Memory Management Best Practices
+
+**Important Guidelines:**
+
+1. **TTaskManager owns root tasks**: When you add a task to the manager, it takes ownership and will free it when the manager is destroyed.
+
+2. **Parent tasks own subtasks**: When you add a subtask to a task, the parent takes ownership.
+
+3. **Returned TTaskList objects**: Methods like `GetCompletedTasks()`, `SearchTasks()`, etc. return NEW `TTaskList` objects that you must free.
+
+4. **Returned TTask references**: Methods like `FindTaskByName()` return references to existing tasks - do NOT free these.
+
+**Safe Pattern:**
+```pascal
+var
+  Manager: TTaskManager;
+  Task: TTask;
+  TaskList: TTaskList;
+begin
+  Manager := TTaskManager.Create;
+  try
+    // Create and add task - Manager owns it now
+    Task := TTask.Create('My task', 'Description', 5);
+    Manager.AddTask(Task);  // Manager takes ownership
+    
+    // Get a reference - don't free this
+    Task := Manager.FindTaskByName('My task');
+    if Task <> nil then
+      Task.Priority := 10;  // OK to modify
+    
+    // Get a new list - must free this
+    TaskList := Manager.GetCompletedTasks;
+    try
+      // Use TaskList
+    finally
+      TaskList.Free;  // Must free it
+    end;
+    
+  finally
+    Manager.Free;  // Frees all owned tasks automatically
+  end;
+end;
+```
+
+
 ## Extended Features (TExtendedTaskManager)
 
 Adds recurring tasks, subtasks, and advanced operations:
