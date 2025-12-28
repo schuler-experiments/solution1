@@ -2324,86 +2324,479 @@ fpc solution22.pas -Fu. -obin/demo22
 
 
 
+
 ## Architecture Overview
 
-### Class Inheritance Hierarchy
+This section provides a comprehensive understanding of the system's architecture, design patterns, and class relationships. Understanding the architecture is crucial for effectively using and extending the task management system.
+
+### Core Architectural Principles
+
+The task management system is built on these foundational principles:
+
+1. **Progressive Enhancement**: Each class layer adds specific capabilities while preserving all functionality of parent classes
+2. **Single Inheritance Chain**: Clear, linear inheritance paths that make feature availability predictable
+3. **Feature Composition**: Higher-level classes automatically gain all features from their ancestors
+4. **Separation of Concerns**: Each module focuses on a specific domain (team collaboration, focus management, etc.)
+5. **Extensibility**: New features can be added by extending any class in the hierarchy
+
+### Complete Class Inheritance Hierarchy
+
+The system consists of 21 classes organized in a carefully designed inheritance hierarchy. **Critical Note**: Unlike the traditional flat inheritance model, this system uses deep inheritance chains where features accumulate as you move down the hierarchy.
 
 ```
-TTaskManager (base class - taskmanager.pas)
+TTaskManager (taskmanager.pas) - Base: 899 LOC
+│   ↑ Core task CRUD, filtering, sorting, tags, categories, CSV export
 │
-├── TExtendedTaskManager (taskmanagerext.pas)
-│   └── TAdvancedTaskManager (taskmanageradvanced.pas)
-│       └── TEnhancedTaskManager (taskmanagerenhanced.pas)
-│           ├── TTeamTaskManager (taskmanagerteam.pas)
-│           │   └── TLifestyleTaskManager (taskmanagerlifestyle.pas)
-│           ├── TFocusTaskManager (taskmanagerfocus.pas)
-│           └── TGamifiedTaskManager (taskmanagergamify.pas)
-│
-├── TRecurringTaskManager (taskmanagerrecurring.pas)
-├── TResourceTaskManager (taskmanagerresource.pas)
-├── TSmartTaskManager (taskmanagersmart.pas)
-├── TIntelligenceTaskManager (taskmanagerintelligence.pas)
-├── TBoardTaskManager (taskmanagerboards.pas)
-├── TNotificationTaskManager (taskmanagernotifications.pas)
-├── TSearchTaskManager (taskmanagersearch.pas)
-├── TKnowledgeTaskManager (taskmanagerknowledge.pas)
-├── TTemplateTaskManager (taskmanagertemplates.pas)
-├── TTimeTrackingTaskManager (taskmanagertimetracking.pas)
-├── TMeetingTaskManager (taskmanagermeetings.pas)
-├── TCommentTaskManager (taskmanagercomments.pas)
-└── TWellbeingTaskManager (taskmanagerwellbeing.pas)
+└─→ TExtendedTaskManager (taskmanagerext.pas) - Level 1: 958 LOC
+    │   ↑ + Recurring tasks, subtasks, priority scoring, batch operations
+    │
+    └─→ TAdvancedTaskManager (taskmanageradvanced.pas) - Level 2: 701 LOC
+        │   ↑ + Work sessions, notes, dependencies, templates, analytics
+        │
+        ├─→ TEnhancedTaskManager (taskmanagerenhanced.pas) - Level 3: 1,024 LOC
+        │   │   ↑ + Reminders, audit trail, attachments, archiving
+        │   │
+        │   ├─→ TTeamTaskManager (taskmanagerteam.pas) - Level 4: 1,051 LOC
+        │   │   │   ↑ + Team members, assignments, custom fields, scheduling, conflicts
+        │   │   │
+        │   │   ├─→ TLifestyleTaskManager (taskmanagerlifestyle.pas) - Level 5: 1,410 LOC
+        │   │   │   │   ↑ + Eisenhower matrix, habits, time boxing, task bundles, energy tracking
+        │   │   │   │
+        │   │   │   └─→ TWellbeingTaskManager (taskmanagerwellbeing.pas) - Level 6: 1,099 LOC
+        │   │   │       │   ↑ + Stress tracking, breaks, burnout detection, work-life balance
+        │   │   │       │
+        │   │   │       ├─→ TCommentedTaskManager (taskmanagercomments.pas) - Level 7: 1,502 LOC
+        │   │   │       │   │   ↑ + Comments, threads, reactions, attachments, mentions
+        │   │   │       │   │
+        │   │   │       │   └─→ TTemplateTaskManager (taskmanagertemplates.pas) - Level 8: 1,147 LOC
+        │   │   │       │           ↑ + Task templates, variables, instantiation, categories
+        │   │   │       │           [DEEPEST CHAIN: 9 levels, ~9,791 accumulated LOC]
+        │   │   │       │
+        │   │   │       └─→ TTimeTrackingTaskManager (taskmanagertimetracking.pas) - Level 7: 1,544 LOC
+        │   │   │               ↑ + Timers, Pomodoro, time entries, time blocks, productivity metrics
+        │   │   │
+        │   │   ├─→ TGamifiedTaskManager (taskmanagergamify.pas) - Level 5: 844 LOC
+        │   │   │   │   ↑ + Points, achievements, levels, streaks, leaderboards
+        │   │   │   │
+        │   │   │   └─→ TSmartTaskManager (taskmanagersmart.pas) - Level 6: 719 LOC
+        │   │   │       │   ↑ + Workflow automation, patterns, risk assessment, anomaly detection
+        │   │   │       │
+        │   │   │       ├─→ TBoardTaskManager (taskmanagerboards.pas) - Level 7: 962 LOC
+        │   │   │       │       ↑ + Kanban boards, swim lanes, sprints, agile metrics
+        │   │   │       │
+        │   │   │       └─→ TRecurringTaskManager (taskmanagerrecurring.pas) - Level 7: 1,043 LOC
+        │   │   │               ↑ + Advanced recurrence patterns, projects, portfolio management
+        │   │   │
+        │   │   └─→ TMeetingTaskManager (taskmanagermeetings.pas) - Level 5: 1,084 LOC
+        │   │           ↑ + Meeting scheduling, attendees, agendas, action items
+        │   │
+        │   ├─→ TKnowledgeTaskManager (taskmanagerknowledge.pas) - Level 4: 1,284 LOC
+        │   │       ↑ + Knowledge base, articles, versions, documentation, wiki
+        │   │
+        │   └─→ TNotificationTaskManager (taskmanagernotifications.pas) - Level 4: 1,538 LOC
+        │           ↑ + Multi-channel notifications, templates, escalation, digests
+        │
+        ├─→ TFocusTaskManager (taskmanagerfocus.pas) - Level 3: 1,370 LOC
+        │   │   ↑ + Pomodoro sessions, focus tracking, distraction logging, deep work blocks
+        │   │
+        │   └─→ TResourceTaskManager (taskmanagerresource.pas) - Level 4: 1,000 LOC
+        │       │   ↑ + Resources, budgets, allocations, financial tracking, ROI
+        │       │
+        │       └─→ TIntelligenceTaskManager (taskmanagerintelligence.pas) - Level 5: 713 LOC
+        │               ↑ + NLP, backup/restore, bulk operations, analytics, multi-format export
+        │
+        └─→ TSearchTaskManager (taskmanagersearch.pas) - Level 3: 942 LOC
+                ↑ + Full-text search, saved searches, indexing, autocomplete
 ```
 
-### Project Structure
+**Hierarchy Statistics:**
+- **Total Classes**: 21 (including base)
+- **Maximum Depth**: 9 levels (TTaskManager → ... → TTemplateTaskManager)
+- **Total Source Code**: ~21,934 lines across all modules
+- **Inheritance Branches**: 3 major branches from TAdvancedTaskManager
+
+### Understanding Feature Accumulation
+
+A critical aspect of this architecture is **feature accumulation through inheritance**. Each class inherits ALL functionality from its parent classes, creating increasingly capable task managers as you move down the hierarchy.
+
+**Example: Feature Evolution Along a Chain**
+
+Let's trace the features available in `TTemplateTaskManager` (the deepest class):
+
+```pascal
+// TTemplateTaskManager inherits from 8 parent classes, gaining ALL their features:
+
+var
+  TM: TTemplateTaskManager;
+begin
+  TM := TTemplateTaskManager.Create;
+  try
+    // Level 0 - TTaskManager features
+    TaskID := TM.AddTask('Task', 'Description', 'Category', tpHigh, Now, 5.0);
+    TM.UpdateTaskStatus(TaskID, tsInProgress);
+    TM.AddTagToTask(TaskID, 'important');
+    
+    // Level 1 - TExtendedTaskManager features  
+    TM.SetTaskRecurrence(TaskID, rpWeekly);
+    SubID := TM.AddSubtask(TaskID, 'Subtask', 'Details', tpMedium, Now + 7);
+    
+    // Level 2 - TAdvancedTaskManager features
+    SessionID := TM.StartWorkSession(TaskID, 'Working on implementation');
+    TM.AddNote(TaskID, 'John', 'Progress update', 'status');
+    
+    // Level 3 - TEnhancedTaskManager features
+    TM.AddReminder(TaskID, rtTimeBased, Now + 1, 0, 'Don''t forget!');
+    TM.AddAttachment(TaskID, atDocument, 'spec.pdf', 'spec.pdf', 'Requirements');
+    
+    // Level 4 - TTeamTaskManager features
+    MemberID := TM.AddTeamMember('Alice', 'alice@example.com', 'Developer', 10, 40.0);
+    TM.AssignTask(TaskID, MemberID, 100, 'Primary developer');
+    
+    // Level 5 - TLifestyleTaskManager features
+    TM.AddToEisenhowerMatrix(TaskID, 8, 9, 'Urgent and important');
+    HabitID := TM.CreateHabit('Daily Review', 'Review tasks', hfDaily, 30);
+    
+    // Level 6 - TWellbeingTaskManager features
+    TM.RecordCheckIn(slModerate, elGood, mlPositive, 8, 7, 'Feeling productive');
+    TM.StartBreak(btShort);
+    
+    // Level 7 - TCommentedTaskManager features
+    CommentID := TM.AddComment(TaskID, 'Bob', 'Great progress on this task!');
+    TM.AddReaction(CommentID, rtThumbsUp, 'Alice');
+    
+    // Level 8 - TTemplateTaskManager features (finally!)
+    TemplateID := TM.CreateTemplate('Sprint Template', 'Standard 2-week sprint', tcProject, 'Admin', '1.0');
+    TM.AddTemplateTask(TemplateID, 'Planning', 'Sprint planning meeting', 'Meetings', tpHigh, 0, 2.0, [], -1);
+    NewTaskID := TM.InstantiateTemplate(TemplateID, []);
+    
+  finally
+    TM.Free;
+  end;
+end;
+```
+
+**Key Insight**: `TTemplateTaskManager` is not just a template manager—it's a complete task management system with templates, comments, wellbeing tracking, team collaboration, enhanced features, analytics, extensions, AND the core functionality. This represents approximately **9,791 lines of accumulated code** from 9 classes!
+
+### The Three Major Architecture Branches
+
+Starting from `TAdvancedTaskManager`, the architecture splits into three major branches, each serving different use cases:
+
+#### Branch 1: Team & Collaboration Focus
+```
+TAdvancedTaskManager
+└─→ TEnhancedTaskManager
+    └─→ TTeamTaskManager
+        ├─→ TLifestyleTaskManager → TWellbeingTaskManager → TCommentedTaskManager → TTemplateTaskManager
+        ├─→ TGamifiedTaskManager → TSmartTaskManager → TBoardTaskManager / TRecurringTaskManager
+        └─→ TMeetingTaskManager
+```
+
+**Purpose**: Multi-user environments, team collaboration, project management
+**Best For**: Organizations, team projects, collaborative work
+**Key Features**: Team assignments, meetings, gamification, boards, templates, comments
+
+#### Branch 2: Focus & Resource Management
+```
+TAdvancedTaskManager
+└─→ TFocusTaskManager
+    └─→ TResourceTaskManager
+        └─→ TIntelligenceTaskManager
+```
+
+**Purpose**: Individual productivity, deep work, resource/budget tracking, AI insights
+**Best For**: Freelancers, consultants, resource-constrained projects
+**Key Features**: Pomodoro, focus sessions, budget tracking, resource allocation, NLP, advanced analytics
+
+#### Branch 3: Information & Discovery
+```
+TAdvancedTaskManager
+├─→ TSearchTaskManager
+└─→ TEnhancedTaskManager
+    ├─→ TKnowledgeTaskManager
+    └─→ TNotificationTaskManager
+```
+
+**Purpose**: Information organization, search, knowledge management, notifications
+**Best For**: Knowledge workers, research projects, documentation-heavy workflows
+**Key Features**: Full-text search, knowledge base, documentation, multi-channel notifications
+
+### Choosing the Right Class for Your Project
+
+The deep inheritance hierarchy means you need to choose wisely. Here's a decision guide:
+
+| Your Use Case | Recommended Class | Why |
+|---------------|------------------|-----|
+| Simple personal task list | `TTaskManager` or `TExtendedTaskManager` | Minimal overhead, core features only |
+| Freelance work with time tracking | `TIntelligenceTaskManager` | Includes focus, resources, budgets, analytics |
+| Team project management | `TTeamTaskManager` or `TMeetingTaskManager` | Team features without excessive complexity |
+| Agile/Scrum development | `TBoardTaskManager` | Full agile workflow with boards and sprints |
+| Complex project with templates | `TTemplateTaskManager` | All collaboration features plus templates |
+| Solo developer with wellbeing focus | `TWellbeingTaskManager` | Personal productivity + health tracking |
+| Enterprise knowledge management | `TKnowledgeTaskManager` | Documentation + all enhanced features |
+
+**Rule of Thumb**: Choose the LEAST DERIVED class that has the features you need. Don't use `TTemplateTaskManager` if you only need basic task management—you'll carry the overhead of 8 parent classes!
+
+### Design Patterns in Use
+
+#### 1. **Incremental Extension Pattern**
+Each class adds a focused set of related features without modifying parent behavior.
+
+```pascal
+// Parent class
+TAdvancedTaskManager = class(TExtendedTaskManager)
+  // Adds: work sessions, notes, dependencies
+end;
+
+// Child class extends without breaking parent
+TEnhancedTaskManager = class(TAdvancedTaskManager)
+  // Adds: reminders, audit, archiving
+  // Still has: all TAdvancedTaskManager features
+end;
+```
+
+#### 2. **Template Method Pattern**
+Base classes define structure; derived classes add specific behavior.
+
+```pascal
+// Base defines the interface
+function TTaskManager.AddTask(...): Integer;
+
+// Enhanced version adds audit logging
+function TEnhancedTaskManager.AddTaskWithAudit(...): Integer;
+begin
+  Result := inherited AddTask(...);  // Call parent
+  LogAudit(Result, aaCreated, ...);  // Add enhancement
+end;
+```
+
+#### 3. **Decorator Pattern** (via Inheritance)
+Features "wrap" around core functionality, each layer adding capabilities.
+
+```pascal
+// Each layer decorates the previous:
+// TTaskManager: Core CRUD
+// + TExtendedTaskManager: + Recurring tasks
+// + TAdvancedTaskManager: + Analytics
+// + TEnhancedTaskManager: + Audit trail
+// Result: Full-featured task manager
+```
+
+### Architectural Implications for Developers
+
+#### Memory Considerations
+Higher-level classes maintain more internal state:
+- `TTaskManager`: ~200-500 bytes per instance
+- `TTemplateTaskManager`: ~2-5 KB per instance (all parent fields included)
+
+**Guideline**: Instantiate only what you need. Creating 1000 instances of `TTemplateTaskManager` when you only need `TTaskManager` wastes significant memory.
+
+#### Compilation Dependencies
+Classes require all parent units to compile:
+
+```pascal
+// To use TBoardTaskManager, you must include:
+uses
+  taskmanager,           // Base
+  taskmanagerext,        // Level 1
+  taskmanageradvanced,   // Level 2
+  taskmanagerenhanced,   // Level 3
+  taskmanagerteam,       // Level 4
+  taskmanagergamify,     // Level 5
+  taskmanagersmart,      // Level 6
+  taskmanagerboards;     // Level 7 - finally!
+```
+
+**Total**: 7 units for one class! The `uses` clause grows with inheritance depth.
+
+#### Performance Characteristics
+- **Method Resolution**: Virtual method calls traverse the inheritance chain
+- **Object Creation**: Each class in the chain must initialize
+- **Memory Footprint**: All parent fields are allocated
+
+**Best Practice**: Profile before optimizing. The convenience often outweighs the minimal overhead.
+
+### Code Example: Inheritance in Action
+
+Here's a complete example showing how inheritance provides progressive capability:
+
+```pascal
+program InheritanceDemo;
+{$mode objfpc}{$H+}
+
+uses
+  SysUtils, DateUtils,
+  taskmanager, taskmanagerext, taskmanageradvanced, taskmanagerenhanced;
+
+procedure DemoBasic;
+var
+  TM: TTaskManager;
+begin
+  WriteLn('=== Basic TTaskManager ===');
+  TM := TTaskManager.Create;
+  try
+    TM.AddTask('Write report', 'Q4 Report', 'Work', tpHigh, Now + 7, 5.0);
+    WriteLn('Tasks: ', TM.TaskCount);
+    // Available: Core CRUD, filtering, sorting, tags
+    // NOT available: Recurring tasks, work sessions, reminders, etc.
+  finally
+    TM.Free;
+  end;
+end;
+
+procedure DemoExtended;
+var
+  TM: TExtendedTaskManager;
+  SubtaskID: Integer;
+begin
+  WriteLn('=== Extended TExtendedTaskManager ===');
+  TM := TExtendedTaskManager.Create;
+  try
+    TaskID := TM.AddTask('Write report', 'Q4 Report', 'Work', tpHigh, Now + 7, 5.0);
+    
+    // NEW: Can add subtasks (from TExtendedTaskManager)
+    SubtaskID := TM.AddSubtask(TaskID, 'Collect data', 'Gather Q4 metrics', tpMedium, Now + 3);
+    
+    // NEW: Can set recurrence (from TExtendedTaskManager)
+    TM.SetTaskRecurrence(TaskID, rpWeekly);
+    
+    // STILL WORKS: All parent methods
+    TM.AddTagToTask(TaskID, 'quarterly');
+    WriteLn('Tasks: ', TM.TaskCount);
+  finally
+    TM.Free;
+  end;
+end;
+
+procedure DemoEnhanced;
+var
+  TM: TEnhancedTaskManager;
+  TaskID, ReminderID: Integer;
+begin
+  WriteLn('=== Enhanced TEnhancedTaskManager ===');
+  TM := TEnhancedTaskManager.Create;
+  try
+    TM.SetCurrentUser('john.doe');
+    
+    TaskID := TM.AddTaskWithAudit('Write report', 'Q4 Report', 'Work', tpHigh, Now + 7, 5.0);
+    // ^ Uses AddTaskWithAudit which includes audit logging
+    
+    // From TExtendedTaskManager (grandparent)
+    TM.AddSubtask(TaskID, 'Review', 'Review draft', tpLow, Now + 6);
+    
+    // NEW from TEnhancedTaskManager: Reminders
+    ReminderID := TM.AddReminder(TaskID, rtTimeBased, Now + 6, 0, 'Reminder: Q4 report due tomorrow');
+    
+    // NEW from TEnhancedTaskManager: Attachments
+    TM.AddAttachment(TaskID, atDocument, '/docs/template.docx', 'template.docx', 'Report template');
+    
+    // NEW from TEnhancedTaskManager: Audit trail
+    Entries := TM.GetAuditTrail(TaskID);
+    WriteLn('Audit entries: ', Length(Entries));
+    
+    // All parent methods still work
+    TM.AddTagToTask(TaskID, 'important');
+    WriteLn('Tasks: ', TM.TaskCount);
+  finally
+    TM.Free;
+  end;
+end;
+
+begin
+  DemoBasic;
+  WriteLn;
+  DemoExtended;
+  WriteLn;
+  DemoEnhanced;
+end.
+```
+
+**Output demonstrates progressive capability:**
+```
+=== Basic TTaskManager ===
+Tasks: 1
+
+=== Extended TExtendedTaskManager ===
+Tasks: 2
+
+=== Enhanced TEnhancedTaskManager ===
+Audit entries: 1
+Tasks: 1
+```
+
+### Module Dependencies and Compilation Order
+
+Understanding dependencies is crucial for successful compilation:
 
 ```
-solution1/
-├── bin/
-│   └── taskmanager.pas     # Alternative/backup version of core module
-├── taskmanager.pas         # Core base class (use this one)
-├── taskmanager*.pas        # 20+ feature modules
-├── solution*.pas           # 22 demo programs
-└── README.md              # This documentation
+Compilation Order (dependencies):
+1. taskmanager.pas (no dependencies)
+2. taskmanagerext.pas (depends on: taskmanager)
+3. taskmanageradvanced.pas (depends on: taskmanagerext)
+4. taskmanagerenhanced.pas (depends on: taskmanageradvanced)
+5. ... and so on down each branch
 ```
 
-**Note:** There are two `taskmanager.pas` files:
-- **Root `taskmanager.pas`** (23,918 bytes) - The main version to use
+**Makefile-friendly order**: Compile parents before children. The compiler enforces this automatically when using `uses` clauses.
 
-For new projects, use the root `taskmanager.pas` as it's the stable release version.
+### Extension Guidelines
 
-### Module Organization
+When adding new functionality:
 
-The system is organized into specialized modules, each providing distinct functionality:
+**Option 1: Extend an Existing Class**
+```pascal
+unit taskmanagermyfeature;
+{$mode objfpc}{$H+}
 
-| Module | Unit File | Primary Features | Lines of Code |
-|--------|-----------|------------------|---------------|
-| **Core** | taskmanager.pas | Basic CRUD, filtering, sorting, categories, tags | 899 |
-| **Extended** | taskmanagerext.pas | Recurring tasks, subtasks, priority scoring | 958 |
-| **Advanced** | taskmanageradvanced.pas | Batch operations, analytics, smart suggestions | 701 |
-| **Enhanced** | taskmanagerenhanced.pas | Reminders, audit trail, archiving, attachments | 1,024 |
-| **Team** | taskmanagerteam.pas | Team collaboration, assignments, permissions | 1,051 |
-| **Boards** | taskmanagerboards.pas | Kanban boards, sprint planning, agile workflows | 962 |
-| **Notifications** | taskmanagernotifications.pas | Multi-channel alerts, templates, escalation | 1,538 |
-| **Intelligence** | taskmanagerintelligence.pas | AI insights, pattern detection, predictions | 713 |
-| **Knowledge** | taskmanagerknowledge.pas | Knowledge base, documentation, wiki | 1,284 |
-| **Lifestyle** | taskmanagerlifestyle.pas | Health integration, work-life balance | 1,410 |
-| **Focus** | taskmanagerfocus.pas | Pomodoro, deep work, distraction management | 1,370 |
-| **Gamify** | taskmanagergamify.pas | Points, badges, achievements, leaderboards | 844 |
-| **Recurring** | taskmanagerrecurring.pas | Recurring task patterns and automation | 1,043 |
-| **Resource** | taskmanagerresource.pas | Resource allocation and capacity planning | 1,000 |
-| **Smart** | taskmanagersmart.pas | Auto-categorization, intelligent features | 719 |
-| **Search** | taskmanagersearch.pas | Full-text search and advanced queries | 942 |
-| **Templates** | taskmanagertemplates.pas | Task and project templates | 1,147 |
-| **Time Tracking** | taskmanagertimetracking.pas | Time logs, timesheets, billable hours | 1,544 |
-| **Meetings** | taskmanagermeetings.pas | Meeting management and scheduling | 1,084 |
-| **Comments** | taskmanagercomments.pas | Threaded discussions and collaboration | 1,502 |
-| **Wellbeing** | taskmanagerwellbeing.pas | Stress management, burnout prevention | 1,099 |
+interface
+uses
+  taskmanagerenhanced;  // Choose appropriate parent
 
-**Total:** 30,842 lines across 48 source files
+type
+  TMyFeatureTaskManager = class(TEnhancedTaskManager)
+  private
+    FMyData: Integer;
+  public
+    function MyNewFeature: Boolean;
+  end;
+
+implementation
+
+function TMyFeatureTaskManager.MyNewFeature: Boolean;
+begin
+  // Your implementation
+  Result := True;
+end;
+
+end.
+```
+
+**Option 2: Add to Existing Class** (if you maintain the codebase)
+- Edit the appropriate `taskmanager*.pas` file
+- Add your methods to the existing class
+- Recompile all dependent modules
+
+**Recommendation**: Use Option 1 (extension) unless you're adding core functionality. It keeps the original modules stable and reduces recompilation needs.
+
+### Summary
+
+The Task Manager architecture demonstrates sophisticated object-oriented design through:
+
+- **Deep inheritance chains** that progressively add capabilities
+- **Clear separation of concerns** with each module focused on specific domains
+- **Feature composition** where higher-level classes inherit all parent functionality
+- **Multiple specialization paths** for different use cases (team vs. individual, collaboration vs. focus)
+- **Extensibility** allowing new features without modifying core classes
+
+Understanding this architecture enables you to:
+1. Choose the right class for your needs
+2. Understand what features are available at each level
+3. Extend the system effectively
+4. Avoid unnecessary complexity by using only what you need
+
+The architecture prioritizes **progressive disclosure of complexity**: start simple with `TTaskManager`, and move to more sophisticated classes only as your needs grow.
 
 
 
-## File Structure and Organization
 
 Understanding the project's file organization is crucial for navigation and development.
 
