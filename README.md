@@ -284,6 +284,870 @@ done
 ./bin/demo5  # Team collaboration demo
 ```
 
+
+
+## Detailed Demo Program Guide
+
+This section provides comprehensive documentation for each demo program, including code walkthroughs, expected output, and learning objectives.
+
+### solution1.pas - Core Task Manager Basics
+
+**Purpose:** Introduction to the fundamental task management operations using the base `TTaskManager` class.
+
+**Learning Objectives:**
+- Create and manage tasks with categories, priorities, and due dates
+- Add tags to tasks for flexible organization
+- Filter and sort tasks using various criteria
+- Track estimated vs actual time spent on tasks
+- Export data to CSV format
+- Persist tasks to disk and reload them
+
+**Key Concepts Demonstrated:**
+
+1. **Task Creation with Full Metadata**
+```pascal
+TaskID := TM.AddTask(
+  'Implement login feature',           // Title
+  'Create user authentication system', // Description
+  'Backend',                            // Category
+  tpHigh,                               // Priority (tpCritical, tpHigh, tpMedium, tpLow)
+  EncodeDate(2024, 2, 15),             // Due date
+  8.0                                   // Estimated hours
+);
+```
+
+2. **Task Status Management**
+```pascal
+TM.UpdateTaskStatus(TaskID, tsInProgress);  // tsNotStarted, tsInProgress, tsCompleted, tsCancelled
+TM.UpdateTaskActualHours(TaskID, 4.5);      // Track actual time spent
+```
+
+3. **Tagging System**
+```pascal
+TM.AddTagToTask(TaskID, 'backend');
+TM.AddTagToTask(TaskID, 'security');
+Tasks := TM.FilterByTag('backend');  // Retrieve tasks with specific tag
+```
+
+4. **Sorting and Filtering**
+```pascal
+// Sort by priority (highest first)
+Tasks := TM.SortTasksDescending(scPriority);
+
+// Sort by due date (earliest first)
+Tasks := TM.SortTasks(scDueDate);
+
+// Filter by category
+Tasks := TM.FilterByCategory('Backend');
+
+// Filter by status
+Tasks := TM.FilterByStatus(tsCompleted);
+```
+
+5. **Statistics and Analytics**
+```pascal
+CompletionRate := TM.GetCompletionRate;           // Returns percentage (0-100)
+AvgTime := TM.GetAverageCompletionTime;           // Returns average days to complete
+TotalEstimated := TM.GetTotalEstimatedHours;      // Sum of all estimated hours
+TotalActual := TM.GetTotalActualHours;            // Sum of all actual hours
+OverdueCount := TM.GetOverdueCount;               // Count of overdue tasks
+```
+
+6. **Data Persistence**
+```pascal
+// Save all tasks to a file
+if TM.SaveToFile('tasks_backup.dat') then
+  WriteLn('Tasks saved successfully');
+
+// Clear in-memory tasks
+TM.ClearAllTasks;
+
+// Reload from file
+if TM.LoadFromFile('tasks_backup.dat') then
+  WriteLn('Tasks reloaded successfully');
+```
+
+**Expected Output:**
+```
+=== Task Manager Self Test - Enhanced Version ===
+
+Test 1: Adding tasks with new features (category, time tracking)...
+Added 6 tasks successfully
+
+Test 2: Updating task statuses and tracking actual hours...
+Task statuses and hours updated
+
+Test 3: Adding tags to tasks...
+Tags added successfully
+
+Test 4: Listing all tasks...
+[ID: 1] Implement login feature (Backend) - Priority: High, Status: In Progress
+  Due: 2024-02-15, Estimated: 8.00h, Actual: 4.50h
+  Tags: backend, security
+[ID: 2] Write documentation (Documentation) - Priority: Medium, Status: Not Started
+  ...
+
+Test 10: Getting enhanced statistics...
+Total tasks: 6
+Completed tasks: 2
+Pending tasks: 4
+Overdue tasks: 1
+Completion rate: 33.33%
+Average completion time: 5.50 days
+Total estimated hours: 23.50
+Total actual hours: 9.50
+
+=== All tests completed successfully! ===
+```
+
+**Compilation and Running:**
+```bash
+cd solution1
+fpc solution1.pas -obin/demo1
+./bin/demo1
+```
+
+---
+
+### solution2.pas - Extended Task Manager with Recurring Tasks
+
+**Purpose:** Demonstrates advanced features including recurring tasks, subtask hierarchies, priority scoring, and batch operations.
+
+**Learning Objectives:**
+- Create recurring tasks with various patterns (daily, weekly, monthly)
+- Manage parent-child task relationships (subtasks)
+- Use automatic priority scoring based on multiple factors
+- Perform batch operations on multiple tasks
+- Generate productivity and time management reports
+
+**Key Concepts Demonstrated:**
+
+1. **Recurring Task Patterns**
+```pascal
+TaskID := Manager.AddExtendedTask(
+  'Daily standup meeting',
+  'Team sync-up meeting',
+  'Meetings',
+  tpMedium,
+  EncodeDate(2024, 2, 10),
+  0.5,
+  rpDaily  // rpNone, rpDaily, rpWeekly, rpMonthly
+);
+
+// Automatically generate next recurrence
+NextID := Manager.GenerateNextRecurrence(TaskID);
+
+// Update all recurring tasks at once
+Manager.UpdateAllRecurringTasks;
+```
+
+2. **Subtask Hierarchies**
+```pascal
+// Add a subtask to an existing task
+SubtaskID := Manager.AddSubtask(
+  ParentTaskID,                    // Parent task ID
+  'Write unit tests',              // Subtask title
+  'Create test cases for login',  // Description
+  tpHigh,                          // Priority
+  EncodeDate(2024, 2, 12)         // Due date
+);
+
+// Retrieve all subtasks of a task
+Subtasks := Manager.GetSubtasks(ParentTaskID);
+
+// Get full task hierarchy as formatted string
+Hierarchy := Manager.GetTaskHierarchy(TaskID);
+```
+
+3. **Automatic Priority Scoring**
+```pascal
+// Priority score calculated based on:
+// - Base priority level (Critical=4, High=3, Medium=2, Low=1)
+// - Days until due date (urgent tasks score higher)
+// - Completion percentage of subtasks
+// - Estimated hours (larger tasks may score higher)
+
+// Update priority scores for all tasks
+UpdatedCount := Manager.UpdatePriorityScores;
+
+// Get tasks sorted by calculated priority score
+TopTasks := Manager.GetTopPriorityTasks(5);  // Get top 5
+
+// Get tasks needing immediate attention
+NeedingAttention := Manager.GetTasksNeedingAttention;
+```
+
+4. **Batch Operations**
+```pascal
+// Prepare array of task IDs
+TaskIDs := [Task1, Task2, Task3];
+
+// Batch update status
+Result := Manager.BatchUpdateStatus(TaskIDs, tsInProgress);
+WriteLn(Format('Updated: %d, Failed: %d', [Result.SuccessCount, Result.FailedCount]));
+
+// Batch update priority
+Result := Manager.BatchUpdatePriority(TaskIDs, tpHigh);
+
+// Batch update category
+Result := Manager.BatchUpdateCategory(TaskIDs, 'Development');
+
+// Batch add tag
+Result := Manager.BatchAddTag(TaskIDs, 'sprint-1');
+
+// Batch delete
+Result := Manager.BatchDeleteTasks(TaskIDs);
+```
+
+5. **Advanced Analytics and Reports**
+```pascal
+// Get comprehensive productivity report
+ProductivityReport := Manager.GetProductivityReport;
+// Includes: completion rates, average times, productivity trends
+
+// Get category-specific performance
+CategoryPerformance := Manager.GetCategoryPerformance;
+// Shows which categories are completed faster/slower
+
+// Get time management insights
+TimeReport := Manager.GetTimeManagementReport;
+// Analyzes estimated vs actual time accuracy
+
+// Get task complexity analysis
+ComplexityAnalysis := Manager.GetTaskComplexityAnalysis;
+// Identifies patterns in task difficulty and completion
+```
+
+6. **Due Date Filtering**
+```pascal
+// Get tasks due within next N days
+UpcomingTasks := Manager.GetTasksDueSoon(7);  // Next 7 days
+
+// Get recurring tasks only
+RecurringTasks := Manager.GetRecurringTasks;
+```
+
+**Expected Output:**
+```
+=== Extended Task Manager Self Test ===
+
+Test 1: Adding recurring tasks...
+Added recurring tasks with patterns: Daily, Weekly, Monthly
+
+Test 2: Creating subtask hierarchy...
+Added 3 subtasks to main task
+Task Hierarchy:
+  └─ Implement new feature (Development)
+     ├─ Design UI mockups
+     ├─ Implement backend API
+     └─ Write unit tests
+
+Test 3: Priority scoring system...
+Updated priority scores for 7 tasks
+Top Priority Tasks:
+  1. Fix critical bug - Score: 98.5
+  2. Weekly report - Score: 87.3
+  3. Implement new feature - Score: 72.1
+
+Test 4: Batch operations...
+Batch Status Update: 3 succeeded, 0 failed
+Batch Priority Update: 3 succeeded, 0 failed
+Batch Tag Addition: 3 succeeded, 0 failed
+
+Test 5: Productivity reports...
+=== Productivity Report ===
+Overall completion rate: 42.86%
+Average completion time: 3.2 days
+Tasks completed this week: 3
+...
+```
+
+**Compilation and Running:**
+```bash
+cd solution1
+fpc solution2.pas -obin/demo2
+./bin/demo2
+```
+
+---
+
+### solution3.pas - Advanced Analytics and Intelligence
+
+**Purpose:** Showcases advanced analytics, pattern detection, and predictive capabilities for data-driven task management.
+
+**Learning Objectives:**
+- Detect patterns in task completion and productivity
+- Assess risk levels for tasks
+- Generate predictions for completion dates
+- Identify anomalies in task data
+- Receive smart suggestions for optimization
+
+**Key Concepts Demonstrated:**
+
+1. **Pattern Detection**
+```pascal
+// Detect completion time patterns
+Patterns := Manager.DetectTaskPatterns;
+// Identifies recurring patterns like:
+// - Tasks in category X take Y hours on average
+// - Tasks with tag Z are completed faster
+// - Certain priorities correlate with delays
+
+// Get category performance patterns
+CategoryPatterns := Manager.GetCategoryPerformancePatterns;
+
+// Get working hour efficiency patterns
+HourPatterns := Manager.GetWorkingHourPatterns;
+// Shows when you're most productive
+```
+
+2. **Risk Assessment**
+```pascal
+// Assess risk for a specific task
+RiskAssessment := Manager.AssessTaskRisk(TaskID);
+// Returns:
+// - RiskLevel: rlLow, rlMedium, rlHigh, rlCritical
+// - RiskScore: 0-100
+// - RiskFactors: array of identified risk factors
+// - Recommendations: suggested mitigation actions
+
+// Get all high-risk tasks
+HighRiskTasks := Manager.GetHighRiskTasks;
+
+// Get tasks at risk within timeframe
+AtRiskTasks := Manager.GetTasksAtRisk(14);  // Next 14 days
+```
+
+3. **Predictive Analytics**
+```pascal
+// Predict completion date for a task
+PredictedDate := Manager.PredictCompletionDate(TaskID);
+// Uses historical data, current progress, and patterns
+
+// Predict project completion
+ProjectDate := Manager.PredictProjectCompletion('Development');
+// Predicts when all tasks in category will be complete
+
+// Calculate completion probability
+Probability := Manager.CalculateCompletionProbability(TaskID);
+// Returns 0.0-1.0 probability of on-time completion
+```
+
+4. **Anomaly Detection**
+```pascal
+// Detect anomalies in task data
+Anomalies := Manager.DetectAnomalies;
+// Detects:
+// - Tasks taking unusually long
+// - Unexpected priority changes
+// - Unusual completion patterns
+// - Data inconsistencies
+
+// Get only active anomalies
+ActiveAnomalies := Manager.GetActiveAnomalies;
+
+// Resolve an anomaly
+Manager.ResolveAnomaly(AnomalyID);
+```
+
+5. **Smart Suggestions**
+```pascal
+// Get all optimization suggestions
+Suggestions := Manager.GenerateSmartSuggestions;
+// Suggests:
+// - Tasks that should be broken down
+// - Time estimates that should be adjusted
+// - Tasks that could be delegated
+// - Priority reassignments
+
+// Get specific suggestion types
+BreakdownSuggestions := Manager.GetTaskBreakdownSuggestions;
+TimeOptSuggestions := Manager.GetTimeOptimizationSuggestions;
+DelegationSuggestions := Manager.GetDelegationSuggestions;
+
+// Apply a suggestion
+Manager.ApplySuggestion(SuggestionID);
+```
+
+6. **Advanced Reports**
+```pascal
+// Generate comprehensive insights
+Insights := Manager.GenerateInsights;
+// Provides productivity insights and trends
+
+// Get bottleneck analysis
+Bottlenecks := Manager.GetBottleneckAnalysis;
+// Identifies what's slowing you down
+
+// Get efficiency report
+EfficiencyReport := Manager.GetEfficiencyReport;
+// Analyzes overall efficiency and waste
+
+// Get optimization recommendations
+Recommendations := Manager.GetOptimizationRecommendations;
+// Actionable suggestions to improve workflow
+```
+
+**Expected Output:**
+```
+=== Advanced Task Manager Self Test ===
+
+Test 1: Pattern detection...
+Detected Patterns:
+  - Backend tasks average 6.2 hours (±2.1h)
+  - High priority tasks completed 1.3x faster
+  - Wednesday is most productive day
+  - Morning hours (9-11am) show 23% higher completion rate
+
+Test 2: Risk assessment...
+High Risk Tasks (3 found):
+  [CRITICAL] Fix memory leak
+    Risk Score: 92/100
+    Factors: Overdue by 5 days, complex task, missing dependencies
+    Recommendation: Break into smaller subtasks, assign additional resources
+
+Test 3: Predictive analytics...
+Task "Implement dashboard": Predicted completion 2024-02-28
+  Confidence: 78%
+  Based on: 12 similar tasks, current velocity, historical data
+
+Test 4: Anomaly detection...
+Anomalies Detected:
+  - Task #42 taking 3x longer than similar tasks
+  - Unusual spike in task creation on 2024-02-15
+  - Category "Testing" has 60% higher failure rate
+
+Test 5: Smart suggestions...
+Optimization Suggestions:
+  ✓ Break down "Redesign homepage" (estimated 40h) into smaller tasks
+  ✓ Adjust time estimate for "Code review" from 2h to 3.5h based on history
+  ✓ Consider delegating "Update documentation" (low priority, high volume)
+```
+
+**Compilation and Running:**
+```bash
+cd solution1
+fpc solution3.pas -obin/demo3
+./bin/demo3
+```
+
+---
+
+### solution4.pas - Enhanced Features with Audit Trail
+
+**Purpose:** Demonstrates enterprise features including reminders, comprehensive audit trail, archiving, and file attachments.
+
+**Learning Objectives:**
+- Set up and manage task reminders
+- Track all changes with detailed audit trail
+- Archive completed or cancelled tasks
+- Attach files and documents to tasks
+- Maintain data history and compliance
+
+**Key Concepts Demonstrated:**
+
+1. **Reminder System**
+```pascal
+// Add a time-based reminder
+ReminderID := Manager.AddReminder(
+  TaskID,
+  rtAbsolute,                          // rtAbsolute, rtRelative, rtRecurring
+  EncodeDateTime(2024, 2, 15, 9, 0, 0), // Reminder time
+  0,                                    // Minutes before due (for rtRelative)
+  'Don''t forget the morning meeting'  // Custom message
+);
+
+// Add a relative reminder (before due date)
+ReminderID := Manager.AddReminder(
+  TaskID,
+  rtRelative,
+  0,                  // Not used for relative
+  60,                 // 60 minutes before due date
+  'Task due soon!'
+);
+
+// Check which reminders should fire
+DueReminders := Manager.CheckReminders;
+
+// Snooze a reminder
+Manager.SnoozeReminder(ReminderID, 30);  // Snooze for 30 minutes
+
+// Get all active reminders
+ActiveReminders := Manager.GetActiveReminders;
+```
+
+2. **Audit Trail**
+```pascal
+// Audit trail automatically tracks:
+// - Task creation, updates, deletion
+// - Status changes
+// - Field modifications (with old and new values)
+// - User who made the change
+// - Timestamp of change
+
+// Set current user for audit tracking
+Manager.SetCurrentUser('john.doe');
+
+// Get complete audit trail for a task
+AuditEntries := Manager.GetAuditTrail(TaskID);
+
+// Get audit entries by date range
+Entries := Manager.GetAuditEntriesByDate(StartDate, EndDate);
+
+// Get audit entries by user
+UserEntries := Manager.GetAuditEntriesByUser('john.doe');
+
+// Get audit summary
+Summary := Manager.GetAuditSummary;
+// Shows: total changes, most active users, change frequency
+```
+
+3. **File Attachments**
+```pascal
+// Attach a file to a task
+AttachmentID := Manager.AddAttachment(
+  TaskID,
+  atDocument,              // atDocument, atImage, atSpreadsheet, atPresentation, atOther
+  '/path/to/document.pdf',
+  'Requirements.pdf',
+  'Project requirements document'
+);
+
+// Get all attachments for a task
+Attachments := Manager.GetAttachments(TaskID);
+
+// Get total attachment size
+TotalSize := Manager.GetTotalAttachmentSize;
+
+// Get attachment statistics
+Stats := Manager.GetAttachmentStatistics;
+```
+
+4. **Task Archiving**
+```pascal
+// Archive a completed task
+ArchiveID := Manager.ArchiveTask(TaskID, 'Project completed successfully');
+
+// Archive all completed tasks older than 30 days
+Count := Manager.ArchiveCompletedTasks(30);
+
+// Archive cancelled tasks
+Count := Manager.ArchiveCancelledTasks(30);
+
+// Search archived tasks
+ArchivedTasks := Manager.SearchArchivedTasks('login feature');
+
+// Restore an archived task
+RestoredTaskID := Manager.UnarchiveTask(ArchiveID);
+
+// Get archive statistics
+ArchiveStats := Manager.GetArchiveStatistics;
+```
+
+5. **Enhanced Task Operations with Audit**
+```pascal
+// Create task with automatic audit entry
+TaskID := Manager.AddTaskWithAudit(
+  'Implement feature',
+  'Description',
+  'Development',
+  tpHigh,
+  DueDate,
+  8.0
+);
+
+// Update status with audit and reason
+Manager.UpdateTaskStatusWithAudit(
+  TaskID,
+  tsCompleted,
+  'All requirements met and tested'
+);
+
+// Delete with audit trail
+Manager.DeleteTaskWithAudit(TaskID, 'Duplicate of task #42');
+```
+
+6. **User Activity Reports**
+```pascal
+// Get most active users
+ActiveUsers := Manager.GetMostActiveUsers;
+
+// Get reminder statistics
+ReminderStats := Manager.GetReminderStatistics;
+// Shows: total reminders, fired count, snoozed count, etc.
+```
+
+**Expected Output:**
+```
+=== Enhanced Task Manager Self Test ===
+
+Test 1: Setting up reminders...
+Added 3 reminders for tasks
+Active Reminders:
+  - Task: "Morning standup" - Due in 15 minutes
+  - Task: "Submit report" - Due in 2 hours
+  
+Test 2: Audit trail tracking...
+Current user: john.doe
+Creating task... [AUDIT: Task created by john.doe]
+Updating status... [AUDIT: Status changed from 'Not Started' to 'In Progress' by john.doe]
+Updating priority... [AUDIT: Priority changed from 'Medium' to 'High' by john.doe]
+
+Audit Trail for Task #1:
+  2024-02-15 09:00:00 [john.doe] Created task
+  2024-02-15 09:05:00 [john.doe] Status: Not Started → In Progress
+  2024-02-15 09:10:00 [john.doe] Priority: Medium → High
+  2024-02-15 09:15:00 [jane.smith] Added comment: "Working on this"
+
+Test 3: File attachments...
+Attached: Requirements.pdf (2.4 MB)
+Attached: Design.png (856 KB)
+Total attachments: 2 files, 3.2 MB
+
+Test 4: Archiving tasks...
+Archived 5 completed tasks (older than 30 days)
+Archive Statistics:
+  Total archived: 47 tasks
+  By status: Completed (42), Cancelled (5)
+  Total size: 15.3 MB
+```
+
+**Compilation and Running:**
+```bash
+cd solution1
+fpc solution4.pas -obin/demo4
+./bin/demo4
+```
+
+---
+
+### solution5.pas - Team Collaboration Features
+
+**Purpose:** Demonstrates multi-user team collaboration with task assignments, workload management, custom fields, and scheduling.
+
+**Learning Objectives:**
+- Manage team members and their skills
+- Assign tasks to team members
+- Balance workload across the team
+- Use custom fields for flexible data
+- Schedule tasks and detect conflicts
+- Import/export team data
+
+**Key Concepts Demonstrated:**
+
+1. **Team Member Management**
+```pascal
+// Add team member
+MemberID := Manager.AddTeamMember(
+  'John Doe',           // Name
+  'john@example.com',   // Email
+  'Senior Developer',   // Role
+  10,                   // Max concurrent tasks
+  40.0                  // Hours per week
+);
+
+// Add skills to member
+Manager.AddSkillToMember(MemberID, 'Pascal');
+Manager.AddSkillToMember(MemberID, 'Database Design');
+Manager.AddSkillToMember(MemberID, 'API Development');
+
+// Find team members by skill
+Members := Manager.GetMembersBySkill('Pascal');
+
+// Deactivate member (doesn't delete, preserves history)
+Manager.DeactivateTeamMember(MemberID);
+```
+
+2. **Task Assignment**
+```pascal
+// Assign task to member
+AssignmentID := Manager.AssignTask(
+  TaskID,
+  MemberID,
+  100,              // Percentage of task (allows split assignments)
+  'Best fit for this skillset'
+);
+
+// Reassign to different member
+Manager.ReassignTask(AssignmentID, NewMemberID);
+
+// Auto-assign based on workload and skills
+AssignmentID := Manager.AutoAssignTask(TaskID);
+
+// Suggest best member for a task
+BestMemberID := Manager.SuggestBestMember(TaskID);
+
+// Get all assignments for a task
+Assignments := Manager.GetTaskAssignments(TaskID);
+
+// Get all tasks assigned to a member
+MemberTasks := Manager.GetMemberAssignments(MemberID);
+```
+
+3. **Workload Management**
+```pascal
+// Get workload report for all members
+WorkloadReport := Manager.GetMemberWorkload;
+// Shows: assigned tasks, hours, utilization percentage
+
+// Balance workload across team
+ReassignedCount := Manager.BalanceWorkload;
+// Automatically redistributes tasks for better balance
+
+// Get unassigned tasks
+UnassignedTasks := Manager.GetUnassignedTasks;
+```
+
+4. **Custom Fields**
+```pascal
+// Define a custom text field
+FieldID := Manager.DefineCustomField(
+  'Client Name',
+  cftText,      // cftText, cftNumber, cftDate, cftBoolean, cftList
+  '',           // Default value
+  True          // Required?
+);
+
+// Define a list/dropdown field
+FieldID := Manager.DefineCustomField(
+  'Environment',
+  cftList,
+  'Development',
+  False
+);
+Manager.AddListOption(FieldID, 'Development');
+Manager.AddListOption(FieldID, 'Staging');
+Manager.AddListOption(FieldID, 'Production');
+
+// Set custom field value for a task
+Manager.SetCustomFieldValue(TaskID, FieldID, 'Production');
+
+// Get custom field value
+Value := Manager.GetCustomFieldValue(TaskID, FieldID);
+
+// Get all custom values for a task
+CustomValues := Manager.GetTaskCustomValues(TaskID);
+```
+
+5. **Task Scheduling**
+```pascal
+// Schedule a task in calendar
+SlotID := Manager.ScheduleTask(
+  TaskID,
+  EncodeDateTime(2024, 2, 15, 10, 0, 0),  // Start time
+  120,                                     // Duration in minutes
+  'Morning work session'
+);
+
+// Reschedule
+Manager.RescheduleTask(SlotID, NewStartTime);
+
+// Find available time slot
+AvailableTime := Manager.FindAvailableSlot(
+  90,                                      // Duration needed
+  EncodeDateTime(2024, 2, 15, 9, 0, 0)   // Preferred start
+);
+
+// Auto-schedule multiple tasks
+ScheduledCount := Manager.AutoScheduleTasks('priority');
+
+// Get schedule for date range
+Schedule := Manager.GetScheduleForPeriod(StartDate, EndDate);
+```
+
+6. **Conflict Detection**
+```pascal
+// Detect all types of conflicts
+Conflicts := Manager.DetectConflicts;
+
+// Detect specific conflict types
+ScheduleConflicts := Manager.DetectScheduleConflicts;
+DependencyConflicts := Manager.DetectDependencyConflicts;
+ResourceConflicts := Manager.DetectResourceConflicts;
+
+// Resolve a conflict
+Manager.ResolveConflict(ConflictID, 'Rescheduled task to avoid overlap');
+```
+
+7. **Team Analytics**
+```pascal
+// Get team productivity metrics
+Productivity := Manager.GetTeamProductivity;
+
+// Get individual member performance
+Performance := Manager.GetMemberPerformance(MemberID);
+
+// Get team capacity analysis
+Capacity := Manager.GetTeamCapacity;
+
+// Identify bottlenecks
+Bottlenecks := Manager.GetBottlenecks;
+
+// Get task distribution across team
+Distribution := Manager.GetTaskDistribution;
+```
+
+8. **Import/Export**
+```pascal
+// Export to JSON
+JSONData := Manager.ExportToJSON;
+
+// Export to Markdown
+MarkdownDoc := Manager.ExportToMarkdown;
+
+// Import from CSV
+ImportedCount := Manager.ImportFromCSV('tasks.csv');
+
+// Import from JSON
+ImportedCount := Manager.ImportFromJSON(JSONString);
+```
+
+**Expected Output:**
+```
+=== Team Task Manager Self Test ===
+
+Test 1: Setting up team...
+Added team members:
+  - John Doe (Senior Developer) - Skills: Pascal, Database Design
+  - Jane Smith (QA Engineer) - Skills: Testing, Automation
+  - Bob Wilson (Designer) - Skills: UI/UX, Graphics
+
+Test 2: Task assignment...
+Auto-assigned "Implement login" to John Doe (best match: 95%)
+Auto-assigned "Design homepage" to Bob Wilson (best match: 98%)
+
+Workload Report:
+  John Doe: 8/10 tasks (32/40 hours) - 80% utilized
+  Jane Smith: 3/10 tasks (12/40 hours) - 30% utilized
+  Bob Wilson: 6/8 tasks (28/32 hours) - 87% utilized
+
+Test 3: Custom fields...
+Defined custom fields: Client Name, Environment, Budget Code
+Set custom values for task #1:
+  Client Name: Acme Corp
+  Environment: Production
+  Budget Code: PROJ-2024-001
+
+Test 4: Scheduling...
+Scheduled 5 tasks in calendar
+Found available slot: 2024-02-15 14:00 (90 minutes)
+
+Conflicts Detected:
+  - Schedule conflict: Tasks #3 and #7 overlap on 2024-02-16 10:00
+  - Resource conflict: John Doe assigned to 3 tasks simultaneously
+```
+
+**Compilation and Running:**
+```bash
+cd solution1
+fpc solution5.pas -obin/demo5
+./bin/demo5
+```
+
+---
+
+
+
 ## Architecture Overview
 
 ### Class Inheritance Hierarchy
