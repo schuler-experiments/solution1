@@ -5429,3 +5429,894 @@ systemctl status taskmanager
 - **Features:** Full observability stack, chaos engineering, blue-green deployments
 
 ---
+
+
+## 9. Class Diagrams and Relevant Methods/Properties
+
+### 9.1 Overview
+
+This section provides detailed class diagrams for all major components of the Free Pascal Task Manager. The diagrams use Mermaid syntax for clarity and include all relevant methods, properties, and relationships between classes. Each diagram is organized by architectural layer to maintain consistency with the overall architecture.
+
+### 9.2 Core Domain Models Class Diagram
+
+```mermaid
+classDiagram
+    class TTaskModel {
+        +Int64 ID
+        +RawUTF8 Title
+        +RawUTF8 Description
+        +TDateTime CreatedAt
+        +TDateTime UpdatedAt
+        +TDateTime DueDate
+        +TTaskPriority Priority
+        +TTaskStatus Status
+        +Int64 ParentTaskID
+        +Int64 ProjectID
+        +Int64 AssignedToUserID
+        +Integer EstimatedHours
+        +Integer ActualHours
+        +Integer CompletionPercentage
+        +Boolean IsArchived
+        +Boolean IsDeleted
+        +RawUTF8 CustomFieldsJSON
+        +Create() TTaskModel
+        +Validate() Boolean
+        +IsOverdue() Boolean
+        +CanTransitionTo(NewStatus: TTaskStatus) Boolean
+        +CalculateProgress() Integer
+        +Clone() TTaskModel
+    }
+
+    class TCommentModel {
+        +Int64 ID
+        +Int64 TaskID
+        +Int64 UserID
+        +RawUTF8 Content
+        +TDateTime CreatedAt
+        +TDateTime UpdatedAt
+        +Boolean IsEdited
+        +Boolean IsDeleted
+        +RawUTF8 AttachmentsJSON
+        +Create() TCommentModel
+        +Validate() Boolean
+        +MarkAsEdited()
+        +SoftDelete()
+    }
+
+    class TTagModel {
+        +Int64 ID
+        +RawUTF8 Name
+        +RawUTF8 Color
+        +RawUTF8 Description
+        +TDateTime CreatedAt
+        +Boolean IsSystemTag
+        +Create() TTagModel
+        +Validate() Boolean
+        +NormalizeName() RawUTF8
+    }
+
+    class TTaskTagModel {
+        +Int64 ID
+        +Int64 TaskID
+        +Int64 TagID
+        +TDateTime AssignedAt
+        +Create() TTaskTagModel
+        +Validate() Boolean
+    }
+
+    class TProjectModel {
+        +Int64 ID
+        +RawUTF8 Name
+        +RawUTF8 Description
+        +TDateTime CreatedAt
+        +TDateTime UpdatedAt
+        +TDateTime StartDate
+        +TDateTime EndDate
+        +Int64 OwnerUserID
+        +TProjectStatus Status
+        +Boolean IsArchived
+        +RawUTF8 CustomFieldsJSON
+        +Create() TProjectModel
+        +Validate() Boolean
+        +IsActive() Boolean
+        +CalculateProgress() Integer
+    }
+
+    class TUserModel {
+        +Int64 ID
+        +RawUTF8 Username
+        +RawUTF8 Email
+        +RawUTF8 FullName
+        +RawUTF8 PasswordHash
+        +TDateTime CreatedAt
+        +TDateTime LastLoginAt
+        +TUserRole Role
+        +Boolean IsActive
+        +RawUTF8 PreferencesJSON
+        +Create() TUserModel
+        +Validate() Boolean
+        +ValidatePassword(Password: RawUTF8) Boolean
+        +HashPassword(Password: RawUTF8) RawUTF8
+    }
+
+    TTaskModel "1" --> "0..*" TCommentModel : has comments
+    TTaskModel "1" --> "0..*" TTaskTagModel : has tags
+    TTagModel "1" --> "0..*" TTaskTagModel : assigned to tasks
+    TTaskModel "0..*" --> "1" TProjectModel : belongs to
+    TTaskModel "0..1" --> "1" TTaskModel : parent task
+    TTaskModel "0..*" --> "0..1" TUserModel : assigned to
+    TProjectModel "0..*" --> "1" TUserModel : owned by
+    TCommentModel "0..*" --> "1" TUserModel : created by
+```
+
+### 9.3 Extended Domain Models Class Diagram
+
+```mermaid
+classDiagram
+    class TBoardModel {
+        +Int64 ID
+        +RawUTF8 Name
+        +RawUTF8 Description
+        +Int64 ProjectID
+        +TDateTime CreatedAt
+        +TDateTime UpdatedAt
+        +Boolean IsDefault
+        +Integer DisplayOrder
+        +Create() TBoardModel
+        +Validate() Boolean
+        +GetColumns() TBoardColumnModelList
+    }
+
+    class TBoardColumnModel {
+        +Int64 ID
+        +Int64 BoardID
+        +RawUTF8 Name
+        +Integer DisplayOrder
+        +Integer WIPLimit
+        +RawUTF8 ColorCode
+        +TTaskStatus MappedStatus
+        +Create() TBoardColumnModel
+        +Validate() Boolean
+        +IsAtWIPLimit() Boolean
+        +GetTaskCount() Integer
+    }
+
+    class TTimeEntryModel {
+        +Int64 ID
+        +Int64 TaskID
+        +Int64 UserID
+        +TDateTime StartTime
+        +TDateTime EndTime
+        +Integer DurationMinutes
+        +RawUTF8 Description
+        +Boolean IsBillable
+        +TDateTime CreatedAt
+        +Create() TTimeEntryModel
+        +Validate() Boolean
+        +CalculateDuration() Integer
+        +IsRunning() Boolean
+        +Stop()
+    }
+
+    class TRecurringTaskModel {
+        +Int64 ID
+        +Int64 TemplateTaskID
+        +TRecurrencePattern Pattern
+        +Integer Interval
+        +TDateTime StartDate
+        +TDateTime EndDate
+        +Integer MaxOccurrences
+        +TDateTime LastGeneratedAt
+        +Boolean IsActive
+        +RawUTF8 CustomRuleJSON
+        +Create() TRecurringTaskModel
+        +Validate() Boolean
+        +ShouldGenerateNext() Boolean
+        +GenerateNextTask() TTaskModel
+        +CalculateNextDate() TDateTime
+    }
+
+    class TNotificationModel {
+        +Int64 ID
+        +Int64 UserID
+        +TNotificationType NotificationType
+        +RawUTF8 Title
+        +RawUTF8 Message
+        +TDateTime CreatedAt
+        +TDateTime ReadAt
+        +Boolean IsRead
+        +Int64 RelatedTaskID
+        +Int64 RelatedProjectID
+        +RawUTF8 ActionURL
+        +TNotificationPriority Priority
+        +Create() TNotificationModel
+        +Validate() Boolean
+        +MarkAsRead()
+        +IsUnread() Boolean
+    }
+
+    class TTemplateModel {
+        +Int64 ID
+        +RawUTF8 Name
+        +RawUTF8 Description
+        +TTemplateType TemplateType
+        +RawUTF8 TemplateDataJSON
+        +Int64 CreatedByUserID
+        +TDateTime CreatedAt
+        +TDateTime UpdatedAt
+        +Boolean IsPublic
+        +Integer UsageCount
+        +Create() TTemplateModel
+        +Validate() Boolean
+        +ApplyToTask(Task: TTaskModel)
+        +ApplyToProject(Project: TProjectModel)
+    }
+
+    class TTeamModel {
+        +Int64 ID
+        +RawUTF8 Name
+        +RawUTF8 Description
+        +Int64 LeaderUserID
+        +TDateTime CreatedAt
+        +TDateTime UpdatedAt
+        +Boolean IsActive
+        +Create() TTeamModel
+        +Validate() Boolean
+        +AddMember(UserID: Int64) Boolean
+        +RemoveMember(UserID: Int64) Boolean
+        +GetMembers() TUserModelList
+    }
+
+    class TTeamMemberModel {
+        +Int64 ID
+        +Int64 TeamID
+        +Int64 UserID
+        +TTeamRole Role
+        +TDateTime JoinedAt
+        +Create() TTeamMemberModel
+        +Validate() Boolean
+    }
+
+    TBoardModel "1" --> "0..*" TBoardColumnModel : has columns
+    TTimeEntryModel "0..*" --> "1" TTaskModel : tracks time for
+    TTimeEntryModel "0..*" --> "1" TUserModel : logged by
+    TRecurringTaskModel "1" --> "1" TTaskModel : generates from template
+    TNotificationModel "0..*" --> "1" TUserModel : sent to
+    TTemplateModel "0..*" --> "1" TUserModel : created by
+    TTeamModel "1" --> "0..*" TTeamMemberModel : has members
+    TTeamMemberModel "0..*" --> "1" TUserModel : is
+```
+
+### 9.4 Core Service Interfaces Class Diagram
+
+```mermaid
+classDiagram
+    class ITaskService {
+        <<interface>>
+        +CreateTask(Task: TTaskModel) Int64
+        +UpdateTask(Task: TTaskModel) Boolean
+        +DeleteTask(TaskID: Int64) Boolean
+        +GetTaskByID(TaskID: Int64) TTaskModel
+        +GetTasksByProject(ProjectID: Int64) TTaskModelList
+        +GetTasksByUser(UserID: Int64) TTaskModelList
+        +GetSubTasks(ParentTaskID: Int64) TTaskModelList
+        +SearchTasks(Criteria: TTaskSearchCriteria) TTaskModelList
+        +UpdateTaskStatus(TaskID: Int64; NewStatus: TTaskStatus) Boolean
+        +AssignTask(TaskID: Int64; UserID: Int64) Boolean
+        +ArchiveTask(TaskID: Int64) Boolean
+        +RestoreTask(TaskID: Int64) Boolean
+        +GetOverdueTasks() TTaskModelList
+        +GetTasksByDueDateRange(StartDate: TDateTime; EndDate: TDateTime) TTaskModelList
+        +BulkUpdateTasks(TaskIDs: TInt64Array; Updates: TTaskModel) Boolean
+    }
+
+    class ICommentService {
+        <<interface>>
+        +CreateComment(Comment: TCommentModel) Int64
+        +UpdateComment(Comment: TCommentModel) Boolean
+        +DeleteComment(CommentID: Int64) Boolean
+        +GetCommentByID(CommentID: Int64) TCommentModel
+        +GetCommentsByTask(TaskID: Int64) TCommentModelList
+        +GetCommentsByUser(UserID: Int64) TCommentModelList
+        +SoftDeleteComment(CommentID: Int64) Boolean
+        +GetCommentCount(TaskID: Int64) Integer
+    }
+
+    class ITagService {
+        <<interface>>
+        +CreateTag(Tag: TTagModel) Int64
+        +UpdateTag(Tag: TTagModel) Boolean
+        +DeleteTag(TagID: Int64) Boolean
+        +GetTagByID(TagID: Int64) TTagModel
+        +GetTagByName(Name: RawUTF8) TTagModel
+        +GetAllTags() TTagModelList
+        +AssignTagToTask(TaskID: Int64; TagID: Int64) Boolean
+        +RemoveTagFromTask(TaskID: Int64; TagID: Int64) Boolean
+        +GetTagsByTask(TaskID: Int64) TTagModelList
+        +GetTasksByTag(TagID: Int64) TTaskModelList
+        +SearchTags(Query: RawUTF8) TTagModelList
+        +MergeTags(SourceTagID: Int64; TargetTagID: Int64) Boolean
+    }
+
+    class IProjectService {
+        <<interface>>
+        +CreateProject(Project: TProjectModel) Int64
+        +UpdateProject(Project: TProjectModel) Boolean
+        +DeleteProject(ProjectID: Int64) Boolean
+        +GetProjectByID(ProjectID: Int64) TProjectModel
+        +GetProjectsByUser(UserID: Int64) TProjectModelList
+        +GetActiveProjects() TProjectModelList
+        +ArchiveProject(ProjectID: Int64) Boolean
+        +GetProjectProgress(ProjectID: Int64) Integer
+        +GetProjectStatistics(ProjectID: Int64) TProjectStatistics
+    }
+
+    class IUserService {
+        <<interface>>
+        +CreateUser(User: TUserModel) Int64
+        +UpdateUser(User: TUserModel) Boolean
+        +DeleteUser(UserID: Int64) Boolean
+        +GetUserByID(UserID: Int64) TUserModel
+        +GetUserByUsername(Username: RawUTF8) TUserModel
+        +GetUserByEmail(Email: RawUTF8) TUserModel
+        +AuthenticateUser(Username: RawUTF8; Password: RawUTF8) TUserModel
+        +ChangePassword(UserID: Int64; OldPassword: RawUTF8; NewPassword: RawUTF8) Boolean
+        +GetAllUsers() TUserModelList
+        +DeactivateUser(UserID: Int64) Boolean
+        +ActivateUser(UserID: Int64) Boolean
+    }
+
+    ITaskService ..> TTaskModel : uses
+    ICommentService ..> TCommentModel : uses
+    ITagService ..> TTagModel : uses
+    IProjectService ..> TProjectModel : uses
+    IUserService ..> TUserModel : uses
+```
+
+### 9.5 Core Service Implementations Class Diagram
+
+```mermaid
+classDiagram
+    class TTaskServiceImpl {
+        -FRestServer: TRestServer
+        -FEventManager: IEventManager
+        -FValidator: ITaskValidator
+        +Create(RestServer: TRestServer; EventManager: IEventManager)
+        +Destroy()
+        +CreateTask(Task: TTaskModel) Int64
+        +UpdateTask(Task: TTaskModel) Boolean
+        +DeleteTask(TaskID: Int64) Boolean
+        +GetTaskByID(TaskID: Int64) TTaskModel
+        +GetTasksByProject(ProjectID: Int64) TTaskModelList
+        +GetTasksByUser(UserID: Int64) TTaskModelList
+        +GetSubTasks(ParentTaskID: Int64) TTaskModelList
+        +SearchTasks(Criteria: TTaskSearchCriteria) TTaskModelList
+        +UpdateTaskStatus(TaskID: Int64; NewStatus: TTaskStatus) Boolean
+        +AssignTask(TaskID: Int64; UserID: Int64) Boolean
+        +ArchiveTask(TaskID: Int64) Boolean
+        +RestoreTask(TaskID: Int64) Boolean
+        +GetOverdueTasks() TTaskModelList
+        +GetTasksByDueDateRange(StartDate: TDateTime; EndDate: TDateTime) TTaskModelList
+        +BulkUpdateTasks(TaskIDs: TInt64Array; Updates: TTaskModel) Boolean
+        -ValidateTask(Task: TTaskModel) Boolean
+        -NotifyTaskCreated(Task: TTaskModel)
+        -NotifyTaskUpdated(Task: TTaskModel)
+        -NotifyTaskDeleted(TaskID: Int64)
+    }
+
+    class TCommentServiceImpl {
+        -FRestServer: TRestServer
+        -FEventManager: IEventManager
+        +Create(RestServer: TRestServer; EventManager: IEventManager)
+        +Destroy()
+        +CreateComment(Comment: TCommentModel) Int64
+        +UpdateComment(Comment: TCommentModel) Boolean
+        +DeleteComment(CommentID: Int64) Boolean
+        +GetCommentByID(CommentID: Int64) TCommentModel
+        +GetCommentsByTask(TaskID: Int64) TCommentModelList
+        +GetCommentsByUser(UserID: Int64) TCommentModelList
+        +SoftDeleteComment(CommentID: Int64) Boolean
+        +GetCommentCount(TaskID: Int64) Integer
+        -ValidateComment(Comment: TCommentModel) Boolean
+        -NotifyCommentCreated(Comment: TCommentModel)
+        -NotifyCommentUpdated(Comment: TCommentModel)
+    }
+
+    class TTagServiceImpl {
+        -FRestServer: TRestServer
+        -FEventManager: IEventManager
+        +Create(RestServer: TRestServer; EventManager: IEventManager)
+        +Destroy()
+        +CreateTag(Tag: TTagModel) Int64
+        +UpdateTag(Tag: TTagModel) Boolean
+        +DeleteTag(TagID: Int64) Boolean
+        +GetTagByID(TagID: Int64) TTagModel
+        +GetTagByName(Name: RawUTF8) TTagModel
+        +GetAllTags() TTagModelList
+        +AssignTagToTask(TaskID: Int64; TagID: Int64) Boolean
+        +RemoveTagFromTask(TaskID: Int64; TagID: Int64) Boolean
+        +GetTagsByTask(TaskID: Int64) TTagModelList
+        +GetTasksByTag(TagID: Int64) TTaskModelList
+        +SearchTags(Query: RawUTF8) TTagModelList
+        +MergeTags(SourceTagID: Int64; TargetTagID: Int64) Boolean
+        -ValidateTag(Tag: TTagModel) Boolean
+        -NormalizeTagName(Name: RawUTF8) RawUTF8
+    }
+
+    TTaskServiceImpl ..|> ITaskService : implements
+    TCommentServiceImpl ..|> ICommentService : implements
+    TTagServiceImpl ..|> ITagService : implements
+    TTaskServiceImpl --> TRestServer : uses
+    TTaskServiceImpl --> IEventManager : uses
+    TTaskServiceImpl --> ITaskValidator : uses
+```
+
+### 9.6 Feature Modules Class Diagram
+
+```mermaid
+classDiagram
+    class TTaskManager {
+        -FTaskService: ITaskService
+        -FCommentService: ICommentService
+        -FTagService: ITagService
+        -FProjectService: IProjectService
+        +Create(TaskService: ITaskService; CommentService: ICommentService; TagService: ITagService; ProjectService: IProjectService)
+        +Destroy()
+        +AddTask(Title: RawUTF8; Description: RawUTF8) Int64
+        +UpdateTask(TaskID: Int64; Title: RawUTF8; Description: RawUTF8) Boolean
+        +DeleteTask(TaskID: Int64) Boolean
+        +GetTask(TaskID: Int64) TTaskModel
+        +ListTasks() TTaskModelList
+        +AddComment(TaskID: Int64; Content: RawUTF8; UserID: Int64) Int64
+        +GetComments(TaskID: Int64) TCommentModelList
+        +AddTag(Name: RawUTF8; Color: RawUTF8) Int64
+        +AssignTag(TaskID: Int64; TagID: Int64) Boolean
+        +GetTaskTags(TaskID: Int64) TTagModelList
+    }
+
+    class TTaskManagerEnhanced {
+        +SetTaskPriority(TaskID: Int64; Priority: TTaskPriority) Boolean
+        +SetTaskDueDate(TaskID: Int64; DueDate: TDateTime) Boolean
+        +SetTaskStatus(TaskID: Int64; Status: TTaskStatus) Boolean
+        +GetTasksByPriority(Priority: TTaskPriority) TTaskModelList
+        +GetTasksByStatus(Status: TTaskStatus) TTaskModelList
+        +GetOverdueTasks() TTaskModelList
+        +GetTasksByDueDate(StartDate: TDateTime; EndDate: TDateTime) TTaskModelList
+        +GetTaskStatistics() TTaskStatistics
+        +FilterTasks(Filter: TTaskFilter) TTaskModelList
+    }
+
+    class TTaskManagerExt {
+        +CreateSubTask(ParentTaskID: Int64; Title: RawUTF8; Description: RawUTF8) Int64
+        +GetSubTasks(ParentTaskID: Int64) TTaskModelList
+        +MoveTask(TaskID: Int64; NewParentID: Int64) Boolean
+        +SetTaskEstimate(TaskID: Int64; Hours: Integer) Boolean
+        +UpdateTaskProgress(TaskID: Int64; Percentage: Integer) Boolean
+        +AssignTaskToUser(TaskID: Int64; UserID: Int64) Boolean
+        +GetUserTasks(UserID: Int64) TTaskModelList
+        +GetProjectTasks(ProjectID: Int64) TTaskModelList
+        +CloneTask(TaskID: Int64) Int64
+    }
+
+    class TTaskManagerAdvanced {
+        +CreateCustomField(Name: RawUTF8; FieldType: TCustomFieldType) Int64
+        +SetCustomFieldValue(TaskID: Int64; FieldName: RawUTF8; Value: Variant) Boolean
+        +GetCustomFieldValue(TaskID: Int64; FieldName: RawUTF8) Variant
+        +CreateTaskDependency(TaskID: Int64; DependsOnTaskID: Int64; DependencyType: TDependencyType) Boolean
+        +RemoveTaskDependency(DependencyID: Int64) Boolean
+        +GetTaskDependencies(TaskID: Int64) TTaskDependencyList
+        +ValidateTaskDependencies(TaskID: Int64) Boolean
+        +GetCriticalPath(ProjectID: Int64) TTaskModelList
+        +CalculateTaskEarliestStart(TaskID: Int64) TDateTime
+        +CalculateTaskLatestStart(TaskID: Int64) TDateTime
+    }
+
+    class TBoardManager {
+        -FBoardService: IBoardService
+        +Create(BoardService: IBoardService)
+        +CreateBoard(Name: RawUTF8; Description: RawUTF8; ProjectID: Int64) Int64
+        +CreateColumn(BoardID: Int64; Name: RawUTF8; DisplayOrder: Integer) Int64
+        +MoveTaskToColumn(TaskID: Int64; ColumnID: Int64) Boolean
+        +GetBoardColumns(BoardID: Int64) TBoardColumnModelList
+        +GetColumnTasks(ColumnID: Int64) TTaskModelList
+        +SetColumnWIPLimit(ColumnID: Int64; Limit: Integer) Boolean
+        +IsColumnAtWIPLimit(ColumnID: Int64) Boolean
+        +ReorderColumns(BoardID: Int64; ColumnIDs: TInt64Array) Boolean
+    }
+
+    class TTimeTrackingManager {
+        -FTimeService: ITimeTrackingService
+        +Create(TimeService: ITimeTrackingService)
+        +StartTimer(TaskID: Int64; UserID: Int64; Description: RawUTF8) Int64
+        +StopTimer(TimeEntryID: Int64) Boolean
+        +AddTimeEntry(TaskID: Int64; UserID: Int64; DurationMinutes: Integer; Description: RawUTF8) Int64
+        +GetTimeEntries(TaskID: Int64) TTimeEntryModelList
+        +GetUserTimeEntries(UserID: Int64; StartDate: TDateTime; EndDate: TDateTime) TTimeEntryModelList
+        +GetTotalTimeSpent(TaskID: Int64) Integer
+        +GetBillableTime(TaskID: Int64) Integer
+        +GenerateTimeReport(UserID: Int64; StartDate: TDateTime; EndDate: TDateTime) TTimeReport
+    }
+
+    class TRecurringTaskManager {
+        -FRecurringService: IRecurringTaskService
+        +Create(RecurringService: IRecurringTaskService)
+        +CreateRecurringTask(TemplateTask: TTaskModel; Pattern: TRecurrencePattern; Interval: Integer) Int64
+        +UpdateRecurringTask(RecurringTaskID: Int64; RecurringTask: TRecurringTaskModel) Boolean
+        +DeleteRecurringTask(RecurringTaskID: Int64) Boolean
+        +GenerateScheduledTasks(RecurringTaskID: Int64) TTaskModelList
+        +GetNextOccurrence(RecurringTaskID: Int64) TDateTime
+        +PauseRecurringTask(RecurringTaskID: Int64) Boolean
+        +ResumeRecurringTask(RecurringTaskID: Int64) Boolean
+        +GetRecurringTasks() TRecurringTaskModelList
+    }
+
+    class TNotificationManager {
+        -FNotificationService: INotificationService
+        +Create(NotificationService: INotificationService)
+        +SendNotification(UserID: Int64; Title: RawUTF8; Message: RawUTF8; NotificationType: TNotificationType) Int64
+        +GetUserNotifications(UserID: Int64) TNotificationModelList
+        +GetUnreadNotifications(UserID: Int64) TNotificationModelList
+        +MarkAsRead(NotificationID: Int64) Boolean
+        +MarkAllAsRead(UserID: Int64) Boolean
+        +DeleteNotification(NotificationID: Int64) Boolean
+        +GetNotificationCount(UserID: Int64) Integer
+        +GetUnreadCount(UserID: Int64) Integer
+        +ConfigureNotificationPreferences(UserID: Int64; Preferences: TNotificationPreferences) Boolean
+    }
+
+    TTaskManagerEnhanced --|> TTaskManager : extends
+    TTaskManagerExt --|> TTaskManagerEnhanced : extends
+    TTaskManagerAdvanced --|> TTaskManagerExt : extends
+```
+
+### 9.7 Supporting Infrastructure Class Diagram
+
+```mermaid
+classDiagram
+    class IEventManager {
+        <<interface>>
+        +Subscribe(EventType: TEventType; Handler: TEventHandler)
+        +Unsubscribe(EventType: TEventType; Handler: TEventHandler)
+        +Publish(Event: TTaskEvent)
+        +GetSubscriberCount(EventType: TEventType) Integer
+    }
+
+    class TEventManager {
+        -FSubscribers: TEventHandlerDictionary
+        -FCriticalSection: TCriticalSection
+        +Create()
+        +Destroy()
+        +Subscribe(EventType: TEventType; Handler: TEventHandler)
+        +Unsubscribe(EventType: TEventType; Handler: TEventHandler)
+        +Publish(Event: TTaskEvent)
+        +GetSubscriberCount(EventType: TEventType) Integer
+        -NotifySubscribers(EventType: TEventType; Event: TTaskEvent)
+    }
+
+    class TTaskEvent {
+        +EventType: TEventType
+        +Timestamp: TDateTime
+        +UserID: Int64
+        +TaskID: Int64
+        +OldValue: Variant
+        +NewValue: Variant
+        +Metadata: RawUTF8
+        +Create(AEventType: TEventType; ATaskID: Int64)
+        +ToJSON() RawUTF8
+        +FromJSON(JSON: RawUTF8) TTaskEvent
+    }
+
+    class ITaskValidator {
+        <<interface>>
+        +ValidateTask(Task: TTaskModel) TValidationResult
+        +ValidateTaskStatus(Task: TTaskModel; NewStatus: TTaskStatus) TValidationResult
+        +ValidateTaskDates(Task: TTaskModel) TValidationResult
+        +ValidateTaskDependencies(Task: TTaskModel) TValidationResult
+        +ValidateCustomFields(Task: TTaskModel) TValidationResult
+    }
+
+    class TTaskValidator {
+        -FRules: TValidationRuleList
+        +Create()
+        +Destroy()
+        +AddRule(Rule: IValidationRule)
+        +RemoveRule(Rule: IValidationRule)
+        +ValidateTask(Task: TTaskModel) TValidationResult
+        +ValidateTaskStatus(Task: TTaskModel; NewStatus: TTaskStatus) TValidationResult
+        +ValidateTaskDates(Task: TTaskModel) TValidationResult
+        +ValidateTaskDependencies(Task: TTaskModel) TValidationResult
+        +ValidateCustomFields(Task: TTaskModel) TValidationResult
+        -ApplyRules(Task: TTaskModel; RuleType: TValidationRuleType) TValidationResult
+    }
+
+    class TValidationResult {
+        +IsValid: Boolean
+        +Errors: TStringList
+        +Warnings: TStringList
+        +Create()
+        +Destroy()
+        +AddError(Message: RawUTF8)
+        +AddWarning(Message: RawUTF8)
+        +HasErrors() Boolean
+        +HasWarnings() Boolean
+        +GetAllMessages() RawUTF8
+    }
+
+    class IValidationRule {
+        <<interface>>
+        +Validate(Task: TTaskModel) TValidationResult
+        +GetRuleName() RawUTF8
+        +GetRuleType() TValidationRuleType
+    }
+
+    class TSearchEngine {
+        -FRestServer: TRestServer
+        -FIndexManager: ISearchIndexManager
+        +Create(RestServer: TRestServer)
+        +Destroy()
+        +SearchTasks(Query: RawUTF8; Options: TSearchOptions) TTaskModelList
+        +AdvancedSearch(Criteria: TSearchCriteria) TSearchResultList
+        +IndexTask(Task: TTaskModel)
+        +RemoveFromIndex(TaskID: Int64)
+        +RebuildIndex()
+        +GetSearchSuggestions(PartialQuery: RawUTF8) TStringList
+    }
+
+    TEventManager ..|> IEventManager : implements
+    TTaskValidator ..|> ITaskValidator : implements
+    TEventManager --> TTaskEvent : publishes
+    TTaskValidator --> TValidationResult : returns
+    TTaskValidator --> IValidationRule : uses
+```
+
+### 9.8 Data Access Layer Class Diagram
+
+```mermaid
+classDiagram
+    class TRestServer {
+        <<mORMot>>
+        +Model: TOrmModel
+        +Create(AModel: TOrmModel)
+        +CreateMissingTables()
+        +Add(Value: TOrm; SendData: Boolean) TID
+        +Update(Value: TOrm) Boolean
+        +Delete(Table: TOrmClass; ID: TID) Boolean
+        +Retrieve(ID: TID; Value: TOrm) Boolean
+        +RetrieveList(Table: TOrmClass; const WhereClause: RawUTF8) TOrmTable
+        +ExecuteDirect(SQL: RawUTF8) Boolean
+        +BeginTransaction()
+        +Commit()
+        +Rollback()
+    }
+
+    class TOrmModel {
+        <<mORMot>>
+        +Create(Tables: array of TOrmClass)
+        +AddTable(Table: TOrmClass)
+        +GetTableIndex(Table: TOrmClass) Integer
+    }
+
+    class TOrm {
+        <<mORMot>>
+        +ID: TID
+        +FillPrepare(Table: TOrmTable)
+        +FillOne() Boolean
+        +FillRewind()
+        +GetJSONValues() RawJSON
+    }
+
+    class TTaskRepository {
+        -FRestServer: TRestServer
+        +Create(RestServer: TRestServer)
+        +Save(Task: TTaskModel) Int64
+        +Update(Task: TTaskModel) Boolean
+        +Delete(TaskID: Int64) Boolean
+        +FindByID(TaskID: Int64) TTaskModel
+        +FindByProject(ProjectID: Int64) TTaskModelList
+        +FindByUser(UserID: Int64) TTaskModelList
+        +FindByStatus(Status: TTaskStatus) TTaskModelList
+        +FindOverdue() TTaskModelList
+        +ExecuteCustomQuery(SQL: RawUTF8) TTaskModelList
+    }
+
+    class TProjectRepository {
+        -FRestServer: TRestServer
+        +Create(RestServer: TRestServer)
+        +Save(Project: TProjectModel) Int64
+        +Update(Project: TProjectModel) Boolean
+        +Delete(ProjectID: Int64) Boolean
+        +FindByID(ProjectID: Int64) TProjectModel
+        +FindByOwner(UserID: Int64) TProjectModelList
+        +FindActive() TProjectModelList
+        +FindArchived() TProjectModelList
+    }
+
+    class TUserRepository {
+        -FRestServer: TRestServer
+        +Create(RestServer: TRestServer)
+        +Save(User: TUserModel) Int64
+        +Update(User: TUserModel) Boolean
+        +Delete(UserID: Int64) Boolean
+        +FindByID(UserID: Int64) TUserModel
+        +FindByUsername(Username: RawUTF8) TUserModel
+        +FindByEmail(Email: RawUTF8) TUserModel
+        +FindActive() TUserModelList
+    }
+
+    TRestServer --> TOrmModel : uses
+    TTaskModel --|> TOrm : extends
+    TProjectModel --|> TOrm : extends
+    TUserModel --|> TOrm : extends
+    TCommentModel --|> TOrm : extends
+    TTagModel --|> TOrm : extends
+    TTaskRepository --> TRestServer : uses
+    TProjectRepository --> TRestServer : uses
+    TUserRepository --> TRestServer : uses
+```
+
+### 9.9 Enumeration and Type Definitions
+
+```pascal
+// Task Priority Enumeration
+type
+  TTaskPriority = (
+    tpLow,       // Low priority
+    tpNormal,    // Normal priority (default)
+    tpHigh,      // High priority
+    tpUrgent,    // Urgent priority
+    tpCritical   // Critical priority
+  );
+
+// Task Status Enumeration
+type
+  TTaskStatus = (
+    tsBacklog,      // In backlog
+    tsTodo,         // To do
+    tsInProgress,   // In progress
+    tsInReview,     // In review
+    tsBlocked,      // Blocked
+    tsDone,         // Completed
+    tsCancelled,    // Cancelled
+    tsArchived      // Archived
+  );
+
+// Project Status Enumeration
+type
+  TProjectStatus = (
+    psPlanning,     // In planning phase
+    psActive,       // Active project
+    psOnHold,       // On hold
+    psCompleted,    // Completed
+    psCancelled,    // Cancelled
+    psArchived      // Archived
+  );
+
+// User Role Enumeration
+type
+  TUserRole = (
+    urGuest,        // Guest user (read-only)
+    urMember,       // Regular member
+    urContributor,  // Contributor (can create tasks)
+    urManager,      // Project manager
+    urAdmin         // Administrator
+  );
+
+// Event Type Enumeration
+type
+  TEventType = (
+    etTaskCreated,
+    etTaskUpdated,
+    etTaskDeleted,
+    etTaskStatusChanged,
+    etTaskAssigned,
+    etCommentAdded,
+    etCommentUpdated,
+    etCommentDeleted,
+    etTagAssigned,
+    etTagRemoved,
+    etProjectCreated,
+    etProjectUpdated,
+    etUserAssigned,
+    etDueDateChanged,
+    etPriorityChanged
+  );
+
+// Recurrence Pattern Enumeration
+type
+  TRecurrencePattern = (
+    rpDaily,        // Daily recurrence
+    rpWeekly,       // Weekly recurrence
+    rpMonthly,      // Monthly recurrence
+    rpYearly,       // Yearly recurrence
+    rpCustom        // Custom pattern
+  );
+
+// Notification Type Enumeration
+type
+  TNotificationType = (
+    ntTaskAssigned,
+    ntTaskDueSoon,
+    ntTaskOverdue,
+    ntCommentAdded,
+    ntMentioned,
+    ntStatusChanged,
+    ntProjectUpdate,
+    ntSystemNotification
+  );
+
+// Notification Priority Enumeration
+type
+  TNotificationPriority = (
+    npLow,
+    npNormal,
+    npHigh,
+    npUrgent
+  );
+
+// Team Role Enumeration
+type
+  TTeamRole = (
+    trMember,       // Regular team member
+    trLead,         // Team lead
+    trManager       // Team manager
+  );
+
+// Template Type Enumeration
+type
+  TTemplateType = (
+    ttTask,         // Task template
+    ttProject,      // Project template
+    ttWorkflow      // Workflow template
+  );
+
+// Dependency Type Enumeration
+type
+  TDependencyType = (
+    dtFinishToStart,    // Task B starts when Task A finishes
+    dtStartToStart,     // Task B starts when Task A starts
+    dtFinishToFinish,   // Task B finishes when Task A finishes
+    dtStartToFinish     // Task B finishes when Task A starts
+  );
+
+// Custom Field Type Enumeration
+type
+  TCustomFieldType = (
+    cftText,
+    cftNumber,
+    cftDate,
+    cftBoolean,
+    cftDropdown,
+    cftMultiSelect
+  );
+
+// Validation Rule Type Enumeration
+type
+  TValidationRuleType = (
+    vrtRequired,
+    vrtDateRange,
+    vrtDependency,
+    vrtCustomField,
+    vrtStatusTransition,
+    vrtPermission
+  );
+```
+
+### 9.10 Class Diagram Summary
+
+The class diagrams presented in this section provide a comprehensive view of the Free Pascal Task Manager architecture:
+
+1. **Domain Models**: Core business entities with full property and method definitions
+2. **Service Interfaces**: Clean API contracts for all business operations
+3. **Service Implementations**: Concrete implementations with mORMot integration
+4. **Feature Modules**: High-level managers providing rich functionality
+5. **Infrastructure**: Event system, validation framework, and search capabilities
+6. **Data Access**: Repository pattern implementation using mORMot ORM
+
+All classes follow Object Pascal conventions and are designed for:
+- **Thread safety**: Critical sections protect shared resources
+- **Testability**: Interface-based design enables mocking
+- **Extensibility**: Inheritance hierarchies support feature addition
+- **Maintainability**: Clear separation of concerns and single responsibility
+
+The diagrams use standard UML notation with Mermaid syntax for easy rendering and version control.
+
