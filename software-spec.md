@@ -101,6 +101,968 @@ The library is structured in three main layers:
 
 ---
 
+
+### 1.6 Dependency Management and Injection Patterns
+
+#### 1.6.1 Dependency Injection Philosophy
+
+The library follows **Constructor Injection** as the primary dependency injection pattern, enabling loose coupling and testability. This approach aligns with Object Pascal's strong typing while avoiding the complexity of full DI frameworks.
+
+**Key Principles:**
+- Dependencies are explicitly declared in constructor parameters
+- No hidden dependencies or global state (except where absolutely necessary)
+- Interface-based dependencies for swappable implementations
+- Default implementations provided for convenience
+
+#### 1.6.2 Dependency Injection in Practice
+
+**Example: TTaskManager with Storage Dependency**
+
+```pascal
+type
+  TTaskManager = class
+  private
+    FStorage: ITaskStorage;
+    FTaskList: TTaskList;
+  public
+    // Constructor injection - explicit dependency
+    constructor Create(AStorage: ITaskStorage);
+    destructor Destroy; override;
+    
+    // Factory method for convenience with default storage
+    class function CreateWithJSONStorage(const AFileName: string): TTaskManager;
+  end;
+
+implementation
+
+constructor TTaskManager.Create(AStorage: ITaskStorage);
+begin
+  inherited Create;
+  if AStorage = nil then
+    raise ETaskManagerException.Create('Storage cannot be nil');
+  FStorage := AStorage;
+  FTaskList := TTaskList.Create;
+end;
+
+class function TTaskManager.CreateWithJSONStorage(const AFileName: string): TTaskManager;
+begin
+  Result := TTaskManager.Create(TJSONTaskStorage.Create(AFileName));
+end;
+```
+
+**Benefits:**
+- Easy to test with mock storage implementations
+- Clear dependency graph visible in code
+- Supports runtime strategy switching
+- No framework overhead
+
+#### 1.6.3 Dependency Graph
+
+```
+TTaskManager
+    ├── ITaskStorage (required) ──┬── TJSONTaskStorage
+    │                             ├── TXMLTaskStorage
+    │                             └── TCSVTaskStorage
+    ├── TTaskList (owned)
+    │   └── TTask[] (owned items)
+    └── TTaskValidator (optional)
+
+TTaskFilter
+    └── TTaskList (reference, not owned)
+
+TTaskStatistics
+    └── TTaskList (reference, not owned)
+
+TTask
+    ├── No external dependencies
+    └── Self-contained value object
+
+TTaskValidator
+    └── No external dependencies
+    └── Pure validation logic
+```
+
+#### 1.6.4 Ownership and Lifecycle Management
+
+**Clear Ownership Rules:**
+
+1. **TTaskManager Owns:**
+   - Its storage instance (ITaskStorage)
+   - The task list (TTaskList)
+   - All tasks within the list (TTask instances)
+
+2. **TTaskList Owns:**
+   - All TTask instances added to it
+   - Responsible for freeing tasks on destruction
+
+3. **Filters and Statistics Do NOT Own:**
+   - They receive read-only or reference access to TTaskList
+   - They never free the task list or its contents
+
+**Example Lifecycle:**
+
+```pascal
+procedure DemoLifecycle;
+var
+  Manager: TTaskManager;
+  Storage: ITaskStorage;
+  Task: TTask;
+begin
+  // Create storage (will be owned by manager)
+  Storage := TJSONTaskStorage.Create('tasks.json');
+  
+  // Create manager (takes ownership of storage)
+  Manager := TTaskManager.Create(Storage);
+  try
+    // Create task (ownership transfers to manager on AddTask)
+    Task := TTask.Create;
+    Task.Title := 'Example Task';
+    Manager.AddTask(Task);  // Manager now owns Task
+    
+    // Load from storage
+    Manager.LoadTasks;
+    
+    // Do work...
+    
+    // Save to storage
+    Manager.SaveTasks;
+  finally
+    Manager.Free;  // Frees storage, task list, and all tasks
+  end;
+end;
+```
+
+### 1.7 Interface Design and Segregation Principles
+
+#### 1.7.1 Interface Segregation Principle (ISP)
+
+The library applies ISP by creating focused, role-specific interfaces rather than monolithic ones. This prevents clients from depending on methods they don't use.
+
+**Storage Interface Segregation:**
+
+```pascal
+// Base storage interface - minimal required operations
+type
+  ITaskStorage = interface
+    ['{12345678-1234-1234-1234-123456789012}']
+    function LoadTasks: TTaskList;
+    procedure SaveTasks(ATaskList: TTaskList);
+  end;
+
+// Extended interface for storages that support streaming
+type
+  ITaskStorageStream = interface(ITaskStorage)
+    ['{12345678-1234-1234-1234-123456789013}']
+    function LoadFromStream(AStream: TStream): TTaskList;
+    procedure SaveToStream(ATaskList: TTaskList; AStream: TStream);
+  end;
+
+// Extended interface for storages with query capabilities
+type
+  ITaskStorageQuery = interface(ITaskStorage)
+    ['{12345678-1234-1234-1234-123456789014}']
+    function FindTasksByStatus(AStatus: TTaskStatus): TTaskList;
+    function FindTasksByPriority(APriority: TTaskPriority): TTaskList;
+  end;
+```
+
+#### 1.7.2 Interface Usage Patterns
+
+**Pattern 1: Basic Storage (All implementations must support)**
+
+```pascal
+var
+  Storage: ITaskStorage;
+  TaskList: TTaskList;
+begin
+  Storage := TJSONTaskStorage.Create('tasks.json');
+  TaskList := Storage.LoadTasks;
+  try
+    // Work with tasks
+  finally
+    Storage.SaveTasks(TaskList);
+    TaskList.Free;
+  end;
+end;
+```
+
+**Pattern 2: Feature Detection (Optional capabilities)**
+
+```pascal
+var
+  Storage: ITaskStorage;
+  StreamStorage: ITaskStorageStream;
+  FileStream: TFileStream;
+begin
+  Storage := TJSONTaskStorage.Create('tasks.json');
+  
+  // Check if storage supports streaming
+  if Supports(Storage, ITaskStorageStream, StreamStorage) then
+  begin
+    FileStream := TFileStream.Create('export.json', fmCreate);
+    try
+      StreamStorage.SaveToStream(TaskList, FileStream);
+    finally
+      FileStream.Free;
+    end;
+  end;
+end;
+```
+
+#### 1.7.3 Interface vs Abstract Classes
+
+**When to Use Interfaces:**
+- Multiple inheritance needed
+- Duck typing / feature detection required
+- COM compatibility desired
+- Pure contracts without implementation
+
+**When to Use Abstract Classes:**
+- Shared implementation logic exists
+- Constructor requirements needed
+- State management required
+- Template method pattern applies
+
+**Example: Abstract Base Class for Storage**
+
+```pascal
+type
+  // Abstract base with common functionality
+  TAbstractTaskStorage = class(TInterfacedObject, ITaskStorage)
+  protected
+    FFileName: string;
+    function ValidateTaskList(ATaskList: TTaskList): Boolean; virtual;
+    procedure LogOperation(const AOperation: string); virtual;
+  public
+    constructor Create(const AFileName: string);
+    
+    // ITaskStorage - must be implemented by descendants
+    function LoadTasks: TTaskList; virtual; abstract;
+    procedure SaveTasks(ATaskList: TTaskList); virtual; abstract;
+  end;
+  
+  // Concrete implementation
+  TJSONTaskStorage = class(TAbstractTaskStorage)
+  public
+    function LoadTasks: TTaskList; override;
+    procedure SaveTasks(ATaskList: TTaskList); override;
+  end;
+```
+
+### 1.8 Error Handling Architecture
+
+#### 1.8.1 Exception Hierarchy
+
+The library defines a clear exception hierarchy rooted in a custom base exception:
+
+```pascal
+type
+  // Base exception for all task manager errors
+  ETaskManagerException = class(Exception)
+  private
+    FErrorCode: Integer;
+    FContext: string;
+  public
+    constructor Create(const AMessage: string); overload;
+    constructor Create(const AMessage: string; AErrorCode: Integer); overload;
+    constructor Create(const AMessage, AContext: string; AErrorCode: Integer); overload;
+    property ErrorCode: Integer read FErrorCode;
+    property Context: string read FContext;
+  end;
+
+  // Data validation errors
+  ETaskValidationException = class(ETaskManagerException)
+  private
+    FFieldName: string;
+    FInvalidValue: string;
+  public
+    constructor Create(const AMessage, AFieldName, AInvalidValue: string);
+    property FieldName: string read FFieldName;
+    property InvalidValue: string read FInvalidValue;
+  end;
+
+  // Storage and persistence errors
+  ETaskStorageException = class(ETaskManagerException)
+  private
+    FFileName: string;
+  public
+    constructor Create(const AMessage, AFileName: string);
+    property FileName: string read FFileName;
+  end;
+
+  // Task not found errors
+  ETaskNotFoundException = class(ETaskManagerException)
+  private
+    FTaskID: Integer;
+  public
+    constructor Create(ATaskID: Integer);
+    property TaskID: Integer read FTaskID;
+  end;
+
+  // Concurrency and locking errors
+  ETaskConcurrencyException = class(ETaskManagerException);
+```
+
+#### 1.8.2 Error Handling Strategy
+
+**Defensive Programming at Boundaries:**
+
+```pascal
+function TTaskManager.GetTaskByID(AID: Integer): TTask;
+begin
+  // Validate input at public API boundary
+  if AID <= 0 then
+    raise ETaskManagerException.Create('Invalid task ID', 'GetTaskByID', ERR_INVALID_ID);
+  
+  Result := FTaskList.FindByID(AID);
+  
+  // Explicit error for not found
+  if Result = nil then
+    raise ETaskNotFoundException.Create(AID);
+end;
+```
+
+**Resource Protection with Try-Finally:**
+
+```pascal
+procedure TTaskManager.SaveTasks;
+var
+  TempList: TTaskList;
+begin
+  if FStorage = nil then
+    raise ETaskManagerException.Create('Storage not configured');
+  
+  TempList := nil;
+  try
+    // Create temporary copy for thread safety
+    TempList := FTaskList.Clone;
+    
+    // Attempt save
+    try
+      FStorage.SaveTasks(TempList);
+    except
+      on E: Exception do
+      begin
+        // Wrap and re-raise with context
+        raise ETaskStorageException.Create(
+          'Failed to save tasks: ' + E.Message,
+          FStorage.FileName
+        );
+      end;
+    end;
+  finally
+    TempList.Free;
+  end;
+end;
+```
+
+**Validation with Result Objects (Alternative to Exceptions):**
+
+```pascal
+type
+  TValidationResult = record
+    IsValid: Boolean;
+    ErrorMessage: string;
+    ErrorCode: Integer;
+    FieldName: string;
+  end;
+
+function TTaskValidator.ValidateTask(ATask: TTask): TValidationResult;
+begin
+  Result.IsValid := True;
+  Result.ErrorMessage := '';
+  
+  // Non-exceptional validation
+  if Trim(ATask.Title) = '' then
+  begin
+    Result.IsValid := False;
+    Result.ErrorMessage := 'Title cannot be empty';
+    Result.FieldName := 'Title';
+    Result.ErrorCode := ERR_EMPTY_TITLE;
+    Exit;
+  end;
+  
+  if Length(ATask.Title) > 255 then
+  begin
+    Result.IsValid := False;
+    Result.ErrorMessage := 'Title too long (max 255 characters)';
+    Result.FieldName := 'Title';
+    Result.ErrorCode := ERR_TITLE_TOO_LONG;
+    Exit;
+  end;
+end;
+```
+
+#### 1.8.3 Error Recovery Patterns
+
+**Graceful Degradation:**
+
+```pascal
+function TTaskManager.LoadTasksWithRecovery: Boolean;
+begin
+  Result := False;
+  try
+    FTaskList.Clear;
+    FTaskList.Free;
+    FTaskList := FStorage.LoadTasks;
+    Result := True;
+  except
+    on E: ETaskStorageException do
+    begin
+      // Log error but continue with empty list
+      LogError('Failed to load tasks: ' + E.Message);
+      FTaskList := TTaskList.Create;
+      Result := False;  // Indicate failure but don't crash
+    end;
+  end;
+end;
+```
+
+**Retry Logic:**
+
+```pascal
+function TTaskManager.SaveTasksWithRetry(MaxRetries: Integer = 3): Boolean;
+var
+  Attempt: Integer;
+  LastError: string;
+begin
+  Result := False;
+  LastError := '';
+  
+  for Attempt := 1 to MaxRetries do
+  begin
+    try
+      FStorage.SaveTasks(FTaskList);
+      Result := True;
+      Exit;  // Success
+    except
+      on E: Exception do
+      begin
+        LastError := E.Message;
+        if Attempt < MaxRetries then
+          Sleep(1000 * Attempt);  // Exponential backoff
+      end;
+    end;
+  end;
+  
+  // All retries failed
+  if not Result then
+    raise ETaskStorageException.Create(
+      Format('Save failed after %d attempts. Last error: %s', 
+        [MaxRetries, LastError]),
+      FStorage.FileName
+    );
+end;
+```
+
+### 1.9 Concurrency Model and Thread Safety
+
+#### 1.9.1 Thread Safety Design
+
+**Default Stance: Not Thread-Safe by Default**
+
+The library is designed for single-threaded use by default to avoid performance overhead. Thread safety is opt-in through specific mechanisms.
+
+**Rationale:**
+- Most Pascal applications are single-threaded
+- Synchronization overhead impacts performance
+- Explicit opt-in makes threading model clear
+- Simpler implementation and maintenance
+
+#### 1.9.2 Thread-Safe Wrapper Pattern
+
+For applications requiring thread-safe access, a wrapper class provides synchronized access:
+
+```pascal
+type
+  TThreadSafeTaskManager = class
+  private
+    FManager: TTaskManager;
+    FLock: TCriticalSection;
+  public
+    constructor Create(AStorage: ITaskStorage);
+    destructor Destroy; override;
+    
+    // Thread-safe operations
+    function AddTask(ATask: TTask): Integer;
+    function GetTaskByID(AID: Integer): TTask;
+    function UpdateTask(ATask: TTask): Boolean;
+    function DeleteTask(AID: Integer): Boolean;
+    procedure LoadTasks;
+    procedure SaveTasks;
+    
+    // Batch operations with single lock
+    procedure ExecuteBatch(ABatchProc: TTaskBatchProc);
+  end;
+
+implementation
+
+constructor TThreadSafeTaskManager.Create(AStorage: ITaskStorage);
+begin
+  inherited Create;
+  FLock := TCriticalSection.Create;
+  FManager := TTaskManager.Create(AStorage);
+end;
+
+destructor TThreadSafeTaskManager.Destroy;
+begin
+  FManager.Free;
+  FLock.Free;
+  inherited;
+end;
+
+function TThreadSafeTaskManager.AddTask(ATask: TTask): Integer;
+begin
+  FLock.Enter;
+  try
+    Result := FManager.AddTask(ATask);
+  finally
+    FLock.Leave;
+  end;
+end;
+
+procedure TThreadSafeTaskManager.ExecuteBatch(ABatchProc: TTaskBatchProc);
+begin
+  FLock.Enter;
+  try
+    ABatchProc(FManager);
+  finally
+    FLock.Leave;
+  end;
+end;
+```
+
+#### 1.9.3 Read-Write Lock Pattern for High Concurrency
+
+For scenarios with many reads and few writes:
+
+```pascal
+type
+  TTaskManagerRWLock = class
+  private
+    FManager: TTaskManager;
+    FRWLock: TMultiReadExclusiveWriteSynchronizer;
+  public
+    constructor Create(AStorage: ITaskStorage);
+    destructor Destroy; override;
+    
+    // Read operations (multiple readers allowed)
+    function GetTaskByID(AID: Integer): TTask;
+    function GetTaskCount: Integer;
+    function FilterTasks(ACriteria: TTaskFilterCriteria): TTaskList;
+    
+    // Write operations (exclusive access)
+    function AddTask(ATask: TTask): Integer;
+    function UpdateTask(ATask: TTask): Boolean;
+    function DeleteTask(AID: Integer): Boolean;
+  end;
+
+implementation
+
+function TTaskManagerRWLock.GetTaskByID(AID: Integer): TTask;
+begin
+  FRWLock.BeginRead;
+  try
+    Result := FManager.GetTaskByID(AID);
+  finally
+    FRWLock.EndRead;
+  end;
+end;
+
+function TTaskManagerRWLock.AddTask(ATask: TTask): Integer;
+begin
+  FRWLock.BeginWrite;
+  try
+    Result := FManager.AddTask(ATask);
+  finally
+    FRWLock.EndWrite;
+  end;
+end;
+```
+
+#### 1.9.4 Immutable Task Pattern for Concurrent Access
+
+For advanced scenarios, immutable tasks eliminate synchronization needs:
+
+```pascal
+type
+  // Immutable task - all properties read-only after creation
+  TImmutableTask = class
+  private
+    FID: Integer;
+    FTitle: string;
+    FDescription: string;
+    FStatus: TTaskStatus;
+    FPriority: TTaskPriority;
+    FCreatedDate: TDateTime;
+    // ... other fields
+  public
+    constructor Create(AID: Integer; const ATitle, ADescription: string;
+      AStatus: TTaskStatus; APriority: TTaskPriority);
+    
+    // Factory method for modifications (returns new instance)
+    function WithStatus(ANewStatus: TTaskStatus): TImmutableTask;
+    function WithPriority(ANewPriority: TTaskPriority): TImmutableTask;
+    
+    // Read-only properties
+    property ID: Integer read FID;
+    property Title: string read FTitle;
+    property Status: TTaskStatus read FStatus;
+    // ... other read-only properties
+  end;
+```
+
+#### 1.9.5 Concurrency Best Practices
+
+**Guidelines for Library Users:**
+
+1. **Single-Threaded Default**: Use `TTaskManager` directly in single-threaded applications
+2. **Wrapper for Multi-Threading**: Use `TThreadSafeTaskManager` when multiple threads access the same manager
+3. **Separate Instances**: Create separate `TTaskManager` instances per thread (with separate storage) when possible
+4. **Batch Operations**: Use `ExecuteBatch` to perform multiple operations under a single lock
+5. **Avoid Long-Running Operations**: Don't hold locks during I/O or complex calculations
+
+**Example: Worker Thread Pattern**
+
+```pascal
+type
+  TTaskProcessorThread = class(TThread)
+  private
+    FManager: TThreadSafeTaskManager;
+  protected
+    procedure Execute; override;
+  public
+    constructor Create(AManager: TThreadSafeTaskManager);
+  end;
+
+procedure TTaskProcessorThread.Execute;
+var
+  Task: TTask;
+  ProcessedIDs: array of Integer;
+begin
+  while not Terminated do
+  begin
+    // Get pending tasks (short lock)
+    FManager.ExecuteBatch(
+      procedure(M: TTaskManager)
+      var
+        I: Integer;
+      begin
+        SetLength(ProcessedIDs, 0);
+        for I := 0 to M.TaskCount - 1 do
+        begin
+          if M.Tasks[I].Status = tsInProgress then
+          begin
+            SetLength(ProcessedIDs, Length(ProcessedIDs) + 1);
+            ProcessedIDs[High(ProcessedIDs)] := M.Tasks[I].ID;
+          end;
+        end;
+      end
+    );
+    
+    // Process tasks (no lock held)
+    for TaskID in ProcessedIDs do
+    begin
+      Task := FManager.GetTaskByID(TaskID);
+      // ... do work ...
+      FManager.UpdateTask(Task);
+    end;
+    
+    Sleep(1000);
+  end;
+end;
+```
+
+### 1.10 Class Relationships and Dependencies
+
+#### 1.10.1 Detailed Dependency Graph
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                         Client Code                              │
+│                    (Application Layer)                           │
+└────────────┬────────────────────────────────────────────────────┘
+             │
+             │ creates and uses
+             ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                      TTaskManager                                │
+│  ┌──────────────────────────────────────────────────────┐      │
+│  │ Dependencies (Constructor Injection):                 │      │
+│  │  • ITaskStorage (required, owned)                     │      │
+│  │                                                        │      │
+│  │ Internal Components (Created and Owned):              │      │
+│  │  • TTaskList (owned)                                  │      │
+│  │  • TTaskValidator (optional, owned)                   │      │
+│  │                                                        │      │
+│  │ External References (Not Owned):                      │      │
+│  │  • None - fully self-contained                        │      │
+│  └──────────────────────────────────────────────────────┘      │
+└────┬────────────────┬─────────────────┬────────────────────────┘
+     │                │                 │
+     │ uses           │ uses            │ uses
+     ▼                ▼                 ▼
+┌──────────┐    ┌─────────────┐  ┌──────────────┐
+│ITaskStorage│   │  TTaskList  │  │TTaskValidator│
+│(interface)│    │             │  │              │
+└────┬─────┘    └──────┬──────┘  └──────────────┘
+     │                 │
+     │ implemented by  │ contains
+     │                 │
+     ▼                 ▼
+┌──────────────┐  ┌────────┐
+│Storage Impls │  │ TTask  │
+│ • JSON       │  │        │
+│ • XML        │  │        │
+│ • CSV        │  │        │
+└──────────────┘  └────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│                      TTaskFilter                                 │
+│  ┌──────────────────────────────────────────────────────┐      │
+│  │ Dependencies (Method Parameters):                     │      │
+│  │  • TTaskList (reference, not owned)                   │      │
+│  │                                                        │      │
+│  │ No Owned Components                                   │      │
+│  │ Stateless utility class                               │      │
+│  └──────────────────────────────────────────────────────┘      │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│                    TTaskStatistics                               │
+│  ┌──────────────────────────────────────────────────────┐      │
+│  │ Dependencies (Method Parameters):                     │      │
+│  │  • TTaskList (reference, not owned)                   │      │
+│  │                                                        │      │
+│  │ No Owned Components                                   │      │
+│  │ Stateless utility class                               │      │
+│  └──────────────────────────────────────────────────────┘      │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+#### 1.10.2 Dependency Injection Points
+
+**Primary Injection Point: TTaskManager Constructor**
+
+```pascal
+// Dependency: ITaskStorage (required)
+constructor TTaskManager.Create(AStorage: ITaskStorage);
+
+// Factory methods for common configurations
+class function TTaskManager.CreateWithJSONStorage(const AFileName: string): TTaskManager;
+class function TTaskManager.CreateWithXMLStorage(const AFileName: string): TTaskManager;
+class function TTaskManager.CreateWithCSVStorage(const AFileName: string): TTaskManager;
+```
+
+**Secondary Injection Point: Storage Implementations**
+
+```pascal
+// Each storage implementation requires a file path
+constructor TJSONTaskStorage.Create(const AFileName: string);
+constructor TXMLTaskStorage.Create(const AFileName: string);
+constructor TCSVTaskStorage.Create(const AFileName: string);
+```
+
+#### 1.10.3 Compile-Time Dependency Order
+
+Units must be compiled in this order to respect dependencies:
+
+```
+Level 1 (No dependencies):
+  • TaskTypes.pas           - Type definitions
+  • TaskExceptions.pas      - Exception classes
+
+Level 2 (Depends on Level 1):
+  • TaskModel.pas           - TTask class
+  • TaskUtils.pas           - Utility functions
+
+Level 3 (Depends on Levels 1-2):
+  • TaskList.pas            - TTaskList class
+  • TaskStorage.pas         - ITaskStorage interface
+
+Level 4 (Depends on Levels 1-3):
+  • TaskStorageJSON.pas     - JSON storage implementation
+  • TaskStorageXML.pas      - XML storage implementation
+  • TaskStorageCSV.pas      - CSV storage implementation
+  • TaskValidator.pas       - Validation logic
+  • TaskFilter.pas          - Filtering logic
+  • TaskStatistics.pas      - Statistics logic
+
+Level 5 (Depends on Levels 1-4):
+  • TaskManager.pas         - Main manager class
+```
+
+#### 1.10.4 Runtime Object Graph Example
+
+```
+Application Start:
+  │
+  ├─ Create Storage: TJSONTaskStorage('tasks.json')
+  │    │
+  │    └─ Opens file handle (managed internally)
+  │
+  ├─ Create Manager: TTaskManager(storage)
+  │    │
+  │    ├─ Stores reference to storage (owned)
+  │    │
+  │    └─ Creates TTaskList (owned)
+  │         │
+  │         └─ Initially empty
+  │
+  ├─ Load Tasks: Manager.LoadTasks()
+  │    │
+  │    ├─ Calls Storage.LoadTasks()
+  │    │    │
+  │    │    └─ Returns new TTaskList with TTask instances
+  │    │
+  │    └─ Replaces internal task list
+  │         │
+  │         └─ Old list and tasks are freed
+  │
+  ├─ Add Task: Manager.AddTask(task)
+  │    │
+  │    ├─ Validates task
+  │    │
+  │    └─ Adds to internal TTaskList
+  │         │
+  │         └─ TTaskList now owns the task
+  │
+  ├─ Filter Tasks: TTaskFilter.FilterByStatus(Manager.TaskList, tsCompleted)
+  │    │
+  │    ├─ Receives reference to task list (not owned)
+  │    │
+  │    └─ Returns new TTaskList with matching tasks (caller owns result)
+  │
+  ├─ Save Tasks: Manager.SaveTasks()
+  │    │
+  │    └─ Calls Storage.SaveTasks(internal task list)
+  │         │
+  │         └─ Storage reads task list (doesn't own it)
+  │
+  └─ Cleanup: Manager.Free
+       │
+       ├─ Frees internal TTaskList
+       │    │
+       │    └─ TTaskList frees all TTask instances
+       │
+       └─ Frees Storage instance
+            │
+            └─ Storage closes file handles
+```
+
+### 1.11 Object Pascal Specific Patterns and Idioms
+
+#### 1.11.1 Reference Counting with Interfaces
+
+The library uses interfaces for the storage layer to enable automatic reference counting:
+
+```pascal
+procedure Example;
+var
+  Manager: TTaskManager;
+begin
+  // Storage is interface - automatically reference counted
+  Manager := TTaskManager.Create(TJSONTaskStorage.Create('tasks.json'));
+  try
+    // Use manager
+  finally
+    Manager.Free;  // Frees manager, which releases storage interface
+    // Storage is automatically freed when reference count reaches zero
+  end;
+end;
+```
+
+#### 1.11.2 Properties with Lazy Initialization
+
+```pascal
+type
+  TTaskManager = class
+  private
+    FValidator: TTaskValidator;
+    function GetValidator: TTaskValidator;
+  public
+    property Validator: TTaskValidator read GetValidator;
+  end;
+
+function TTaskManager.GetValidator: TTaskValidator;
+begin
+  if FValidator = nil then
+    FValidator := TTaskValidator.Create;
+  Result := FValidator;
+end;
+```
+
+#### 1.11.3 Enumerator Pattern for Task Lists
+
+```pascal
+type
+  TTaskList = class
+  public
+    function GetEnumerator: TTaskListEnumerator;
+  end;
+  
+  TTaskListEnumerator = class
+  private
+    FList: TTaskList;
+    FIndex: Integer;
+  public
+    constructor Create(AList: TTaskList);
+    function MoveNext: Boolean;
+    property Current: TTask read GetCurrent;
+  end;
+
+// Usage with for-in loop
+var
+  Task: TTask;
+begin
+  for Task in TaskList do
+    WriteLn(Task.Title);
+end;
+```
+
+#### 1.11.4 Class Helpers for Extension
+
+```pascal
+type
+  TTaskHelper = class helper for TTask
+  public
+    function IsOverdue: Boolean;
+    function DaysUntilDue: Integer;
+    function ToJSON: string;
+    procedure FromJSON(const AJSON: string);
+  end;
+
+implementation
+
+function TTaskHelper.IsOverdue: Boolean;
+begin
+  Result := (DueDate < Now) and (Status <> tsCompleted);
+end;
+```
+
+#### 1.11.5 Advanced Generic Patterns (FPC 3.2+)
+
+```pascal
+type
+  // Generic task collection with type-safe filtering
+  TGenericTaskList<T: TTask> = class(specialize TObjectList<T>)
+  public
+    function FilterByPredicate(APredicate: specialize TFunc<T, Boolean>): TGenericTaskList<T>;
+  end;
+
+function TGenericTaskList<T>.FilterByPredicate(APredicate: specialize TFunc<T, Boolean>): TGenericTaskList<T>;
+var
+  Item: T;
+begin
+  Result := TGenericTaskList<T>.Create(False);  // Don't own items
+  for Item in Self do
+    if APredicate(Item) then
+      Result.Add(Item);
+end;
+```
+
+---
+
 ## 2. Detailed Module/Component Descriptions
 
 ### 2.1 Data Model Module (`TaskModel.pas`)
