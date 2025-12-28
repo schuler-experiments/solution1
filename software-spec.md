@@ -6320,3 +6320,750 @@ All classes follow Object Pascal conventions and are designed for:
 
 The diagrams use standard UML notation with Mermaid syntax for easy rendering and version control.
 
+
+
+
+## 10. Source Code Organization and File Structure
+
+### 10.1 Overview
+
+The Free Pascal Task Manager follows a well-organized, layered architecture with clear separation of concerns. The source code is organized into logical directories based on functionality and architectural layers. This structure promotes:
+
+- **Modularity**: Each component is self-contained and reusable
+- **Maintainability**: Clear organization makes code easy to find and update
+- **Testability**: Isolated modules can be tested independently
+- **Scalability**: New features can be added without disrupting existing code
+
+### 10.2 Directory Structure
+
+```
+project-root/
+├── src/                          # Source code root
+│   ├── models/                   # Domain models (data entities)
+│   │   ├── task_models.pas
+│   │   ├── comment_models.pas
+│   │   ├── tag_models.pas
+│   │   ├── project_models.pas
+│   │   ├── board_models.pas
+│   │   ├── user_models.pas
+│   │   ├── timeentry_models.pas
+│   │   ├── recurring_models.pas
+│   │   └── notification_models.pas
+│   │
+│   ├── services/                 # Service interfaces and implementations
+│   │   ├── interfaces/           # Service interface definitions
+│   │   │   ├── task_services.pas
+│   │   │   ├── comment_services.pas
+│   │   │   ├── tag_services.pas
+│   │   │   ├── project_services.pas
+│   │   │   ├── board_services.pas
+│   │   │   └── user_services.pas
+│   │   │
+│   │   └── impl/                 # Service implementations
+│   │       ├── task_services_impl.pas
+│   │       ├── comment_services_impl.pas
+│   │       ├── tag_services_impl.pas
+│   │       ├── project_services_impl.pas
+│   │       ├── board_services_impl.pas
+│   │       └── user_services_impl.pas
+│   │
+│   ├── managers/                 # High-level feature managers
+│   │   ├── core/                 # Core management functionality
+│   │   │   ├── taskmanager.pas
+│   │   │   ├── taskmanagerenhanced.pas
+│   │   │   ├── taskmanagerext.pas
+│   │   │   └── taskmanageradvanced.pas
+│   │   │
+│   │   └── features/             # Feature-specific managers
+│   │       ├── taskmanagerboards.pas
+│   │       ├── taskmanagerteam.pas
+│   │       ├── taskmanagertemplates.pas
+│   │       ├── taskmanagerrecurring.pas
+│   │       ├── taskmanagertimetracking.pas
+│   │       ├── taskmanagersearch.pas
+│   │       ├── taskmanagernotifications.pas
+│   │       ├── taskmanagerfocus.pas
+│   │       ├── taskmanagergamify.pas
+│   │       ├── taskmanagerknowledge.pas
+│   │       ├── taskmanagerlifestyle.pas
+│   │       ├── taskmanagermeetings.pas
+│   │       ├── taskmanagerresource.pas
+│   │       ├── taskmanagerwellbeing.pas
+│   │       └── taskmanagersmart.pas
+│   │
+│   ├── infrastructure/           # Supporting infrastructure
+│   │   ├── task_events.pas       # Event system for notifications
+│   │   ├── task_validation.pas   # Validation framework
+│   │   ├── task_logging.pas      # Logging utilities
+│   │   ├── task_exceptions.pas   # Custom exception types
+│   │   └── task_constants.pas    # Global constants and configuration
+│   │
+│   ├── data/                     # Data access layer
+│   │   ├── task_repository.pas   # Generic repository pattern
+│   │   ├── task_database.pas     # Database initialization and migration
+│   │   └── task_orm_setup.pas    # mORMot ORM configuration
+│   │
+│   └── utils/                    # Utility modules
+│       ├── datetime_utils.pas    # Date/time helper functions
+│       ├── string_utils.pas      # String manipulation utilities
+│       ├── collection_utils.pas  # Collection/array helpers
+│       └── json_utils.pas        # JSON serialization helpers
+│
+├── tests/                        # Unit and integration tests
+│   ├── models/                   # Model tests
+│   │   ├── test_task_models.pas
+│   │   ├── test_comment_models.pas
+│   │   └── test_tag_models.pas
+│   │
+│   ├── services/                 # Service tests
+│   │   ├── test_task_services.pas
+│   │   ├── test_comment_services.pas
+│   │   └── test_tag_services.pas
+│   │
+│   ├── managers/                 # Manager tests
+│   │   ├── test_taskmanager.pas
+│   │   └── test_taskmanagerenhanced.pas
+│   │
+│   ├── infrastructure/           # Infrastructure tests
+│   │   ├── test_events.pas
+│   │   └── test_validation.pas
+│   │
+│   └── integration/              # Integration tests
+│       ├── test_full_workflow.pas
+│       └── test_performance.pas
+│
+├── examples/                     # Example applications
+│   ├── console/                  # Console application example
+│   │   ├── console_example.lpr
+│   │   └── console_app.pas
+│   │
+│   ├── gui/                      # GUI application example (Lazarus/LCL)
+│   │   ├── gui_example.lpr
+│   │   ├── main_form.pas
+│   │   └── main_form.lfm
+│   │
+│   └── web/                      # Web service example
+│       ├── web_server.lpr
+│       └── web_handlers.pas
+│
+├── docs/                         # Documentation
+│   ├── api/                      # API documentation
+│   ├── guides/                   # User guides and tutorials
+│   └── diagrams/                 # Architecture diagrams
+│
+├── config/                       # Configuration files
+│   ├── database.ini              # Database configuration
+│   ├── logging.ini               # Logging configuration
+│   └── app.ini                   # Application settings
+│
+├── scripts/                      # Build and deployment scripts
+│   ├── build.sh                  # Build script (Linux/macOS)
+│   ├── build.bat                 # Build script (Windows)
+│   ├── test.sh                   # Test runner script
+│   └── deploy.sh                 # Deployment script
+│
+├── bin/                          # Compiled binaries (gitignored)
+├── lib/                          # Compiled units (gitignored)
+├── data/                         # Runtime data files
+│   └── taskmanager.db            # SQLite database (runtime)
+│
+├── third-party/                  # Third-party dependencies
+│   └── mormot2/                  # mORMot 2 framework (git submodule)
+│
+├── taskmanager.lpk               # Lazarus package file
+├── taskmanager.lpi               # Lazarus project file (if applicable)
+├── README.md                     # Project readme
+├── LICENSE                       # License file
+├── .gitignore                    # Git ignore patterns
+└── software-spec.md              # This specification document
+```
+
+### 10.3 File Naming Conventions
+
+#### 10.3.1 Pascal Units
+
+All Pascal source files follow these naming conventions:
+
+- **Models**: `{entity}_models.pas` (e.g., `task_models.pas`, `comment_models.pas`)
+- **Service Interfaces**: `{entity}_services.pas` (e.g., `task_services.pas`)
+- **Service Implementations**: `{entity}_services_impl.pas` (e.g., `task_services_impl.pas`)
+- **Feature Managers**: `taskmanager{feature}.pas` (e.g., `taskmanagerboards.pas`)
+- **Infrastructure**: `task_{purpose}.pas` (e.g., `task_events.pas`, `task_validation.pas`)
+- **Utilities**: `{category}_utils.pas` (e.g., `datetime_utils.pas`)
+- **Tests**: `test_{module}.pas` (e.g., `test_task_models.pas`)
+
+#### 10.3.2 Unit Names
+
+Unit names in the `unit` declaration match the filename without extension:
+
+```pascal
+unit task_models;  // File: task_models.pas
+unit task_services_impl;  // File: task_services_impl.pas
+unit taskmanagerboards;  // File: taskmanagerboards.pas
+```
+
+#### 10.3.3 Type Naming
+
+- **Classes**: `T{ClassName}` (e.g., `TTaskModel`, `TTaskService`)
+- **Interfaces**: `I{InterfaceName}` (e.g., `ITaskService`, `ICommentService`)
+- **Enumerations**: `T{EnumName}` with values prefixed by lowercase enum abbreviation (e.g., `TTaskStatus` with values `tsNotStarted`, `tsInProgress`)
+- **Records**: `T{RecordName}` (e.g., `TTaskFilter`, `TValidationResult`)
+- **Arrays**: `T{Type}Array` or `T{Type}DynArray` (e.g., `TTaskModelArray`)
+
+### 10.4 Module Dependencies
+
+#### 10.4.1 Dependency Layers
+
+The codebase follows strict layering to prevent circular dependencies:
+
+```
+Layer 1 (Bottom): Models
+    ↑
+Layer 2: Service Interfaces
+    ↑
+Layer 3: Service Implementations
+    ↑
+Layer 4: Managers/Features
+    ↑
+Layer 5 (Top): Applications/Examples
+```
+
+**Dependency Rules:**
+- Lower layers have NO dependencies on higher layers
+- Each layer can depend only on layers below it
+- Infrastructure modules can be used by any layer
+- Utilities can be used by any layer
+
+#### 10.4.2 Module Dependency Matrix
+
+| Module Type | Can Depend On |
+|-------------|---------------|
+| Models | mORMot, Infrastructure, Utils |
+| Service Interfaces | Models, Infrastructure |
+| Service Implementations | Service Interfaces, Models, Data Layer, mORMot, Infrastructure, Utils |
+| Managers | Service Interfaces, Models, Infrastructure, Utils |
+| Applications | All layers |
+| Tests | All layers (for testing purposes) |
+
+#### 10.4.3 Circular Dependency Prevention
+
+To prevent circular dependencies:
+
+1. **Forward Declarations**: Use forward class declarations when needed:
+   ```pascal
+   type
+     TTaskModel = class;  // Forward declaration
+     TCommentModel = class(TSQLRecord)
+     private
+       FTask: TTaskModel;
+     end;
+     
+     TTaskModel = class(TSQLRecord)
+       // Full implementation
+     end;
+   ```
+
+2. **Interface Segregation**: Split large interfaces into smaller, focused interfaces
+
+3. **Dependency Injection**: Pass dependencies through constructors or setters rather than direct instantiation
+
+### 10.5 Core Module Details
+
+#### 10.5.1 Models Layer (`src/models/`)
+
+**Purpose:** Define all data entities and value objects.
+
+**Key Files:**
+
+| File | Primary Classes | Purpose |
+|------|----------------|---------|
+| `task_models.pas` | `TTaskModel`, `TTaskStatus`, `TTaskPriority` | Core task entity and enumerations |
+| `comment_models.pas` | `TCommentModel` | Comment/discussion entity |
+| `tag_models.pas` | `TTagModel`, `TTaskTagModel` | Tagging system |
+| `project_models.pas` | `TProjectModel` | Project grouping entity |
+| `board_models.pas` | `TBoardModel`, `TBoardColumnModel` | Kanban board entities |
+| `user_models.pas` | `TUserModel` | User/team member entity |
+| `timeentry_models.pas` | `TTimeEntryModel` | Time tracking entity |
+| `recurring_models.pas` | `TRecurringTaskModel` | Recurring task patterns |
+| `notification_models.pas` | `TNotificationModel` | Notification entity |
+
+**Common Pattern:**
+All model classes inherit from `TSQLRecord` (mORMot base class) and implement:
+- Property accessors with validation
+- `Validate()` method for business rule validation
+- Custom methods for domain logic
+
+#### 10.5.2 Services Layer (`src/services/`)
+
+**Purpose:** Define business logic operations as interfaces and implementations.
+
+**Structure:**
+- `interfaces/`: Pure interface definitions (contracts)
+- `impl/`: Concrete implementations using mORMot ORM
+
+**Key Interface Files:**
+
+| File | Interface | Purpose |
+|------|-----------|---------|
+| `task_services.pas` | `ITaskService` | Task CRUD and management operations |
+| `comment_services.pas` | `ICommentService` | Comment operations |
+| `tag_services.pas` | `ITagService` | Tag management and assignment |
+| `project_services.pas` | `IProjectService` | Project operations |
+| `board_services.pas` | `IBoardService` | Board and column management |
+| `user_services.pas` | `IUserService` | User management operations |
+
+**Implementation Pattern:**
+```pascal
+// Interface file: task_services.pas
+type
+  ITaskService = interface(IInvokable)
+    ['{GUID}']
+    function CreateTask(const ATask: TTaskModel): Int64;
+    // ... other methods
+  end;
+
+// Implementation file: task_services_impl.pas
+type
+  TTaskServiceImpl = class(TInterfacedObject, ITaskService)
+  private
+    FClient: TRestClientDB;
+  public
+    constructor Create(AClient: TRestClientDB);
+    function CreateTask(const ATask: TTaskModel): Int64;
+    // ... implementations
+  end;
+```
+
+#### 10.5.3 Managers Layer (`src/managers/`)
+
+**Purpose:** Provide high-level, feature-rich APIs for specific functionality.
+
+**Core Managers** (`core/`):
+
+| File | Class | Purpose |
+|------|-------|---------|
+| `taskmanager.pas` | `TTaskManager` | Base task management with CRUD operations |
+| `taskmanagerenhanced.pas` | `TEnhancedTaskManager` | Extended with filtering, sorting, search |
+| `taskmanagerext.pas` | `TExtendedTaskManager` | Adds projects, tags, comments |
+| `taskmanageradvanced.pas` | `TAdvancedTaskManager` | Advanced features (dependencies, custom fields) |
+
+**Feature Managers** (`features/`):
+
+| File | Class | Purpose |
+|------|-------|---------|
+| `taskmanagerboards.pas` | `TTaskManagerBoards` | Kanban board management |
+| `taskmanagerteam.pas` | `TTaskManagerTeam` | Team collaboration features |
+| `taskmanagertemplates.pas` | `TTaskManagerTemplates` | Task and project templates |
+| `taskmanagerrecurring.pas` | `TTaskManagerRecurring` | Recurring task management |
+| `taskmanagertimetracking.pas` | `TTaskManagerTimeTracking` | Time tracking and reporting |
+| `taskmanagersearch.pas` | `TTaskManagerSearch` | Advanced search capabilities |
+| `taskmanagernotifications.pas` | `TTaskManagerNotifications` | Notification system |
+| `taskmanagerfocus.pas` | `TTaskManagerFocus` | Focus mode and distraction reduction |
+| `taskmanagergamify.pas` | `TTaskManagerGamify` | Gamification features |
+| `taskmanagerknowledge.pas` | `TTaskManagerKnowledge` | Knowledge base integration |
+| `taskmanagerlifestyle.pas` | `TTaskManagerLifestyle` | Lifestyle/wellness features |
+| `taskmanagermeetings.pas` | `TTaskManagerMeetings` | Meeting management |
+| `taskmanagerresource.pas` | `TTaskManagerResource` | Resource allocation |
+| `taskmanagerwellbeing.pas` | `TTaskManagerWellbeing` | Wellbeing tracking |
+| `taskmanagersmart.pas` | `TTaskManagerSmart` | AI/ML suggestions |
+
+**Manager Pattern:**
+Managers compose multiple services and provide simplified, task-oriented APIs:
+
+```pascal
+type
+  TTaskManager = class
+  private
+    FTaskService: ITaskService;
+    FCommentService: ICommentService;
+    FTagService: ITagService;
+  public
+    constructor Create(ATaskService: ITaskService; 
+                       ACommentService: ICommentService;
+                       ATagService: ITagService);
+    
+    // High-level operations
+    function CreateTaskWithTags(const ATitle, ADescription: string;
+                                const ATags: array of string): Int64;
+    function GetTaskWithComments(ATaskID: Int64): TTaskDetail;
+    // ... more simplified operations
+  end;
+```
+
+#### 10.5.4 Infrastructure Layer (`src/infrastructure/`)
+
+**Purpose:** Provide cross-cutting concerns and supporting utilities.
+
+| File | Primary Classes/Types | Purpose |
+|------|----------------------|---------|
+| `task_events.pas` | `TTaskEvent`, `TTaskEventType`, `ITaskEventListener` | Event system for notifications and observers |
+| `task_validation.pas` | `TValidationRule`, `TValidationResult`, `IValidator` | Validation framework for business rules |
+| `task_logging.pas` | `TLogger`, `TLogLevel` | Logging utilities |
+| `task_exceptions.pas` | `ETaskException`, `EValidationException` | Custom exception types |
+| `task_constants.pas` | Constants and configuration | Global constants and defaults |
+
+**Event System Pattern:**
+```pascal
+type
+  TTaskEventType = (
+    tetTaskCreated,
+    tetTaskUpdated,
+    tetTaskDeleted,
+    tetTaskStatusChanged
+  );
+  
+  ITaskEventListener = interface
+    ['{GUID}']
+    procedure OnTaskEvent(AEventType: TTaskEventType; 
+                          ATask: TTaskModel);
+  end;
+  
+  TTaskEventManager = class
+    procedure Subscribe(AListener: ITaskEventListener);
+    procedure Unsubscribe(AListener: ITaskEventListener);
+    procedure RaiseEvent(AEventType: TTaskEventType; 
+                         ATask: TTaskModel);
+  end;
+```
+
+#### 10.5.5 Data Layer (`src/data/`)
+
+**Purpose:** Manage database connections, ORM setup, and data persistence.
+
+| File | Primary Classes | Purpose |
+|------|----------------|---------|
+| `task_repository.pas` | `TRepository<T>` | Generic repository pattern |
+| `task_database.pas` | `TDatabaseManager` | Database initialization and migration |
+| `task_orm_setup.pas` | `TOrmSetup` | mORMot ORM configuration and model registration |
+
+**Repository Pattern:**
+```pascal
+type
+  generic TRepository<T: TSQLRecord> = class
+  private
+    FClient: TRestClientDB;
+  public
+    constructor Create(AClient: TRestClientDB);
+    function Add(AEntity: T): Int64;
+    function GetByID(AID: Int64): T;
+    function Update(AEntity: T): Boolean;
+    function Delete(AID: Int64): Boolean;
+    function GetAll: TArray<T>;
+  end;
+```
+
+#### 10.5.6 Utilities Layer (`src/utils/`)
+
+**Purpose:** Provide reusable helper functions.
+
+| File | Functions | Purpose |
+|------|-----------|---------|
+| `datetime_utils.pas` | Date/time formatting, parsing, calculations | Date/time operations |
+| `string_utils.pas` | String manipulation, formatting, validation | String utilities |
+| `collection_utils.pas` | Array/list operations, sorting, filtering | Collection helpers |
+| `json_utils.pas` | JSON serialization/deserialization | JSON utilities |
+
+### 10.6 Testing Structure (`tests/`)
+
+#### 10.6.1 Test Organization
+
+Tests mirror the source code structure:
+
+```
+tests/
+├── models/           # Unit tests for models
+├── services/         # Unit tests for services
+├── managers/         # Unit tests for managers
+├── infrastructure/   # Tests for infrastructure components
+└── integration/      # Integration and end-to-end tests
+```
+
+#### 10.6.2 Test Naming Convention
+
+- Test files: `test_{module}.pas` (e.g., `test_task_models.pas`)
+- Test classes: `T{Module}Tests` (e.g., `TTaskModelTests`)
+- Test methods: `Test{Scenario}` (e.g., `TestCreateTaskWithValidData`)
+
+#### 10.6.3 Test Structure Pattern
+
+```pascal
+unit test_task_models;
+
+interface
+
+uses
+  TestFramework, task_models;
+
+type
+  TTaskModelTests = class(TTestCase)
+  published
+    procedure TestCreateTaskWithValidData;
+    procedure TestValidateTaskWithMissingTitle;
+    procedure TestIsOverdueForPastDueDate;
+  end;
+
+implementation
+
+procedure TTaskModelTests.TestCreateTaskWithValidData;
+var
+  Task: TTaskModel;
+begin
+  Task := TTaskModel.Create;
+  try
+    Task.Title := 'Test Task';
+    Task.Description := 'Test Description';
+    CheckTrue(Task.Validate, 'Valid task should pass validation');
+  finally
+    Task.Free;
+  end;
+end;
+
+// ... other test implementations
+
+initialization
+  RegisterTest(TTaskModelTests.Suite);
+end.
+```
+
+### 10.7 Example Applications (`examples/`)
+
+#### 10.7.1 Console Example
+
+**Location:** `examples/console/`
+
+**Files:**
+- `console_example.lpr`: Main program file
+- `console_app.pas`: Application logic
+
+**Purpose:** Demonstrates basic task manager usage in a console application
+
+#### 10.7.2 GUI Example
+
+**Location:** `examples/gui/`
+
+**Files:**
+- `gui_example.lpr`: Main program file
+- `main_form.pas`: Main form unit
+- `main_form.lfm`: Form layout (Lazarus)
+
+**Purpose:** Shows integration with Lazarus LCL for desktop GUI applications
+
+#### 10.7.3 Web Service Example
+
+**Location:** `examples/web/`
+
+**Files:**
+- `web_server.lpr`: Web server main program
+- `web_handlers.pas`: HTTP request handlers
+
+**Purpose:** Demonstrates REST API implementation using mORMot HTTP server
+
+### 10.8 Build Configuration
+
+#### 10.8.1 Compiler Directives
+
+All source files use consistent compiler directives:
+
+```pascal
+{$mode objfpc}{$H+}
+{$modeswitch advancedrecords}
+{$modeswitch typehelpers}
+```
+
+Explanation:
+- `{$mode objfpc}`: Object Pascal mode (Delphi-compatible)
+- `{$H+}`: Use AnsiString (long strings)
+- `{$modeswitch advancedrecords}`: Enable advanced record features
+- `{$modeswitch typehelpers}`: Enable type helper classes
+
+#### 10.8.2 Search Paths
+
+The project uses the following unit search paths:
+
+```
+src/models
+src/services/interfaces
+src/services/impl
+src/managers/core
+src/managers/features
+src/infrastructure
+src/data
+src/utils
+third-party/mormot2/src/core
+third-party/mormot2/src/orm
+third-party/mormot2/src/rest
+third-party/mormot2/src/db
+```
+
+#### 10.8.3 Package Structure
+
+The Lazarus package file (`taskmanager.lpk`) includes:
+
+**Core Units:**
+- All model units (`src/models/*.pas`)
+- All service interface units (`src/services/interfaces/*.pas`)
+- All service implementation units (`src/services/impl/*.pas`)
+
+**Optional Units** (can be included based on needs):
+- Manager units (`src/managers/**/*.pas`)
+- Infrastructure units (`src/infrastructure/*.pas`)
+
+### 10.9 Code Organization Best Practices
+
+#### 10.9.1 Unit Structure Template
+
+Every Pascal unit follows this structure:
+
+```pascal
+unit unit_name;
+
+{$mode objfpc}{$H+}
+
+interface
+
+uses
+  // System units
+  Classes, SysUtils,
+  // Third-party units
+  mormot.core.base, mormot.orm.core,
+  // Project units
+  task_models;
+
+type
+  // Type definitions
+
+  // Class declarations
+  TClassName = class
+  private
+    // Private fields
+  protected
+    // Protected methods
+  public
+    // Public methods
+    constructor Create;
+    destructor Destroy; override;
+  end;
+
+implementation
+
+// Implementation
+
+end.
+```
+
+#### 10.9.2 Uses Clause Organization
+
+Order of uses clause:
+
+1. **System/RTL units** (Classes, SysUtils, etc.)
+2. **Third-party units** (mORMot, etc.)
+3. **Project units** (grouped by layer: models, then services, then infrastructure)
+
+```pascal
+uses
+  // System
+  Classes, SysUtils, DateUtils,
+  // Third-party
+  mormot.core.base, mormot.orm.core, mormot.core.data,
+  // Project - Models
+  task_models, comment_models,
+  // Project - Infrastructure
+  task_events, task_validation;
+```
+
+#### 10.9.3 Documentation Standards
+
+All public classes, methods, and properties should be documented:
+
+```pascal
+type
+  /// <summary>
+  /// Manages task operations including creation, updates, and queries.
+  /// </summary>
+  TTaskManager = class
+  public
+    /// <summary>
+    /// Creates a new task with the specified parameters.
+    /// </summary>
+    /// <param name="ATitle">The task title (required)</param>
+    /// <param name="ADescription">Detailed task description (optional)</param>
+    /// <returns>The ID of the newly created task</returns>
+    function CreateTask(const ATitle, ADescription: string): Int64;
+  end;
+```
+
+### 10.10 Version Control
+
+#### 10.10.1 Git Ignore Patterns
+
+The `.gitignore` file excludes:
+
+```
+# Compiled files
+bin/
+lib/
+*.o
+*.ppu
+*.compiled
+*.rst
+
+# IDE files
+*.lps
+backup/
+*.bak
+
+# Runtime data
+data/*.db
+data/*.db-journal
+
+# Logs
+logs/
+*.log
+
+# OS-specific
+.DS_Store
+Thumbs.db
+```
+
+#### 10.10.2 Submodules
+
+Third-party dependencies are managed as git submodules:
+
+```bash
+git submodule add https://github.com/synopse/mORMot2.git third-party/mormot2
+```
+
+### 10.11 Migration Path
+
+For projects migrating to this structure:
+
+1. **Create directory structure** following the layout in section 10.2
+2. **Move existing files** to appropriate directories based on their purpose
+3. **Update unit search paths** in project settings
+4. **Fix uses clauses** to reflect new file locations
+5. **Update build scripts** to reference new paths
+6. **Run tests** to verify everything works after reorganization
+
+### 10.12 Future Extensibility
+
+The structure supports future growth:
+
+- **New models**: Add to `src/models/`
+- **New services**: Add interface to `src/services/interfaces/` and implementation to `src/services/impl/`
+- **New features**: Add new manager to `src/managers/features/`
+- **New utilities**: Add to `src/utils/`
+- **Plugin architecture**: Create `src/plugins/` directory for extensible modules
+
+### 10.13 Summary
+
+The Free Pascal Task Manager source code organization:
+
+- **Follows layered architecture** with clear separation of concerns
+- **Uses consistent naming conventions** for easy navigation
+- **Prevents circular dependencies** through strict dependency rules
+- **Supports modularity** allowing features to be used independently
+- **Facilitates testing** with parallel test structure
+- **Enables scalability** through well-defined extension points
+- **Maintains clarity** with comprehensive documentation
+
+This organization ensures the codebase remains maintainable and extensible as the project grows.
