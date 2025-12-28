@@ -53,6 +53,7 @@ This task management system includes 22 specialized modules, each providing spec
 
 Each module builds upon the previous one through class inheritance, creating a powerful, extensible system.
 
+
 ## Quick Start
 
 ### Prerequisites
@@ -70,7 +71,123 @@ brew install fpc
 # Download from: https://www.freepascal.org/download.html
 ```
 
+### Your First Task Manager Program
+
+Here's a minimal example to get you started. This demonstrates the core functionality using the same API as all the demo programs:
+
+```pascal
+program HelloTaskManager;
+
+{$mode objfpc}
+{$H+}
+
+uses
+  SysUtils, DateUtils, taskmanager;
+
+var
+  TM: TTaskManager;
+  TaskID1, TaskID2: Integer;
+  Tasks: TTaskArray;
+  i: Integer;
+begin
+  WriteLn('=== My First Task Manager ===');
+  WriteLn;
+  
+  // Create a task manager instance
+  TM := TTaskManager.Create;
+  try
+    // Add a couple of tasks
+    TaskID1 := TM.AddTask(
+      'Learn Free Pascal',                    // Title
+      'Complete the Free Pascal tutorial',    // Description
+      'Learning',                              // Category
+      tpHigh,                                  // Priority (tpLow, tpMedium, tpHigh, tpCritical)
+      EncodeDate(2024, 12, 31),               // Due date
+      5.0                                      // Estimated hours
+    );
+    
+    TaskID2 := TM.AddTask(
+      'Build a project',
+      'Create a task management application',
+      'Development',
+      tpMedium,
+      EncodeDate(2025, 1, 15),
+      20.0
+    );
+    
+    WriteLn(Format('Created %d tasks', [TM.TaskCount]));
+    WriteLn;
+    
+    // Mark the first task as in progress
+    TM.UpdateTaskStatus(TaskID1, tsInProgress);
+    
+    // Add tags for better organization
+    TM.AddTagToTask(TaskID1, 'tutorial');
+    TM.AddTagToTask(TaskID1, 'beginner');
+    TM.AddTagToTask(TaskID2, 'project');
+    
+    // Display all tasks
+    WriteLn('All Tasks:');
+    Tasks := TM.GetAllTasks;
+    for i := 0 to Length(Tasks) - 1 do
+    begin
+      WriteLn(Format('  [%d] %s - %s', 
+        [Tasks[i].ID, 
+         TM.TaskPriorityToString(Tasks[i].Priority), 
+         Tasks[i].Title]));
+      WriteLn(Format('      Category: %s, Due: %s', 
+        [Tasks[i].Category, DateToStr(Tasks[i].DueDate)]));
+    end;
+    WriteLn;
+    
+    // Show some statistics
+    WriteLn(Format('Total tasks: %d', [TM.TaskCount]));
+    WriteLn(Format('Completed: %d', [TM.GetCompletedCount]));
+    WriteLn(Format('Pending: %d', [TM.GetPendingCount]));
+    
+  finally
+    TM.Free;
+  end;
+  
+  WriteLn;
+  WriteLn('Press Enter to exit...');
+  ReadLn;
+end.
+```
+
+**Expected Output:**
+```
+=== My First Task Manager ===
+
+Created 2 tasks
+
+All Tasks:
+  [1] High - Learn Free Pascal
+      Category: Learning, Due: 12/31/2024
+  [2] Medium - Build a project
+      Category: Development, Due: 01/15/2025
+
+Total tasks: 2
+Completed: 0
+Pending: 2
+
+Press Enter to exit...
+```
+
+**Key Concepts in This Example:**
+
+1. **Task Manager Instance**: Create with `TM := TTaskManager.Create;`
+2. **Adding Tasks**: Use `AddTask()` with title, description, category, priority, due date, and estimated hours
+3. **Task Priorities**: `tpLow`, `tpMedium`, `tpHigh`, `tpCritical`
+4. **Task Status**: `tsNotStarted`, `tsInProgress`, `tsCompleted`, `tsCancelled`, `tsOnHold`
+5. **Updating Tasks**: Use methods like `UpdateTaskStatus()`, `UpdateTaskPriority()`, etc.
+6. **Retrieving Tasks**: `GetAllTasks()` returns a `TTaskArray` (dynamic array)
+7. **Statistics**: Built-in methods like `GetCompletedCount()`, `GetPendingCount()`
+8. **Memory Management**: Always `Free` the task manager in a `try-finally` block
+
 ### Compilation
+
+Now let's compile and run this program!
 
 #### Using the Compilation Script
 
@@ -94,6 +211,9 @@ Compile any demo program manually:
 ```bash
 cd solution1
 
+# Compile the above example (save it as hello.pas first)
+fpc hello.pas -Mobjfpc -O2
+
 # Compile core module
 fpc taskmanager.pas -O2 -Mobjfpc
 
@@ -111,6 +231,14 @@ fpc solution1.pas -gl -obin/demo1 -Mobjfpc
 - `-gl` - Generate debugging information
 - `-o<filename>` - Specify output executable name
 - `-H+` - Use AnsiStrings (long strings)
+
+**Next Steps:**
+1. Try modifying the example above to add more tasks
+2. Experiment with different priorities and categories
+3. Try the filtering methods: `FilterByPriority()`, `FilterByCategory()`, `FilterByTag()`
+4. Explore the 22 demo programs (solution1.pas through solution22.pas) to see advanced features
+5. Read the API Reference section below for complete documentation
+
 
 ## Demo Programs Reference
 
