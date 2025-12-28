@@ -5120,6 +5120,476 @@ function LoadFocusDataFromFile(const AFilename: string): Boolean;
 - **Personal Analytics:** Generate insights from focus patterns and trends
 
 
+### Mental Health & Wellbeing (TWellbeingTaskManager)
+
+**Module:** `taskmanagerwellbeing.pas`  
+**Inherits from:** TLifestyleTaskManager  
+**Lines of Code:** 1,099  
+**Key Features:** Stress Management, Burnout Prevention, Work-Life Balance, Break Management, Energy Tracking, Cognitive Load Monitoring
+
+The Mental Health & Wellbeing module is a comprehensive wellness management system that helps prevent burnout, maintain work-life balance, and optimize productivity through health-conscious task management. It tracks stress levels, energy patterns, break compliance, and provides personalized wellness recommendations.
+
+**Core Capabilities:**
+
+1. **Wellbeing Check-Ins**
+   - Track stress, energy, and mood levels
+   - Record sleep quality and work satisfaction
+   - Log physical symptoms (headaches, fatigue, etc.)
+   - Historical tracking and trend analysis
+
+2. **Break Management**
+   - Multiple break types (micro, short, long, meal, exercise, meditation)
+   - Automated break reminders
+   - Break compliance tracking
+   - Effectiveness ratings for breaks
+
+3. **Work-Life Balance Monitoring**
+   - Weekly work hour tracking
+   - Evening and weekend work detection
+   - Balance score calculation (0-100)
+   - Trend analysis and alerts
+
+4. **Burnout Detection & Prevention**
+   - Risk assessment (None, Low, Moderate, High, Critical)
+   - Early warning indicators
+   - Burnout score calculation
+   - Recovery recommendations
+
+5. **Energy Management**
+   - Energy level tracking throughout the day
+   - Pattern recognition for optimal task scheduling
+   - Task-energy matching suggestions
+   - Personalized productivity insights
+
+6. **Cognitive Load Monitoring**
+   - Track active tasks and context switches
+   - Mental demand assessment
+   - Overload detection and alerts
+   - Load reduction suggestions
+
+7. **Wellness Recommendations**
+   - AI-generated personalized recommendations
+   - Prioritized action steps
+   - Category-based organization (break, workload, sleep, stress)
+   - Expected benefit tracking
+
+**Basic Usage:**
+
+```pascal
+uses taskmanagerwellbeing;
+
+var
+  Manager: TWellbeingTaskManager;
+  CheckInID, BreakID: Integer;
+  BurnoutRisk: TBurnoutRisk;
+  Balance: TWorkLifeBalance;
+begin
+  Manager := TWellbeingTaskManager.Create;
+  try
+    // Configure wellness settings
+    Manager.ConfigureSettings(
+      8.0,   // Max daily work hours
+      40.0,  // Max weekly work hours
+      3,     // Minimum daily breaks
+      25,    // Micro-break interval (minutes)
+      120    // Long break interval (minutes)
+    );
+    Manager.SetWorkingHours(9, 17); // 9 AM to 5 PM
+    
+    // Record daily check-in
+    CheckInID := Manager.RecordCheckIn(
+      slModerate,      // Stress level
+      elModerate,      // Energy level
+      mlPositive,      // Mood level
+      7,               // Sleep quality (1-10)
+      8,               // Work satisfaction (1-10)
+      'Feeling productive today'
+    );
+    
+    // Add physical symptoms if any
+    Manager.AddPhysicalSymptom(CheckInID, 'Slight headache');
+    
+    // Take a break
+    BreakID := Manager.StartBreak(btShortBreak);
+    // ... after break ...
+    Manager.EndBreak(BreakID, 8, 'Walked outside, felt refreshing');
+    
+    // Check burnout risk
+    BurnoutRisk := Manager.AssessBurnoutRisk;
+    WriteLn('Burnout Risk: ', Manager.BurnoutRiskToString(BurnoutRisk));
+    
+    // Get work-life balance for current week
+    Balance := Manager.GetWorkLifeBalance(1); // Week 1 of year
+    WriteLn('Balance Score: ', Balance.BalanceScore:0:1);
+    WriteLn('Work Hours: ', Balance.WorkHours:0:1);
+    WriteLn('Breaks Taken: ', Balance.BreaksTaken);
+    
+    // Check if due for a break
+    if Manager.ShouldTakeBreak then
+    begin
+      WriteLn('Time for a break!');
+      WriteLn('Suggested break type: ', 
+        Manager.BreakTypeToString(Manager.SuggestBreakType));
+    end;
+    
+  finally
+    Manager.Free;
+  end;
+end.
+```
+
+**Advanced Features:**
+
+```pascal
+// Track cognitive load
+Manager.TrackCognitiveLoad(
+  5,    // Active tasks
+  12,   // Context switches today
+  7     // Mental demand (1-10)
+);
+
+if Manager.IsCognitiveOverload then
+begin
+  WriteLn('Cognitive overload detected!');
+  WriteLn(Manager.SuggestLoadReduction);
+end;
+
+// Energy-based task scheduling
+CurrentEnergy := Manager.GetCurrentEnergyLevel;
+case CurrentEnergy of
+  elVeryHigh, elHigh:
+    WriteLn('Good time for creative or complex tasks');
+  elModerate:
+    WriteLn('Good for meetings and collaboration');
+  elLow, elVeryLow:
+    WriteLn('Focus on administrative tasks or take a break');
+end;
+
+// Get energy patterns
+Patterns := Manager.GetEnergyPatterns;
+for Pattern in Patterns do
+  WriteLn(Format('Hour %d: Avg Energy %.1f - Best for: %s',
+    [Pattern.HourOfDay, Pattern.AverageEnergyLevel, 
+     Pattern.RecommendedTaskType]));
+
+// Get personalized wellness recommendations
+Recommendations := Manager.GetPriorityRecommendations;
+for Rec in Recommendations do
+begin
+  WriteLn('Priority ', Rec.Priority, ': ', Rec.Title);
+  WriteLn('  ', Rec.Description);
+  WriteLn('  Expected benefit: ', Rec.ExpectedBenefit);
+  
+  // Apply recommendation
+  if UserWantsToApply then
+    Manager.ApplyRecommendation(Rec.ID);
+end;
+
+// Analyze stress trends
+AvgStress := Manager.GetAverageStressLevel(30); // Last 30 days
+AvgMood := Manager.GetAverageMoodLevel(30);
+AvgEnergy := Manager.GetAverageEnergyLevel(30);
+
+WriteLn(Format('30-Day Averages: Stress=%.1f, Mood=%.1f, Energy=%.1f',
+  [AvgStress, AvgMood, AvgEnergy]));
+
+// Check work-life balance trend
+BalanceTrend := Manager.GetBalanceTrend;
+WriteLn('Work-Life Balance Trend:');
+WriteLn(BalanceTrend);
+
+// Detect burnout indicators
+Indicators := Manager.GetBurnoutIndicators;
+if Length(Indicators) > 0 then
+begin
+  WriteLn('Warning: Burnout indicators detected!');
+  for Indicator in Indicators do
+  begin
+    WriteLn('  - ', Indicator.IndicatorType);
+    WriteLn('    Severity: ', Manager.BurnoutRiskToString(Indicator.Severity));
+    WriteLn('    Action: ', Indicator.RecommendedAction);
+  end;
+  
+  // Get recovery recommendations
+  Recovery := Manager.GetRecoveryRecommendations;
+  WriteLn('Recovery recommendations:');
+  for Rec in Recovery do
+    WriteLn('  - ', Rec.Title);
+end;
+```
+
+**Data Structures:**
+
+```pascal
+type
+  // Stress, energy, and mood levels
+  TStressLevel = (slVeryLow, slLow, slModerate, slHigh, slVeryHigh);
+  TEnergyLevel = (elVeryLow, elLow, elModerate, elHigh, elVeryHigh);
+  TMoodLevel = (mlVeryNegative, mlNegative, mlNeutral, mlPositive, mlVeryPositive);
+  TBurnoutRisk = (brNone, brLow, brModerate, brHigh, brCritical);
+  
+  // Break types
+  TBreakType = (btMicroBreak, btShortBreak, btLongBreak, 
+                btMeal, btExercise, btMeditation);
+  
+  // Wellbeing check-in record
+  TWellbeingCheckIn = record
+    ID: Integer;
+    CheckInTime: TDateTime;
+    StressLevel: TStressLevel;
+    EnergyLevel: TEnergyLevel;
+    MoodLevel: TMoodLevel;
+    SleepQuality: Integer;        // 1-10 scale
+    WorkSatisfaction: Integer;    // 1-10 scale
+    Notes: string;
+    PhysicalSymptoms: array of string;
+  end;
+  
+  // Work-life balance metrics
+  TWorkLifeBalance = record
+    WeekNumber: Integer;
+    WorkHours: Double;
+    PersonalHours: Double;
+    WeekendWorkHours: Double;
+    EveningWorkHours: Double;     // After 6 PM
+    AverageStressLevel: Double;
+    AverageMoodLevel: Double;
+    BreaksTaken: Integer;
+    BreaksSkipped: Integer;
+    BalanceScore: Double;         // 0-100, higher is better
+  end;
+  
+  // Cognitive load tracking
+  TCognitiveLoad = record
+    Timestamp: TDateTime;
+    ActiveTasks: Integer;
+    ContextSwitches: Integer;
+    MentalDemand: Integer;        // 1-10 scale
+    LoadScore: Double;
+  end;
+```
+
+**Key Methods:**
+
+**Wellbeing Check-Ins:**
+- `RecordCheckIn(StressLevel, EnergyLevel, MoodLevel, SleepQuality, WorkSatisfaction, Notes): Integer`
+- `AddPhysicalSymptom(CheckInID, Symptom): Boolean`
+- `GetRecentCheckIns(Days): TWellbeingCheckInArray`
+- `GetAverageStressLevel(Days): Double`
+- `GetAverageMoodLevel(Days): Double`
+- `GetAverageEnergyLevel(Days): Double`
+
+**Break Management:**
+- `StartBreak(BreakType): Integer` - Begin a break session
+- `EndBreak(BreakID, Effectiveness, Notes): Boolean` - Complete break
+- `SkipBreak(BreakID): Boolean` - Mark break as skipped
+- `GetBreakHistory(Days): TBreakSessionArray` - Break history
+- `GetBreakComplianceRate(Days): Double` - Percentage of breaks taken
+- `GetTimeSinceLastBreak: Integer` - Minutes since last break
+- `SuggestBreakType: TBreakType` - AI-suggested break type
+
+**Work-Life Balance:**
+- `GetWorkLifeBalance(Week): TWorkLifeBalance` - Weekly metrics
+- `GetRecentWorkLifeBalance(Weeks): TWorkLifeBalanceArray` - Multi-week data
+- `GetBalanceTrend: string` - Trend analysis report
+- `IsWorkingOutsideHours: Boolean` - Detect after-hours work
+- `GetOvertimeHours(Week): Double` - Calculate overtime
+
+**Burnout Detection:**
+- `AssessBurnoutRisk: TBurnoutRisk` - Current risk assessment
+- `GetBurnoutIndicators: TBurnoutIndicatorArray` - Warning signs
+- `GetBurnoutScore: Double` - Burnout score (0-100)
+- `GetRecoveryRecommendations: TWellnessRecommendationArray` - Recovery plan
+
+**Energy Management:**
+- `RecordEnergyLevel(Level, Notes): Boolean` - Log energy level
+- `GetEnergyPatterns: TEnergyPatternArray` - Daily energy patterns
+- `GetOptimalTimeForTask(TaskType): Integer` - Best hour for task type
+- `GetCurrentEnergyLevel: TEnergyLevel` - Current energy state
+- `SuggestTaskBasedOnEnergy: string` - Task suggestion based on energy
+
+**Cognitive Load:**
+- `TrackCognitiveLoad(ActiveTasks, ContextSwitches, MentalDemand): Boolean`
+- `GetCurrentCognitiveLoad: Double` - Current load score
+- `GetCognitiveLoadHistory(Hours): TCognitiveLoadArray` - Historical data
+- `IsCognitiveOverload: Boolean` - Check for overload
+- `SuggestLoadReduction: string` - Suggestions to reduce load
+
+**Wellness Recommendations:**
+- `GetWellnessRecommendations: TWellnessRecommendationArray` - All recommendations
+- `GetPriorityRecommendations: TWellnessRecommendationArray` - High-priority only
+- `ApplyRecommendation(RecommendationID): Boolean` - Mark as applied
+- `DismissRecommendation(RecommendationID): Boolean` - Dismiss recommendation
+
+**Configuration:**
+- `ConfigureSettings(MaxDailyHours, MaxWeeklyHours, MinBreaks, MicroBreakInterval, LongBreakInterval)`
+- `SetWorkingHours(StartHour, EndHour)` - Define work hours
+- `EnableFeature(Feature, Enabled)` - Toggle features
+- `GetSettings: TWellbeingSettings` - Current settings
+
+**Data Persistence:**
+- `SaveWellbeingDataToFile(Filename): Boolean`
+- `LoadWellbeingDataFromFile(Filename): Boolean`
+- `GenerateWellbeingReport: string` - Comprehensive wellness report
+
+**Practical Examples:**
+
+**Example 1: Daily Wellness Routine**
+```pascal
+// Morning check-in
+CheckInID := Manager.RecordCheckIn(
+  slLow,           // Low stress after good sleep
+  elHigh,          // High energy in morning
+  mlPositive,      // Positive mood
+  8,               // Sleep quality
+  8,               // Work satisfaction
+  'Ready for the day!'
+);
+
+// Work on high-energy tasks
+if Manager.GetCurrentEnergyLevel in [elHigh, elVeryHigh] then
+begin
+  WriteLn('Perfect time for creative work!');
+  WriteLn(Manager.SuggestTaskBasedOnEnergy);
+end;
+
+// Mid-morning break reminder
+if Manager.GetTimeSinceLastBreak > 25 then
+begin
+  BreakID := Manager.StartBreak(btMicroBreak);
+  // 5-minute stretch
+  Manager.EndBreak(BreakID, 7, 'Quick stretch');
+end;
+```
+
+**Example 2: Burnout Prevention**
+```pascal
+// Check burnout risk weekly
+BurnoutRisk := Manager.AssessBurnoutRisk;
+
+if BurnoutRisk in [brHigh, brCritical] then
+begin
+  WriteLn('⚠️  HIGH BURNOUT RISK DETECTED!');
+  
+  // Get detailed indicators
+  Indicators := Manager.GetBurnoutIndicators;
+  for Indicator in Indicators do
+    WriteLn('  • ', Indicator.Description);
+  
+  // Get recovery plan
+  Recovery := Manager.GetRecoveryRecommendations;
+  WriteLn('Recovery plan:');
+  for i := 0 to High(Recovery) do
+  begin
+    WriteLn(Format('%d. %s', [i+1, Recovery[i].Title]));
+    for Action in Recovery[i].ActionSteps do
+      WriteLn('   - ', Action);
+  end;
+  
+  // Reduce workload immediately
+  WriteLn(Manager.SuggestLoadReduction);
+end;
+```
+
+**Example 3: Work-Life Balance Optimization**
+```pascal
+// Analyze work-life balance
+Balance := Manager.GetWorkLifeBalance(WeekNum);
+
+WriteLn('Work-Life Balance Report:');
+WriteLn('─'.Repeat(50));
+WriteLn('Work hours: ', Balance.WorkHours:0:1, ' / ', 
+        Manager.GetSettings.MaxWeeklyWorkHours:0:1);
+WriteLn('Evening work: ', Balance.EveningWorkHours:0:1, ' hours');
+WriteLn('Weekend work: ', Balance.WeekendWorkHours:0:1, ' hours');
+WriteLn('Balance score: ', Balance.BalanceScore:0:1, '/100');
+
+if Balance.BalanceScore < 60 then
+begin
+  WriteLn('⚠️  Poor work-life balance!');
+  WriteLn('Recommendations:');
+  
+  if Balance.EveningWorkHours > 5 then
+    WriteLn('  - Reduce evening work hours');
+  
+  if Balance.WeekendWorkHours > 0 then
+    WriteLn('  - Avoid weekend work');
+  
+  if Balance.BreaksSkipped > Balance.BreaksTaken then
+    WriteLn('  - Take more regular breaks');
+end;
+
+// Detect overtime
+Overtime := Manager.GetOvertimeHours(WeekNum);
+if Overtime > 0 then
+  WriteLn(Format('Overtime this week: %.1f hours', [Overtime]));
+```
+
+**Example 4: Energy-Optimized Scheduling**
+```pascal
+// Get energy patterns
+Patterns := Manager.GetEnergyPatterns;
+
+WriteLn('Your Energy Profile:');
+for Hour := 9 to 17 do
+begin
+  Pattern := FindPatternForHour(Patterns, Hour);
+  EnergyBar := '█'.Repeat(Round(Pattern.AverageEnergyLevel * 2));
+  
+  WriteLn(Format('%2d:00 %s %.1f - %s',
+    [Hour, EnergyBar, Pattern.AverageEnergyLevel,
+     Pattern.RecommendedTaskType]));
+end;
+
+// Schedule tasks based on energy
+BestCreativeHour := Manager.GetOptimalTimeForTask('creative');
+BestMeetingHour := Manager.GetOptimalTimeForTask('meetings');
+BestAdminHour := Manager.GetOptimalTimeForTask('administrative');
+
+WriteLn('Optimal scheduling:');
+WriteLn('  Creative work: ', BestCreativeHour, ':00');
+WriteLn('  Meetings: ', BestMeetingHour, ':00');
+WriteLn('  Admin tasks: ', BestAdminHour, ':00');
+```
+
+**Health Metrics Interpretation:**
+
+**Stress Levels:**
+- `slVeryLow`: Relaxed, possibly under-stimulated
+- `slLow`: Comfortable, manageable workload
+- `slModerate`: Normal work stress, healthy challenge
+- `slHigh`: Elevated stress, approaching limits
+- `slVeryHigh`: Critical stress, immediate action needed
+
+**Burnout Risk:**
+- `brNone`: Healthy balance, no concerns
+- `brLow`: Minor stress, manageable
+- `brModerate`: Warning signs, take preventive action
+- `brHigh`: Significant risk, reduce workload
+- `brCritical`: Immediate intervention required
+
+**Balance Score (0-100):**
+- 80-100: Excellent balance
+- 60-79: Good balance
+- 40-59: Fair balance, room for improvement
+- 20-39: Poor balance, action needed
+- 0-19: Critical imbalance
+
+**Use Cases:**
+
+- **Burnout Prevention:** Early detection and intervention for work-related stress
+- **Productivity Optimization:** Energy-based task scheduling for maximum efficiency
+- **Health Monitoring:** Track physical and mental health indicators
+- **Work-Life Balance:** Maintain healthy boundaries between work and personal life
+- **Break Management:** Ensure adequate rest and recovery throughout the day
+- **Stress Management:** Identify stress triggers and implement coping strategies
+- **Cognitive Health:** Prevent mental overload and decision fatigue
+- **Wellness Programs:** Corporate wellness initiatives and employee wellbeing
+- **Remote Work:** Managing health challenges of remote/hybrid work
+- **Team Health:** Aggregate team wellness metrics for managers
+
+
+
 ### Comments & Discussions (TCommentedTaskManager)
 
 **Module:** `taskmanagercomments.pas`  
