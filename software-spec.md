@@ -491,3 +491,534 @@ type
   end;
 ```
 
+
+
+---
+
+## 4. API Endpoints and Usage
+
+### 4.1 Overview
+
+This library does not expose HTTP/REST API endpoints as it is a component library designed to be integrated directly into Free Pascal applications. Instead, this section documents the **Public Programming Interface** - the classes, methods, and usage patterns that consumer applications will use.
+
+### 4.2 Core API Classes
+
+#### 4.2.1 TTaskManager - Main Entry Point
+
+The `TTaskManager` class is the primary interface for task management operations.
+
+**Initialization:**
+
+```pascal
+uses
+  TaskManager, TaskModel, TaskList, TaskStorageJSON;
+
+var
+  TaskMgr: TTaskManager;
+begin
+  // Create task manager with JSON storage
+  TaskMgr := TTaskManager.Create('tasks.json', TJSONTaskStorage);
+  try
+    // Use the task manager
+  finally
+    TaskMgr.Free;
+  end;
+end;
+```
+
+**Key Methods:**
+
+```pascal
+// Create a new task
+function CreateTask(const ATitle: string): TTask;
+function CreateTask(const ATitle, ADescription: string; 
+                   APriority: TTaskPriority; 
+                   ACategory: TTaskCategory): TTask;
+
+// Retrieve tasks
+function GetTaskByID(const AID: string): TTask;
+function GetAllTasks: TTaskList;
+function GetTasksByStatus(AStatus: TTaskStatus): TTaskList;
+function GetTasksByPriority(APriority: TTaskPriority): TTaskList;
+function GetTasksByCategory(ACategory: TTaskCategory): TTaskList;
+
+// Update tasks
+function UpdateTask(ATask: TTask): Boolean;
+function UpdateTaskStatus(const AID: string; AStatus: TTaskStatus): Boolean;
+function UpdateTaskPriority(const AID: string; APriority: TTaskPriority): Boolean;
+
+// Delete tasks
+function DeleteTask(const AID: string): Boolean;
+function DeleteTask(ATask: TTask): Boolean;
+procedure DeleteCompletedTasks;
+procedure DeleteCancelledTasks;
+
+// Persistence
+function LoadTasks: Boolean;
+function SaveTasks: Boolean;
+function AutoSave: Boolean; // Saves only if changes detected
+
+// Statistics
+function GetStatistics: TTaskStatisticsData;
+function GetOverdueTasks: TTaskList;
+```
+
+#### 4.2.2 TTask - Task Entity
+
+**Creating and Manipulating Tasks:**
+
+```pascal
+var
+  MyTask: TTask;
+begin
+  // Create a new task
+  MyTask := TTask.Create('Complete project documentation');
+  try
+    MyTask.Description := 'Write comprehensive documentation for the task manager library';
+    MyTask.Priority := tpHigh;
+    MyTask.Category := tcWork;
+    MyTask.DueDate := EncodeDate(2024, 12, 31);
+    MyTask.EstimatedMinutes := 240; // 4 hours
+    MyTask.Tags.Add('documentation');
+    MyTask.Tags.Add('urgent');
+    
+    // Mark task as started
+    MyTask.MarkAsStarted;
+    
+    // Check status
+    if MyTask.IsOverdue then
+      WriteLn('Task is overdue!');
+      
+    // Check days until due
+    WriteLn('Days until due: ', MyTask.GetDaysUntilDue);
+    
+    // Mark as completed
+    MyTask.MarkAsCompleted;
+  finally
+    MyTask.Free;
+  end;
+end;
+```
+
+#### 4.2.3 TTaskFilter - Advanced Filtering
+
+**Building Complex Filters:**
+
+```pascal
+var
+  Filter: TTaskFilter;
+  Criteria: TTaskFilterCriteria;
+  FilteredTasks: TTaskList;
+begin
+  Filter := TTaskFilter.Create(TaskMgr.GetAllTasks);
+  try
+    // Initialize criteria
+    Criteria.Reset;
+    
+    // Filter by status
+    Criteria.FilterByStatus := True;
+    Criteria.StatusFilter := tsInProgress;
+    
+    // Filter by priority
+    Criteria.FilterByPriority := True;
+    Criteria.PriorityFilter := tpHigh;
+    
+    // Filter by due date range
+    Criteria.FilterByDueDate := True;
+    Criteria.DueDateFrom := Now;
+    Criteria.DueDateTo := Now + 7; // Next 7 days
+    
+    // Text search
+    Criteria.FilterByText := True;
+    Criteria.SearchText := 'project';
+    Criteria.SearchInDescription := True;
+    
+    // Apply filter
+    FilteredTasks := Filter.ApplyFilter(Criteria);
+    try
+      // Use filtered results
+      for i := 0 to FilteredTasks.Count - 1 do
+        WriteLn(FilteredTasks[i].Title);
+    finally
+      FilteredTasks.Free;
+    end;
+  finally
+    Filter.Free;
+  end;
+end;
+```
+
+#### 4.2.4 TTaskValidator - Validation
+
+**Validating Task Data:**
+
+```pascal
+var
+  Task: TTask;
+  Validator: TTaskValidator;
+  ValidationResult: TValidationResult;
+begin
+  Validator := TTaskValidator.Create;
+  try
+    Task := TTask.Create;
+    try
+      Task.Title := ''; // Invalid: empty title
+      Task.DueDate := Now - 1; // Invalid: due date in the past
+      
+      ValidationResult := Validator.ValidateTask(Task);
+      
+      if not ValidationResult.IsValid then
+      begin
+        WriteLn('Validation failed:');
+        WriteLn(ValidationResult.GetErrorText);
+      end;
+    finally
+      Task.Free;
+    end;
+  finally
+    Validator.Free;
+  end;
+end;
+```
+
+#### 4.2.5 TTaskStatistics - Analytics
+
+**Generating Statistics:**
+
+```pascal
+var
+  Stats: TTaskStatistics;
+  Data: TTaskStatisticsData;
+  Priority: TTaskPriority;
+begin
+  Stats := TTaskStatistics.Create(TaskMgr.GetAllTasks);
+  try
+    Data := Stats.Calculate;
+    
+    WriteLn('Total Tasks: ', Data.TotalTasks);
+    WriteLn('Completed: ', Data.CompletedTasks);
+    WriteLn('In Progress: ', Data.InProgressTasks);
+    WriteLn('Overdue: ', Data.OverdueTasks);
+    WriteLn('Completion Rate: ', Data.CompletionRate:0:2, '%');
+    WriteLn('Avg Completion Days: ', Data.AverageCompletionDays:0:1);
+    
+    WriteLn('Tasks by Priority:');
+    for Priority := Low(TTaskPriority) to High(TTaskPriority) do
+      WriteLn('  ', GetEnumName(TypeInfo(TTaskPriority), Ord(Priority)), ': ', 
+              Data.TasksByPriority[Priority]);
+  finally
+    Stats.Free;
+  end;
+end;
+```
+
+### 4.3 Storage API
+
+#### 4.3.1 ITaskStorage Interface
+
+All storage implementations follow this interface:
+
+```pascal
+type
+  ITaskStorage = interface
+    ['{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}']
+    
+    // Load all tasks from storage
+    function LoadTasks(TaskList: TTaskList): Boolean;
+    
+    // Save all tasks to storage
+    function SaveTasks(TaskList: TTaskList): Boolean;
+    
+    // Check if storage file exists
+    function Exists: Boolean;
+    
+    // Get last error message
+    function GetLastError: string;
+    
+    // Backup current storage
+    function CreateBackup: Boolean;
+    
+    // Set storage file path
+    procedure SetFilePath(const APath: string);
+    function GetFilePath: string;
+    
+    property FilePath: string read GetFilePath write SetFilePath;
+    property LastError: string read GetLastError;
+  end;
+```
+
+#### 4.3.2 Using Different Storage Formats
+
+**JSON Storage (Default):**
+
+```pascal
+var
+  Storage: ITaskStorage;
+  Tasks: TTaskList;
+begin
+  Storage := TJSONTaskStorage.Create('tasks.json');
+  Tasks := TTaskList.Create;
+  try
+    if Storage.LoadTasks(Tasks) then
+      WriteLn('Loaded ', Tasks.Count, ' tasks')
+    else
+      WriteLn('Error: ', Storage.LastError);
+  finally
+    Tasks.Free;
+  end;
+end;
+```
+
+**XML Storage:**
+
+```pascal
+Storage := TXMLTaskStorage.Create('tasks.xml');
+// Use same interface as JSON storage
+```
+
+**CSV Storage (for import/export):**
+
+```pascal
+Storage := TCSVTaskStorage.Create('tasks.csv');
+// Use same interface - ideal for Excel integration
+```
+
+### 4.4 Common Usage Patterns
+
+#### 4.4.1 Complete CRUD Example
+
+```pascal
+program TaskManagerExample;
+
+uses
+  TaskManager, TaskModel, TaskList, TaskStorageJSON;
+
+var
+  Manager: TTaskManager;
+  NewTask: TTask;
+  AllTasks: TTaskList;
+  i: Integer;
+  
+begin
+  // Initialize manager
+  Manager := TTaskManager.Create('myapp_tasks.json', TJSONTaskStorage);
+  try
+    // Load existing tasks
+    if not Manager.LoadTasks then
+      WriteLn('Starting with empty task list');
+    
+    // CREATE: Add new task
+    NewTask := Manager.CreateTask(
+      'Buy groceries',
+      'Milk, bread, eggs, coffee',
+      tpNormal,
+      tcShopping
+    );
+    NewTask.DueDate := Now + 1; // Tomorrow
+    NewTask.Tags.Add('errands');
+    
+    // READ: Get all tasks
+    AllTasks := Manager.GetAllTasks;
+    try
+      WriteLn('Total tasks: ', AllTasks.Count);
+      for i := 0 to AllTasks.Count - 1 do
+        WriteLn('  - ', AllTasks[i].Title);
+    finally
+      AllTasks.Free;
+    end;
+    
+    // UPDATE: Change task status
+    Manager.UpdateTaskStatus(NewTask.ID, tsCompleted);
+    
+    // DELETE: Remove completed tasks
+    Manager.DeleteCompletedTasks;
+    
+    // Save changes
+    if Manager.SaveTasks then
+      WriteLn('Tasks saved successfully')
+    else
+      WriteLn('Error saving tasks');
+      
+  finally
+    Manager.Free;
+  end;
+end.
+```
+
+#### 4.4.2 Task Filtering and Searching
+
+```pascal
+procedure ShowHighPriorityOverdueTasks(Manager: TTaskManager);
+var
+  Filter: TTaskFilter;
+  Criteria: TTaskFilterCriteria;
+  Results: TTaskList;
+  Task: TTask;
+begin
+  Filter := TTaskFilter.Create(Manager.GetAllTasks);
+  try
+    Criteria.Reset;
+    Criteria.FilterByPriority := True;
+    Criteria.PriorityFilter := tpHigh;
+    
+    Results := Filter.ApplyFilter(Criteria);
+    try
+      // Further filter for overdue
+      for i := Results.Count - 1 downto 0 do
+      begin
+        if not Results[i].IsOverdue then
+          Results.Delete(i);
+      end;
+      
+      WriteLn('High priority overdue tasks: ', Results.Count);
+      for Task in Results do
+        WriteLn('  [OVERDUE] ', Task.Title, ' - Due: ', 
+                DateToStr(Task.DueDate));
+    finally
+      Results.Free;
+    end;
+  finally
+    Filter.Free;
+  end;
+end;
+```
+
+#### 4.4.3 Batch Operations
+
+```pascal
+procedure MarkAllWorkTasksAsHighPriority(Manager: TTaskManager);
+var
+  WorkTasks: TTaskList;
+  Task: TTask;
+begin
+  WorkTasks := Manager.GetTasksByCategory(tcWork);
+  try
+    for Task in WorkTasks do
+    begin
+      Task.Priority := tpHigh;
+      Manager.UpdateTask(Task);
+    end;
+    Manager.SaveTasks;
+  finally
+    WorkTasks.Free;
+  end;
+end;
+```
+
+#### 4.4.4 Event Handling (Optional)
+
+```pascal
+type
+  TTaskChangeEvent = procedure(Sender: TObject; Task: TTask) of object;
+
+// In your application
+procedure TMyApp.OnTaskCreated(Sender: TObject; Task: TTask);
+begin
+  WriteLn('New task created: ', Task.Title);
+  // Update UI, send notification, etc.
+end;
+
+procedure TMyApp.OnTaskCompleted(Sender: TObject; Task: TTask);
+begin
+  WriteLn('Task completed: ', Task.Title);
+  // Show celebration, update statistics, etc.
+end;
+
+// Register events
+Manager.OnTaskCreated := @OnTaskCreated;
+Manager.OnTaskCompleted := @OnTaskCompleted;
+```
+
+### 4.5 Error Handling
+
+The library uses exceptions for critical errors and return values for expected failures:
+
+```pascal
+try
+  Manager := TTaskManager.Create('tasks.json', TJSONTaskStorage);
+  try
+    // Operations that might fail gracefully
+    if not Manager.LoadTasks then
+      WriteLn('Could not load tasks: ', Manager.LastError);
+    
+    // Operations that might raise exceptions
+    try
+      Task := Manager.GetTaskByID('invalid-id');
+      if Task = nil then
+        WriteLn('Task not found');
+    except
+      on E: ETaskNotFoundException do
+        WriteLn('Error: ', E.Message);
+    end;
+    
+  finally
+    Manager.Free;
+  end;
+except
+  on E: Exception do
+    WriteLn('Fatal error: ', E.Message);
+end;
+```
+
+### 4.6 Thread Safety Considerations
+
+The library is **not thread-safe by default**. For multi-threaded applications:
+
+```pascal
+// Option 1: Use separate TTaskManager instances per thread
+// Option 2: Implement your own synchronization
+
+var
+  TaskManagerLock: TCriticalSection;
+
+TaskManagerLock := TCriticalSection.Create;
+try
+  TaskManagerLock.Enter;
+  try
+    // Perform task operations
+    Manager.CreateTask('Thread-safe task');
+    Manager.SaveTasks;
+  finally
+    TaskManagerLock.Leave;
+  end;
+finally
+  TaskManagerLock.Free;
+end;
+```
+
+### 4.7 Memory Management
+
+The library follows Object Pascal memory management conventions:
+
+- **TTaskManager**: Owns the internal task list and storage objects
+- **TTaskList**: Owns task objects when `OwnsObjects = True` (default)
+- **Returned TTask objects**: Caller owns and must free
+- **Returned TTaskList objects**: Caller owns and must free
+
+```pascal
+var
+  Task: TTask;
+  Tasks: TTaskList;
+begin
+  // Task returned by CreateTask is managed by TaskManager
+  Task := Manager.CreateTask('Test');
+  // Don't free Task - it's in Manager's list
+  
+  // Task returned by Clone must be freed
+  Task := OriginalTask.Clone;
+  try
+    // Use cloned task
+  finally
+    Task.Free;
+  end;
+  
+  // TTaskList returned by GetAllTasks must be freed
+  Tasks := Manager.GetAllTasks;
+  try
+    // Use tasks
+  finally
+    Tasks.Free; // This frees the list but not the task objects (they're in Manager)
+  end;
+end;
+```
+
