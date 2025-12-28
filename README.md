@@ -18,9 +18,7 @@ A feature-rich, enterprise-grade task management system implemented entirely in 
 **File Breakdown:**
 - **Main Modules:** 22 taskmanager*.pas files (22,742 lines)
 - **Demo Programs:** 22 solution*.pas files (4,408 lines)
-- **Core Base:** 1 taskmanager.pas in src/ folder (987 lines)
 - **Include Files:** 2 taskmanagerintelligence_*.inc files (656 lines)
-- **Dual Files:** Note that taskmanager.pas exists in both root (899 lines) and src/ (987 lines)
 
 
 ## Complete Module Reference Guide
@@ -189,86 +187,34 @@ Press Enter to exit...
 
 Now let's compile and run this program!
 
-#### Using the Compilation Script
+#### Compilation Instructions
 
-The project includes a convenient compilation script:
-
-```bash
-cd solution1/bin
-./compile.sh
-```
-
-The `compile.sh` script:
-- Automatically navigates to the correct directory
-- Compiles solution1.pas with debugging symbols (`-gl`)
-- Places the executable in the `bin/` folder
-- Reports compilation success or failure
-
-#### Manual Compilation
-
-Compile any demo program manually:
+Compile any demo program manually from the solution1 directory:
 
 ```bash
 cd solution1
 
-# Compile the above example (save it as hello.pas first)
-fpc hello.pas -Mobjfpc -O2
+# Compile a demo program (e.g., solution1.pas)
+fpc solution1.pas -Mobjfpc -O2
 
-# Compile core module
-fpc taskmanager.pas -O2 -Mobjfpc
+# Run the compiled program
+./solution1
 
-# Compile and run a specific demo
-fpc solution1.pas -obin/demo1 -O2 -Mobjfpc
-./bin/demo1
+# Compile with a custom output name
+fpc solution1.pas -obin/task_manager -Mobjfpc -O2
+./bin/task_manager
 
-# Compile with debugging symbols
-fpc solution1.pas -gl -obin/demo1 -Mobjfpc
+# Compile with debugging symbols (useful for development)
+fpc solution1.pas -gl -obin/task_manager -Mobjfpc
+
+# Compile a different demo
+fpc solution2.pas -Mobjfpc -O2
+./solution2
 ```
 
 **Compiler flags explained:**
 - `-Mobjfpc` - Object Pascal mode (required for OOP features)
 - `-O2` - Optimization level 2
-- `-gl` - Generate debugging information
-- `-o<filename>` - Specify output executable name
-- `-H+` - Use AnsiStrings (long strings)
-
-**Next Steps:**
-1. Try modifying the example above to add more tasks
-2. Experiment with different priorities and categories
-3. Try the filtering methods: `FilterByPriority()`, `FilterByCategory()`, `FilterByTag()`
-4. Explore the 22 demo programs (solution1.pas through solution22.pas) to see advanced features
-5. Read the API Reference section below for complete documentation
-
-
-## Demo Programs Reference
-
-Each solution file demonstrates specific features and capabilities. Run them in order to learn the system progressively.
-
-| File | Program Name | Modules Used | Features Demonstrated |
-|------|-------------|--------------|----------------------|
-| **solution1.pas** | TaskManagerDemo | taskmanager | **Core Features**: CRUD operations, categories, tags, priorities, filtering, sorting, basic statistics, CSV export |
-| **solution2.pas** | TaskManagerExtendedDemo | taskmanager, taskmanagerext | **Extended Features**: Recurring tasks, subtasks, parent-child relationships, priority scoring, batch operations |
-| **solution3.pas** | TaskManagerAdvancedDemo | taskmanager, taskmanagerext, taskmanageradvanced | **Advanced Features**: Analytics, smart suggestions, pattern detection, predictive insights |
-| **solution4.pas** | solution4 | taskmanager, taskmanagerext, taskmanageradvanced, taskmanagerenhanced | **Enhanced Features**: Reminders, audit trail, archiving, file attachments, change tracking |
-| **solution5.pas** | solution5 | taskmanagerteam (+ dependencies) | **Team Collaboration**: Team members, task assignments, permissions, workload management |
-| **solution6.pas** | solution6 | taskmanagerteam, taskmanagergamify | **Gamification**: Points, badges, achievements, leaderboards, productivity rewards |
-| **solution7.pas** | solution7 | taskmanagerteam, taskmanagerrecurring | **Recurring Tasks**: Daily/weekly/monthly patterns, recurrence rules, automated task generation |
-| **solution8.pas** | TaskManagerResourceDemo | taskmanagerresource | **Resource Management**: Resource allocation, capacity planning, conflict detection |
-| **solution9.pas** | TaskManagerIntelligenceDemo | taskmanagerintelligence | **AI Intelligence**: Pattern recognition, predictive analytics, smart scheduling recommendations |
-| **solution10.pas** | solution10 | taskmanagersmart | **Smart Features**: Auto-categorization, intelligent prioritization, time estimation |
-| **solution11.pas** | solution11 | Multiple modules | **Integration Demo**: Combined features from multiple modules working together |
-| **solution12.pas** | solution12 | taskmanagerlifestyle | **Lifestyle Integration**: Health tracking, work-life balance, wellness goals |
-| **solution13.pas** | solution13 | taskmanagerlifestyle, taskmanagerwellbeing | **Wellbeing**: Stress management, burnout prevention, mental health support |
-| **solution14.pas** | solution14 | taskmanagerfocus | **Focus & Productivity**: Pomodoro technique, distraction blocking, deep work sessions |
-| **solution15.pas** | BoardTaskManagerDemo | taskmanagerboards | **Kanban Boards**: Board management, columns, WIP limits, sprint planning, agile workflows |
-| **solution16.pas** | SearchEngineDemo | taskmanagersearch | **Search Engine**: Full-text search, filters, advanced queries, search indexing |
-| **solution17.pas** | solution17 | taskmanagermeetings | **Meeting Management**: Meeting scheduling, attendees, agendas, minutes, action items |
-| **solution18.pas** | solution18 | taskmanagercomments | **Comments & Discussion**: Threaded comments, mentions, notifications, collaboration |
-| **solution19.pas** | solution19 | taskmanagertemplates | **Templates**: Task templates, project templates, reusable workflows |
-| **solution20.pas** | solution20 | taskmanagernotifications | **Notifications**: Multi-channel alerts, email/SMS, escalation rules, notification preferences |
-| **solution21.pas** | TimeTrackingDemo | taskmanagertimetracking | **Time Tracking**: Time logging, timesheets, billable hours, productivity analysis |
-| **solution22.pas** | KnowledgeBaseDemo | taskmanagerknowledge | **Knowledge Base**: Documentation, wiki, knowledge articles, search, versioning |
-
 ### Running Demo Programs
 
 ```bash
@@ -2413,8 +2359,6 @@ TTaskManager (base class - taskmanager.pas)
 ```
 solution1/
 ├── bin/
-│   └── compile.sh          # Compilation helper script
-├── src/
 │   └── taskmanager.pas     # Alternative/backup version of core module
 ├── taskmanager.pas         # Core base class (use this one)
 ├── taskmanager*.pas        # 20+ feature modules
@@ -2424,7 +2368,6 @@ solution1/
 
 **Note:** There are two `taskmanager.pas` files:
 - **Root `taskmanager.pas`** (23,918 bytes) - The main version to use
-- **src/taskmanager.pas** (24,654 bytes) - Alternative/development version
 
 For new projects, use the root `taskmanager.pas` as it's the stable release version.
 
@@ -2468,39 +2411,20 @@ Understanding the project's file organization is crucial for navigation and deve
 
 ```
 solution1/
-├── bin/                          # Compiled executables and build scripts
-│   └── compile.sh                # Automated compilation script
-├── src/                          # Alternative source location
-│   └── taskmanager.pas           # Core module (987 lines, newer version)
-├── taskmanager*.pas              # Task manager modules (root level)
-├── solution*.pas                 # Demo programs (solution1 - solution22)
+├── bin/                          # Compiled executables and object files
+│   ├── units/                    # Compiled unit files (.o, .ppu)
+│   ├── task_manager              # Example compiled executable
+│   └── link*.res                 # Linker resource files
+├── taskmanager.pas               # Core task management module (899 lines)
+├── taskmanagerext.pas            # Extended features module
+├── taskmanageradvanced.pas       # Advanced analytics module
+├── taskmanager*.pas              # Additional specialized modules (20 files)
+├── taskmanagerintelligence_*.inc # Include files for intelligence module
+├── solution1.pas                 # Demo program 1 - Basic features
+├── solution2.pas                 # Demo program 2 - Extended features
+├── solution*.pas                 # Demo programs 3-22 (various features)
 └── README.md                     # This documentation
 ```
-
-### Important: Dual taskmanager.pas Files
-
-⚠️ **Note:** There are **two different** `taskmanager.pas` files in this project:
-
-1. **Root level:** `solution1/taskmanager.pas` (899 lines)
-2. **Src folder:** `solution1/src/taskmanager.pas` (987 lines)
-
-**Key Differences:**
-- The **src/taskmanager.pas** version is newer and more feature-complete (88 more lines)
-- When compiling, Free Pascal will use the file in the **current directory first**
-- Demo programs (solution*.pas) expect to use the **root level** taskmanager.pas
-- For development, consider which version to standardize on
-
-**Recommendation:** 
-```bash
-# To use the src/ version consistently, compile from within src/
-cd solution1/src
-fpc ../solution1.pas -obin/demo1
-
-# Or copy src/taskmanager.pas to root (after backing up)
-cp src/taskmanager.pas taskmanager.pas.backup
-cp src/taskmanager.pas .
-```
-
 ### Module Files
 
 All task manager modules are in the root `solution1/` directory:
@@ -2568,10 +2492,7 @@ end.
 **Purpose:** Contains compiled executables and build automation.
 
 **Contents:**
-- `compile.sh` - Automated compilation script for solution1.pas
-- Compiled executables (after running compile.sh or manual compilation)
 
-**compile.sh Functionality:**
 ```bash
 #!/bin/bash
 cd "$(dirname "$0")/.."     # Navigate to solution1/ directory
@@ -2582,7 +2503,6 @@ fpc -gl -o./bin/solution1 ./solution1.pas  # Compile with debug symbols
 **Usage:**
 ```bash
 cd solution1/bin
-./compile.sh               # Compiles solution1.pas → bin/solution1
 ./solution1                # Run the compiled program
 ```
 
