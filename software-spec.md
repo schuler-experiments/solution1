@@ -3626,6 +3626,670 @@ end;
 
 ---
 
+
+### 9.12 Sequence Diagrams and Interaction Patterns
+
+This section provides detailed sequence diagrams showing how different components interact during common operations. These diagrams illustrate the dynamic behavior of the system and help developers understand the flow of control and data between objects.
+
+#### 9.12.1 Task Creation and Persistence Flow
+
+This sequence diagram shows the complete flow of creating a task and persisting it to storage:
+
+```
+┌─────────┐  ┌──────────────┐  ┌──────────┐  ┌──────────────┐  ┌─────────────┐
+│ Client  │  │ TTaskManager │  │  TTask   │  │ TTaskValidator│  │ITaskStorage │
+└────┬────┘  └──────┬───────┘  └────┬─────┘  └──────┬───────┘  └──────┬──────┘
+     │               │               │               │                  │
+     │ CreateTask()  │               │               │                  │
+     │──────────────>│               │               │                  │
+     │               │               │               │                  │
+     │               │ Create()      │               │                  │
+     │               │──────────────>│               │                  │
+     │               │               │               │                  │
+     │               │<──────────────│               │                  │
+     │               │   TTask obj   │               │                  │
+     │               │               │               │                  │
+     │               │ SetTitle()    │               │                  │
+     │               │──────────────>│               │                  │
+     │               │               │               │                  │
+     │               │ SetPriority() │               │                  │
+     │               │──────────────>│               │                  │
+     │               │               │               │                  │
+     │               │ ValidateTask()│               │                  │
+     │               │───────────────────────────────>│                  │
+     │               │               │               │                  │
+     │               │               │               │ Validate rules   │
+     │               │               │               │─┐                │
+     │               │               │               │ │                │
+     │               │               │               │<┘                │
+     │               │               │               │                  │
+     │               │<───────────────────────────────│                  │
+     │               │ TValidationResult             │                  │
+     │               │               │               │                  │
+     │               │[Valid]        │               │                  │
+     │               │ Add to list   │               │                  │
+     │               │─┐             │               │                  │
+     │               │ │             │               │                  │
+     │               │<┘             │               │                  │
+     │               │               │               │                  │
+     │               │[AutoSave]     │               │                  │
+     │               │ SaveTasks()   │               │                  │
+     │               │───────────────────────────────────────────────────>│
+     │               │               │               │                  │
+     │               │               │               │   Serialize &    │
+     │               │               │               │   Write to file  │
+     │               │               │               │        ─┐        │
+     │               │               │               │         │        │
+     │               │               │               │        <┘        │
+     │               │               │               │                  │
+     │               │<───────────────────────────────────────────────────│
+     │               │           Success             │                  │
+     │               │               │               │                  │
+     │<──────────────│               │               │                  │
+     │   Task ID     │               │               │                  │
+     │               │               │               │                  │
+```
+
+**Key Points**:
+1. Client calls `CreateTask()` on `TTaskManager`
+2. Manager creates a new `TTask` instance
+3. Manager sets task properties (title, priority, etc.)
+4. Manager validates the task using `TTaskValidator`
+5. If valid, task is added to internal task list
+6. If `AutoSave` is enabled, changes are persisted via `ITaskStorage`
+7. Task ID is returned to client
+
+#### 9.12.2 Task Filtering and Retrieval Flow
+
+This diagram shows how filtering operations work across multiple components:
+
+```
+┌─────────┐  ┌──────────────┐  ┌─────────────┐  ┌──────────┐
+│ Client  │  │ TTaskManager │  │ TTaskFilter │  │TTaskList │
+└────┬────┘  └──────┬───────┘  └──────┬──────┘  └────┬─────┘
+     │               │                 │              │
+     │ GetTasksByStatus(tsPending)     │              │
+     │──────────────>│                 │              │
+     │               │                 │              │
+     │               │ FilterByStatus()│              │
+     │               │────────────────>│              │
+     │               │                 │              │
+     │               │                 │ GetAllTasks()│
+     │               │                 │─────────────>│
+     │               │                 │              │
+     │               │                 │<─────────────│
+     │               │                 │  Task list   │
+     │               │                 │              │
+     │               │                 │ Create result list
+     │               │                 │─┐            │
+     │               │                 │ │            │
+     │               │                 │<┘            │
+     │               │                 │              │
+     │               │                 │ For each task│
+     │               │                 │─┐            │
+     │               │                 │ │ Check      │
+     │               │                 │ │ status     │
+     │               │                 │ │ If match,  │
+     │               │                 │ │ add to     │
+     │               │                 │ │ result     │
+     │               │                 │<┘            │
+     │               │                 │              │
+     │               │<────────────────│              │
+     │               │ Filtered TTaskList            │
+     │               │                 │              │
+     │<──────────────│                 │              │
+     │ TTaskList     │                 │              │
+     │               │                 │              │
+```
+
+**Key Points**:
+1. Client requests tasks filtered by status
+2. Manager delegates to `TTaskFilter`
+3. Filter retrieves all tasks from manager's task list
+4. Filter iterates through tasks, checking each against criteria
+5. Matching tasks are added to a new result `TTaskList`
+6. Result list is returned to client (client owns this object)
+
+#### 9.12.3 Complex Multi-Criteria Filtering
+
+This shows advanced filtering with multiple criteria:
+
+```
+┌─────────┐  ┌──────────────┐  ┌─────────────┐  ┌──────────┐
+│ Client  │  │ TTaskManager │  │ TTaskFilter │  │TTaskList │
+└────┬────┘  └──────┬───────┘  └──────┬──────┘  └────┬─────┘
+     │               │                 │              │
+     │ Build filter criteria           │              │
+     │─┐             │                 │              │
+     │ │ Criteria.Status := tsPending  │              │
+     │ │ Criteria.Priority := tpHigh   │              │
+     │ │ Criteria.DueDateFrom := Now   │              │
+     │<┘             │                 │              │
+     │               │                 │              │
+     │ FilterTasks(Criteria)           │              │
+     │──────────────>│                 │              │
+     │               │                 │              │
+     │               │ ApplyFilter()   │              │
+     │               │────────────────>│              │
+     │               │                 │              │
+     │               │                 │ GetAllTasks()│
+     │               │                 │─────────────>│
+     │               │                 │              │
+     │               │                 │<─────────────│
+     │               │                 │              │
+     │               │                 │ For each task│
+     │               │                 │─┐            │
+     │               │                 │ │ Check all  │
+     │               │                 │ │ criteria:  │
+     │               │                 │ │ - Status?  │
+     │               │                 │ │ - Priority?│
+     │               │                 │ │ - DueDate? │
+     │               │                 │ │ Add if ALL │
+     │               │                 │ │ match      │
+     │               │                 │<┘            │
+     │               │                 │              │
+     │               │<────────────────│              │
+     │               │ Filtered list   │              │
+     │               │                 │              │
+     │<──────────────│                 │              │
+     │ TTaskList     │                 │              │
+     │ (3 matches)   │                 │              │
+     │               │                 │              │
+```
+
+**Key Points**:
+1. Client builds `TTaskFilterCriteria` record with multiple conditions
+2. All criteria must be satisfied (AND logic)
+3. Filter applies each criterion sequentially
+4. Only tasks matching ALL criteria are included in result
+
+#### 9.12.4 Task Update with Validation Flow
+
+This diagram shows the update process including validation and error handling:
+
+```
+┌─────────┐  ┌──────────────┐  ┌──────────┐  ┌──────────────┐  ┌─────────────┐
+│ Client  │  │ TTaskManager │  │  TTask   │  │TTaskValidator│  │ITaskStorage │
+└────┬────┘  └──────┬───────┘  └────┬─────┘  └──────┬───────┘  └──────┬──────┘
+     │               │               │               │                  │
+     │ GetTask(ID)   │               │               │                  │
+     │──────────────>│               │               │                  │
+     │               │               │               │                  │
+     │               │ Find by ID    │               │                  │
+     │               │─┐             │               │                  │
+     │               │ │             │               │                  │
+     │               │<┘             │               │                  │
+     │               │               │               │                  │
+     │<──────────────│               │               │                  │
+     │   TTask ref   │               │               │                  │
+     │               │               │               │                  │
+     │ Modify task   │               │               │                  │
+     │─┐             │               │               │                  │
+     │ │ SetTitle()  │               │               │                  │
+     │ │────────────────────────────>│               │                  │
+     │ │ SetDueDate()│               │               │                  │
+     │ │────────────────────────────>│               │                  │
+     │<┘             │               │               │                  │
+     │               │               │               │                  │
+     │ UpdateTask()  │               │               │                  │
+     │──────────────>│               │               │                  │
+     │               │               │               │                  │
+     │               │ ValidateTask()│               │                  │
+     │               │───────────────────────────────>│                  │
+     │               │               │               │                  │
+     │               │               │               │ Validate all     │
+     │               │               │               │ constraints      │
+     │               │               │               │─┐                │
+     │               │               │               │ │                │
+     │               │               │               │<┘                │
+     │               │               │               │                  │
+     │               │<───────────────────────────────│                  │
+     │               │ TValidationResult             │                  │
+     │               │               │               │                  │
+     │               │[If Valid]     │               │                  │
+     │               │ Update timestamp              │                  │
+     │               │───────────────>│               │                  │
+     │               │               │               │                  │
+     │               │[AutoSave]     │               │                  │
+     │               │ SaveTasks()   │               │                  │
+     │               │───────────────────────────────────────────────────>│
+     │               │               │               │                  │
+     │               │<───────────────────────────────────────────────────│
+     │               │               │               │                  │
+     │<──────────────│               │               │                  │
+     │   Success     │               │               │                  │
+     │               │               │               │                  │
+     │               │               │               │                  │
+     │[If Invalid]   │               │               │                  │
+     │<──────────────│               │               │                  │
+     │   False +     │               │               │                  │
+     │   Errors      │               │               │                  │
+     │               │               │               │                  │
+```
+
+**Key Points**:
+1. Client retrieves task reference (not a copy)
+2. Client modifies task properties directly
+3. Client calls `UpdateTask()` to commit changes
+4. Manager validates the modified task
+5. If valid, timestamp is updated and task is saved
+6. If invalid, changes remain but validation errors are returned
+7. Client should handle validation errors appropriately
+
+#### 9.12.5 Batch Operation Flow
+
+This shows how batch operations are optimized:
+
+```
+┌─────────┐  ┌──────────────┐  ┌──────────┐  ┌─────────────┐
+│ Client  │  │ TTaskManager │  │TTaskList │  │ITaskStorage │
+└────┬────┘  └──────┬───────┘  └────┬─────┘  └──────┬──────┘
+     │               │               │              │
+     │ BulkUpdateStatus(IDs, tsCompleted)          │
+     │──────────────>│               │              │
+     │               │               │              │
+     │               │ Disable AutoSave             │
+     │               │─┐             │              │
+     │               │ │             │              │
+     │               │<┘             │              │
+     │               │               │              │
+     │               │ For each ID   │              │
+     │               │─┐             │              │
+     │               │ │ Find task   │              │
+     │               │ │────────────>│              │
+     │               │ │             │              │
+     │               │ │<────────────│              │
+     │               │ │             │              │
+     │               │ │ Update status              │
+     │               │ │ Increment counter          │
+     │               │ │             │              │
+     │               │<┘             │              │
+     │               │               │              │
+     │               │ SaveTasks()   │              │
+     │               │ (Single save) │              │
+     │               │───────────────────────────────>│
+     │               │               │              │
+     │               │<───────────────────────────────│
+     │               │               │              │
+     │               │ Re-enable AutoSave           │
+     │               │─┐             │              │
+     │               │ │             │              │
+     │               │<┘             │              │
+     │               │               │              │
+     │<──────────────│               │              │
+     │ Updated count │               │              │
+     │               │               │              │
+```
+
+**Key Points**:
+1. Batch operations temporarily disable `AutoSave`
+2. All modifications are made in memory
+3. Single save operation at the end (performance optimization)
+4. Returns count of successfully updated tasks
+5. `AutoSave` is re-enabled after completion
+
+#### 9.12.6 Storage Backend Switching
+
+This shows how to switch between different storage formats:
+
+```
+┌─────────┐  ┌──────────────┐  ┌─────────────────┐  ┌─────────────────┐
+│ Client  │  │ TTaskManager │  │TJSONTaskStorage │  │ TXMLTaskStorage │
+└────┬────┘  └──────┬───────┘  └────────┬────────┘  └────────┬────────┘
+     │               │                   │                    │
+     │ (Using JSON)  │                   │                    │
+     │ LoadFromFile()│                   │                    │
+     │──────────────>│                   │                    │
+     │               │                   │                    │
+     │               │ LoadTasks()       │                    │
+     │               │──────────────────>│                    │
+     │               │                   │                    │
+     │               │                   │ Parse JSON         │
+     │               │                   │ Create tasks       │
+     │               │                   │─┐                  │
+     │               │                   │ │                  │
+     │               │                   │<┘                  │
+     │               │                   │                    │
+     │               │<──────────────────│                    │
+     │               │  TTaskList        │                    │
+     │               │                   │                    │
+     │<──────────────│                   │                    │
+     │               │                   │                    │
+     │               │                   │                    │
+     │ Switch to XML │                   │                    │
+     │─┐             │                   │                    │
+     │ │ Create TXMLTaskStorage          │                    │
+     │<┘             │                   │                    │
+     │               │                   │                    │
+     │ SetStorage()  │                   │                    │
+     │──────────────>│                   │                    │
+     │               │                   │                    │
+     │               │ Replace storage   │                    │
+     │               │─┐                 │                    │
+     │               │ │                 │                    │
+     │               │<┘                 │                    │
+     │               │                   │                    │
+     │<──────────────│                   │                    │
+     │               │                   │                    │
+     │               │                   │                    │
+     │ SaveToFile()  │                   │                    │
+     │──────────────>│                   │                    │
+     │               │                   │                    │
+     │               │ SaveTasks()       │                    │
+     │               │────────────────────────────────────────>│
+     │               │                   │                    │
+     │               │                   │     Generate XML   │
+     │               │                   │     Write to file  │
+     │               │                   │          ─┐        │
+     │               │                   │           │        │
+     │               │                   │          <┘        │
+     │               │                   │                    │
+     │               │<────────────────────────────────────────│
+     │               │                   │                    │
+     │<──────────────│                   │                    │
+     │               │                   │                    │
+```
+
+**Key Points**:
+1. Tasks loaded from JSON format
+2. Client creates new storage instance (XML)
+3. Client calls `SetStorage()` to switch backends
+4. Next save operation uses XML format
+5. Task data remains in memory; only storage format changes
+
+#### 9.12.7 Error Handling and Recovery Flow
+
+This diagram illustrates error handling during persistence operations:
+
+```
+┌─────────┐  ┌──────────────┐  ┌─────────────┐  ┌──────────────┐
+│ Client  │  │ TTaskManager │  │ITaskStorage │  │  Exception   │
+└────┬────┘  └──────┬───────┘  └──────┬──────┘  └──────┬───────┘
+     │               │                 │                │
+     │ SaveToFile()  │                 │                │
+     │──────────────>│                 │                │
+     │               │                 │                │
+     │               │ Try SaveTasks() │                │
+     │               │────────────────>│                │
+     │               │                 │                │
+     │               │                 │ [Disk Full]    │
+     │               │                 │ Raise ETaskStorageException
+     │               │                 │────────────────>│
+     │               │                 │                │
+     │               │<────────────────────────────────│
+     │               │  Exception caught              │
+     │               │                 │                │
+     │               │ Log error       │                │
+     │               │─┐               │                │
+     │               │ │               │                │
+     │               │<┘               │                │
+     │               │                 │                │
+     │               │ Try backup location             │
+     │               │────────────────>│                │
+     │               │                 │                │
+     │               │                 │ [Success]      │
+     │               │<────────────────│                │
+     │               │                 │                │
+     │               │ Return partial success          │
+     │<──────────────│                 │                │
+     │ False + Error │                 │                │
+     │ Message       │                 │                │
+     │               │                 │                │
+     │ Handle error  │                 │                │
+     │─┐             │                 │                │
+     │ │ Display msg │                 │                │
+     │ │ Retry?      │                 │                │
+     │<┘             │                 │                │
+     │               │                 │                │
+```
+
+**Key Points**:
+1. Save operation may fail due to I/O errors
+2. Manager catches `ETaskStorageException`
+3. Manager attempts recovery (backup location, retry)
+4. Error details are returned to client
+5. Client decides how to handle the error
+6. Tasks remain safely in memory even if save fails
+
+#### 9.12.8 Task State Transition Flow
+
+This shows valid state transitions for task status:
+
+```
+┌─────────┐  ┌──────────────┐  ┌──────────┐
+│ Client  │  │ TTaskManager │  │  TTask   │
+└────┬────┘  └──────┬───────┘  └────┬─────┘
+     │               │               │
+     │ CreateTask()  │               │
+     │──────────────>│               │
+     │               │               │
+     │               │ Create()      │
+     │               │──────────────>│
+     │               │ Status=Pending│
+     │               │               │
+     │<──────────────│               │
+     │               │               │
+     │ StartTask(ID) │               │
+     │──────────────>│               │
+     │               │               │
+     │               │ [Validate: Pending->InProgress]
+     │               │─┐             │
+     │               │ │ OK          │
+     │               │<┘             │
+     │               │               │
+     │               │ SetStatus()   │
+     │               │──────────────>│
+     │               │ InProgress    │
+     │               │               │
+     │<──────────────│               │
+     │               │               │
+     │ CompleteTask()│               │
+     │──────────────>│               │
+     │               │               │
+     │               │ [Validate: InProgress->Completed]
+     │               │─┐             │
+     │               │ │ OK          │
+     │               │<┘             │
+     │               │               │
+     │               │ SetStatus()   │
+     │               │──────────────>│
+     │               │ Completed     │
+     │               │ SetCompletedDate
+     │               │──────────────>│
+     │               │               │
+     │<──────────────│               │
+     │               │               │
+     │               │               │
+     │ [Invalid transition attempt]  │
+     │ StartTask(ID) │               │
+     │ (already done)│               │
+     │──────────────>│               │
+     │               │               │
+     │               │ [Validate: Completed->InProgress]
+     │               │─┐             │
+     │               │ │ INVALID!    │
+     │               │<┘             │
+     │               │               │
+     │<──────────────│               │
+     │ False (error) │               │
+     │               │               │
+```
+
+**Valid State Transitions**:
+```
+Pending ──────────> InProgress ──────────> Completed
+   │                    │                      │
+   │                    │                      │
+   └────> Cancelled <───┴──────────────────────┘
+   │                                           │
+   │                                           │
+   └───────────────> On Hold <─────────────────┘
+```
+
+**Invalid Transitions**:
+- Completed → InProgress (use ReopenTask instead)
+- Cancelled → InProgress (must go through Pending)
+- Completed → Pending (use ReopenTask)
+
+#### 9.12.9 Concurrent Access Pattern (Thread-Safe Operations)
+
+This diagram shows how the library handles concurrent access when used in multi-threaded environments:
+
+```
+┌──────────┐  ┌──────────┐  ┌──────────────┐  ┌─────────┐
+│ Thread 1 │  │ Thread 2 │  │ TTaskManager │  │  Lock   │
+└────┬─────┘  └────┬─────┘  └──────┬───────┘  └────┬────┘
+     │             │                │               │
+     │ CreateTask()│                │               │
+     │─────────────────────────────>│               │
+     │             │                │               │
+     │             │                │ Acquire Lock  │
+     │             │                │──────────────>│
+     │             │                │               │
+     │             │                │<──────────────│
+     │             │                │  Lock granted │
+     │             │                │               │
+     │             │ GetTask(ID)    │               │
+     │             │───────────────>│               │
+     │             │                │               │
+     │             │                │ [Blocked]     │
+     │             │                │ Waiting...    │
+     │             │                │               │
+     │             │                │ Add task      │
+     │             │                │─┐             │
+     │             │                │ │             │
+     │             │                │<┘             │
+     │             │                │               │
+     │             │                │ Release Lock  │
+     │             │                │──────────────>│
+     │             │                │               │
+     │<────────────────────────────│               │
+     │   Task ID   │                │               │
+     │             │                │               │
+     │             │                │ Acquire Lock  │
+     │             │                │──────────────>│
+     │             │                │               │
+     │             │                │<──────────────│
+     │             │                │               │
+     │             │                │ Find task     │
+     │             │                │─┐             │
+     │             │                │ │             │
+     │             │                │<┘             │
+     │             │                │               │
+     │             │                │ Release Lock  │
+     │             │                │──────────────>│
+     │             │                │               │
+     │             │<───────────────│               │
+     │             │    TTask ref   │               │
+     │             │                │               │
+```
+
+**Key Points**:
+1. Critical sections are protected with synchronization primitives
+2. Lock granularity is at the operation level
+3. Read operations can be parallelized with read/write locks
+4. Writer operations require exclusive access
+5. Deadlock prevention through ordered lock acquisition
+
+#### 9.12.10 Import/Export Data Flow
+
+This diagram shows the complete import/export process with format conversion:
+
+```
+┌─────────┐  ┌──────────────┐  ┌────────────┐  ┌────────────┐  ┌─────────┐
+│ Client  │  │ TTaskManager │  │TJSONStorage│  │TCSVStorage │  │File Sys │
+└────┬────┘  └──────┬───────┘  └─────┬──────┘  └─────┬──────┘  └────┬────┘
+     │               │                │               │              │
+     │ ImportFromFile("data.csv", fmtCSV)            │              │
+     │──────────────>│                │               │              │
+     │               │                │               │              │
+     │               │ Create CSV storage             │              │
+     │               │────────────────────────────────>│              │
+     │               │                │               │              │
+     │               │                │               │ LoadTasks()  │
+     │               │                │               │─────────────>│
+     │               │                │               │              │
+     │               │                │               │ Read CSV     │
+     │               │                │               │<─────────────│
+     │               │                │               │              │
+     │               │                │               │ Parse rows   │
+     │               │                │               │ Create tasks │
+     │               │                │               │─┐            │
+     │               │                │               │ │            │
+     │               │                │               │<┘            │
+     │               │                │               │              │
+     │               │<────────────────────────────────│              │
+     │               │           TTaskList            │              │
+     │               │                │               │              │
+     │               │ Merge with existing tasks      │              │
+     │               │─┐              │               │              │
+     │               │ │ Check duplicates             │              │
+     │               │ │ Add new tasks                │              │
+     │               │<┘              │               │              │
+     │               │                │               │              │
+     │<──────────────│                │               │              │
+     │ Success + count                │               │              │
+     │               │                │               │              │
+     │               │                │               │              │
+     │ ExportToFile("backup.json", fmtJSON)          │              │
+     │──────────────>│                │               │              │
+     │               │                │               │              │
+     │               │ Create JSON storage            │              │
+     │               │───────────────>│               │              │
+     │               │                │               │              │
+     │               │ SaveTasks()    │               │              │
+     │               │───────────────>│               │              │
+     │               │                │               │              │
+     │               │                │ Serialize     │              │
+     │               │                │ to JSON       │              │
+     │               │                │─┐             │              │
+     │               │                │ │             │              │
+     │               │                │<┘             │              │
+     │               │                │               │              │
+     │               │                │ Write file    │              │
+     │               │                │──────────────────────────────>│
+     │               │                │               │              │
+     │               │                │<──────────────────────────────│
+     │               │                │               │              │
+     │               │<───────────────│               │              │
+     │               │                │               │              │
+     │<──────────────│                │               │              │
+     │   Success     │                │               │              │
+     │               │                │               │              │
+```
+
+**Key Points**:
+1. Import creates appropriate storage backend based on format
+2. Imported tasks are merged with existing tasks
+3. Duplicate detection by task ID
+4. Export creates new file in specified format
+5. All tasks are exported (no filtering during export)
+6. Original storage format is preserved unless explicitly changed
+
+---
+
+**Summary of Interaction Patterns**:
+
+These sequence diagrams illustrate the following key architectural patterns:
+
+1. **Layered Architecture**: Clear separation between presentation (client), business logic (manager), and persistence (storage)
+2. **Delegation Pattern**: Manager delegates to specialized components (validator, filter, storage)
+3. **Validation-First**: All mutations go through validation before being committed
+4. **Lazy Persistence**: Optional auto-save vs manual save for performance
+5. **Object Ownership**: Clear rules about who owns and frees objects
+6. **Error Recovery**: Graceful degradation with error reporting
+7. **State Machine**: Well-defined state transitions with validation
+8. **Synchronization**: Thread-safe operations for concurrent access
+9. **Format Abstraction**: Storage format is interchangeable via interface
+
+These patterns ensure the library is:
+- **Predictable**: Behavior is consistent and well-documented
+- **Maintainable**: Clear responsibilities for each component
+- **Extensible**: New features can be added without breaking existing code
+- **Reliable**: Errors are handled gracefully with recovery mechanisms
+- **Performant**: Optimizations like batch operations and lazy persistence
+
+
 **End of Section 9: Class Diagrams and Methods/Properties**
 
 
