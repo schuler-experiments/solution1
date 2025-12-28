@@ -2528,3 +2528,709 @@ CREATE INDEX idx_notification_task ON Notification(TaskID);
 ---
 
 This completes Section 4 with comprehensive data model specifications including all field definitions, constraints, relationships, business rules, and database schema details.
+
+
+---
+
+## 5. API Endpoints and Usage
+
+### 5.1 Overview
+
+Since the Free Pascal Task Manager is a **reusable library** designed to be integrated into various applications (console, GUI, web services, etc.), it does not expose traditional REST API endpoints. Instead, it provides a comprehensive **programmatic API** through well-defined interfaces and classes.
+
+This section documents:
+- Core service interfaces and their methods
+- Method signatures and parameters
+- Usage examples and patterns
+- Error handling mechanisms
+- Event notification APIs
+
+### 5.2 API Design Principles
+
+The API follows these key principles:
+
+1. **Interface-Based Design**: All major functionality exposed through interfaces for flexibility
+2. **Fluent API**: Support for method chaining where appropriate
+3. **Type Safety**: Strong typing with Free Pascal's type system
+4. **Event-Driven**: Observable events for state changes
+5. **No UI Dependencies**: Pure business logic, no ReadLn or GUI components
+6. **Exception Safety**: Consistent error handling with meaningful exceptions
+
+### 5.3 Core Service APIs
+
+#### 5.3.1 Task Service API (`ITaskService`)
+
+**Interface Definition:**
+
+```pascal
+type
+  ITaskService = interface
+    ['{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}']
+    
+    // CRUD Operations
+    function CreateTask(const ATask: TTaskModel): Int64;
+    function GetTask(ATaskID: Int64): TTaskModel;
+    function UpdateTask(const ATask: TTaskModel): Boolean;
+    function DeleteTask(ATaskID: Int64): Boolean;
+    
+    // Query Operations
+    function GetAllTasks: TTaskModelList;
+    function GetTasksByProject(AProjectID: Int64): TTaskModelList;
+    function GetTasksByStatus(AStatus: TTaskStatus): TTaskModelList;
+    function GetTasksByPriority(APriority: TTaskPriority): TTaskModelList;
+    function GetTasksByDueDate(AStartDate, AEndDate: TDateTime): TTaskModelList;
+    function GetOverdueTasks: TTaskModelList;
+    function GetTasksByAssignee(AUserID: Int64): TTaskModelList;
+    
+    // Subtask Operations
+    function AddSubtask(AParentTaskID: Int64; const ASubtask: TTaskModel): Int64;
+    function GetSubtasks(AParentTaskID: Int64): TTaskModelList;
+    function MoveTask(ATaskID, ANewParentID: Int64): Boolean;
+    
+    // Status Management
+    function SetTaskStatus(ATaskID: Int64; ANewStatus: TTaskStatus): Boolean;
+    function SetTaskPriority(ATaskID: Int64; ANewPriority: TTaskPriority): Boolean;
+    function CompleteTask(ATaskID: Int64): Boolean;
+    function ReopenTask(ATaskID: Int64): Boolean;
+    
+    // Bulk Operations
+    function BulkUpdateStatus(ATaskIDs: array of Int64; ANewStatus: TTaskStatus): Integer;
+    function BulkDelete(ATaskIDs: array of Int64): Integer;
+    function BulkAssign(ATaskIDs: array of Int64; AUserID: Int64): Integer;
+    
+    // Search and Filter
+    function SearchTasks(const ASearchTerm: string; AFields: TSearchFields): TTaskModelList;
+    function FilterTasks(const ACriteria: TTaskFilterCriteria): TTaskModelList;
+    
+    // Statistics
+    function GetTaskCount: Integer;
+    function GetTaskCountByStatus(AStatus: TTaskStatus): Integer;
+    function GetCompletionRate(AProjectID: Int64 = 0): Double;
+  end;
+```
+
+**Usage Examples:**
+
+```pascal
+// Example 1: Creating a new task
+var
+  TaskService: ITaskService;
+  NewTask: TTaskModel;
+  TaskID: Int64;
+begin
+  TaskService := TTaskServiceImpl.Create(DatabaseConnection);
+  
+  NewTask := TTaskModel.Create;
+  try
+    NewTask.Title := 'Implement user authentication';
+    NewTask.Description := 'Add login and registration functionality';
+    NewTask.Priority := tpHigh;
+    NewTask.Status := tsInProgress;
+    NewTask.DueDate := Now + 7; // Due in 7 days
+    NewTask.AssignedToUserID := 42;
+    
+    TaskID := TaskService.CreateTask(NewTask);
+    WriteLn('Created task with ID: ', TaskID);
+  finally
+    NewTask.Free;
+  end;
+end;
+
+// Example 2: Querying tasks
+var
+  OverdueTasks: TTaskModelList;
+  Task: TTaskModel;
+begin
+  OverdueTasks := TaskService.GetOverdueTasks;
+  try
+    for Task in OverdueTasks do
+    begin
+      WriteLn(Format('Task #%d: %s (Due: %s)', 
+        [Task.ID, Task.Title, DateTimeToStr(Task.DueDate)]));
+    end;
+  finally
+    OverdueTasks.Free;
+  end;
+end;
+
+// Example 3: Bulk operations
+var
+  TaskIDs: array of Int64;
+  UpdatedCount: Integer;
+begin
+  SetLength(TaskIDs, 3);
+  TaskIDs[0] := 100;
+  TaskIDs[1] := 101;
+  TaskIDs[2] := 102;
+  
+  UpdatedCount := TaskService.BulkUpdateStatus(TaskIDs, tsCompleted);
+  WriteLn(Format('Updated %d tasks to completed', [UpdatedCount]));
+end;
+
+// Example 4: Search with multiple fields
+var
+  SearchFields: TSearchFields;
+  Results: TTaskModelList;
+begin
+  SearchFields := [sfTitle, sfDescription, sfTags];
+  Results := TaskService.SearchTasks('authentication', SearchFields);
+  try
+    WriteLn(Format('Found %d matching tasks', [Results.Count]));
+  finally
+    Results.Free;
+  end;
+end;
+```
+
+#### 5.3.2 Comment Service API (`ICommentService`)
+
+**Interface Definition:**
+
+```pascal
+type
+  ICommentService = interface
+    ['{B2C3D4E5-F6A7-8901-BCDE-F12345678901}']
+    
+    // CRUD Operations
+    function CreateComment(const AComment: TCommentModel): Int64;
+    function GetComment(ACommentID: Int64): TCommentModel;
+    function UpdateComment(const AComment: TCommentModel): Boolean;
+    function DeleteComment(ACommentID: Int64): Boolean;
+    
+    // Query Operations
+    function GetCommentsByTask(ATaskID: Int64): TCommentModelList;
+    function GetCommentsByUser(AUserID: Int64): TCommentModelList;
+    function GetReplies(AParentCommentID: Int64): TCommentModelList;
+    function GetCommentThread(ACommentID: Int64): TCommentModelList;
+    
+    // Thread Operations
+    function ReplyToComment(AParentCommentID: Int64; const AReply: TCommentModel): Int64;
+    function GetThreadDepth(ACommentID: Int64): Integer;
+    
+    // Statistics
+    function GetCommentCount(ATaskID: Int64): Integer;
+  end;
+```
+
+**Usage Examples:**
+
+```pascal
+// Example 1: Adding a comment to a task
+var
+  CommentService: ICommentService;
+  Comment: TCommentModel;
+begin
+  CommentService := TCommentServiceImpl.Create(DatabaseConnection);
+  
+  Comment := TCommentModel.Create;
+  try
+    Comment.TaskID := 123;
+    Comment.UserID := 42;
+    Comment.Content := 'This task needs more clarification on the requirements.';
+    Comment.CreatedAt := Now;
+    
+    CommentService.CreateComment(Comment);
+  finally
+    Comment.Free;
+  end;
+end;
+
+// Example 2: Threaded comments
+var
+  ParentCommentID, ReplyID: Int64;
+  Reply: TCommentModel;
+begin
+  ParentCommentID := 456;
+  
+  Reply := TCommentModel.Create;
+  try
+    Reply.UserID := 99;
+    Reply.Content := 'I agree, we should clarify the authentication flow.';
+    Reply.CreatedAt := Now;
+    
+    ReplyID := CommentService.ReplyToComment(ParentCommentID, Reply);
+  finally
+    Reply.Free;
+  end;
+end;
+```
+
+#### 5.3.3 Tag Service API (`ITagService`)
+
+**Interface Definition:**
+
+```pascal
+type
+  ITagService = interface
+    ['{C3D4E5F6-A7B8-9012-CDEF-123456789012}']
+    
+    // CRUD Operations
+    function CreateTag(const ATag: TTagModel): Int64;
+    function GetTag(ATagID: Int64): TTagModel;
+    function GetTagByName(const AName: string): TTagModel;
+    function UpdateTag(const ATag: TTagModel): Boolean;
+    function DeleteTag(ATagID: Int64): Boolean;
+    
+    // Query Operations
+    function GetAllTags: TTagModelList;
+    function GetPopularTags(ALimit: Integer = 10): TTagModelList;
+    
+    // Task-Tag Association
+    function AddTagToTask(ATaskID, ATagID: Int64): Boolean;
+    function RemoveTagFromTask(ATaskID, ATagID: Int64): Boolean;
+    function GetTagsForTask(ATaskID: Int64): TTagModelList;
+    function GetTasksForTag(ATagID: Int64): TTaskModelList;
+    
+    // Tag Management
+    function MergeTags(ASourceTagID, ATargetTagID: Int64): Boolean;
+    function RenameTag(ATagID: Int64; const ANewName: string): Boolean;
+    
+    // Statistics
+    function GetTagUsageCount(ATagID: Int64): Integer;
+  end;
+```
+
+**Usage Examples:**
+
+```pascal
+// Example 1: Creating and applying tags
+var
+  TagService: ITagService;
+  Tag: TTagModel;
+  TagID: Int64;
+begin
+  TagService := TTagServiceImpl.Create(DatabaseConnection);
+  
+  // Create tag
+  Tag := TTagModel.Create;
+  try
+    Tag.Name := 'bug';
+    Tag.Color := '#FF0000';
+    TagID := TagService.CreateTag(Tag);
+  finally
+    Tag.Free;
+  end;
+  
+  // Apply tag to task
+  TagService.AddTagToTask(123, TagID);
+end;
+
+// Example 2: Finding tasks by tag
+var
+  BugTag: TTagModel;
+  BugTasks: TTaskModelList;
+begin
+  BugTag := TagService.GetTagByName('bug');
+  try
+    if Assigned(BugTag) then
+    begin
+      BugTasks := TagService.GetTasksForTag(BugTag.ID);
+      try
+        WriteLn(Format('Found %d tasks tagged with "bug"', [BugTasks.Count]));
+      finally
+        BugTasks.Free;
+      end;
+    end;
+  finally
+    BugTag.Free;
+  end;
+end;
+```
+
+### 5.4 Advanced Feature APIs
+
+#### 5.4.1 Time Tracking API
+
+**Key Methods:**
+
+```pascal
+type
+  ITimeTrackingService = interface
+    ['{D4E5F6A7-B8C9-0123-DEFG-234567890123}']
+    
+    // Time Entry Management
+    function StartTimer(ATaskID, AUserID: Int64): Int64;
+    function StopTimer(ATimeEntryID: Int64): Boolean;
+    function GetActiveTimer(AUserID: Int64): TTimeEntryModel;
+    
+    // Manual Time Entry
+    function CreateTimeEntry(const AEntry: TTimeEntryModel): Int64;
+    function UpdateTimeEntry(const AEntry: TTimeEntryModel): Boolean;
+    function DeleteTimeEntry(AEntryID: Int64): Boolean;
+    
+    // Queries
+    function GetTimeEntriesForTask(ATaskID: Int64): TTimeEntryModelList;
+    function GetTimeEntriesForUser(AUserID: Int64; AStartDate, AEndDate: TDateTime): TTimeEntryModelList;
+    
+    // Reporting
+    function GetTotalTimeSpent(ATaskID: Int64): TTimeSpan;
+    function GetTimeSpentByUser(AUserID: Int64; AStartDate, AEndDate: TDateTime): TTimeSpan;
+    function GenerateTimeReport(AProjectID: Int64; AStartDate, AEndDate: TDateTime): TTimeReportData;
+  end;
+```
+
+**Usage Example:**
+
+```pascal
+var
+  TimeTracking: ITimeTrackingService;
+  TimerID: Int64;
+  TotalTime: TTimeSpan;
+begin
+  TimeTracking := TTimeTrackingServiceImpl.Create(DatabaseConnection);
+  
+  // Start tracking time
+  TimerID := TimeTracking.StartTimer(TaskID := 123, UserID := 42);
+  
+  // ... do work ...
+  Sleep(5000); // Simulate work
+  
+  // Stop tracking
+  TimeTracking.StopTimer(TimerID);
+  
+  // Get total time spent on task
+  TotalTime := TimeTracking.GetTotalTimeSpent(123);
+  WriteLn(Format('Total time: %d hours, %d minutes', 
+    [TotalTime.Hours, TotalTime.Minutes]));
+end;
+```
+
+#### 5.4.2 Notification API
+
+**Key Methods:**
+
+```pascal
+type
+  INotificationService = interface
+    ['{E5F6A7B8-C9D0-1234-EFGH-345678901234}']
+    
+    // Notification Management
+    function CreateNotification(const ANotification: TNotificationModel): Int64;
+    function GetNotification(ANotificationID: Int64): TNotificationModel;
+    function MarkAsRead(ANotificationID: Int64): Boolean;
+    function MarkAllAsRead(AUserID: Int64): Boolean;
+    function DeleteNotification(ANotificationID: Int64): Boolean;
+    
+    // Query Operations
+    function GetUnreadNotifications(AUserID: Int64): TNotificationModelList;
+    function GetAllNotifications(AUserID: Int64; ALimit: Integer = 50): TNotificationModelList;
+    function GetNotificationsByType(AUserID: Int64; AType: TNotificationType): TNotificationModelList;
+    
+    // Subscription Management
+    function Subscribe(AUserID: Int64; AEntityType: string; AEntityID: Int64): Boolean;
+    function Unsubscribe(AUserID: Int64; AEntityType: string; AEntityID: Int64): Boolean;
+    
+    // Statistics
+    function GetUnreadCount(AUserID: Int64): Integer;
+  end;
+```
+
+#### 5.4.3 Search API
+
+**Key Methods:**
+
+```pascal
+type
+  ISearchService = interface
+    ['{F6A7B8C9-D0E1-2345-FGHI-456789012345}']
+    
+    // Full-Text Search
+    function Search(const AQuery: string; AOptions: TSearchOptions): TSearchResultList;
+    function SearchTasks(const AQuery: string; AFilters: TTaskFilterCriteria): TTaskModelList;
+    
+    // Advanced Search
+    function AdvancedSearch(const ACriteria: TAdvancedSearchCriteria): TSearchResultList;
+    
+    // Autocomplete
+    function GetSuggestions(const APartialQuery: string; ALimit: Integer = 10): TStringList;
+    
+    // Search Index Management
+    function RebuildIndex: Boolean;
+    function OptimizeIndex: Boolean;
+  end;
+```
+
+### 5.5 Event Notification API
+
+The system provides an event-driven architecture for responding to state changes.
+
+**Event System Interface:**
+
+```pascal
+type
+  TTaskEventType = (
+    tetTaskCreated,
+    tetTaskUpdated,
+    tetTaskDeleted,
+    tetTaskStatusChanged,
+    tetTaskPriorityChanged,
+    tetTaskAssigned,
+    tetCommentAdded,
+    tetTagAdded,
+    tetTagRemoved,
+    tetDueDateApproaching,
+    tetTaskOverdue
+  );
+  
+  TTaskEventHandler = procedure(AEventType: TTaskEventType; ATaskID: Int64; AData: TObject) of object;
+  
+  ITaskEventBus = interface
+    ['{A7B8C9D0-E1F2-3456-GHIJ-567890123456}']
+    
+    // Event Subscription
+    function Subscribe(AEventType: TTaskEventType; AHandler: TTaskEventHandler): Integer;
+    function Unsubscribe(ASubscriptionID: Integer): Boolean;
+    
+    // Event Publishing
+    procedure Publish(AEventType: TTaskEventType; ATaskID: Int64; AData: TObject);
+    
+    // Event History
+    function GetEventHistory(ATaskID: Int64; ALimit: Integer = 100): TTaskEventList;
+  end;
+```
+
+**Usage Example:**
+
+```pascal
+type
+  TMyTaskMonitor = class
+  private
+    FEventBus: ITaskEventBus;
+    FSubscriptionID: Integer;
+    procedure HandleTaskEvent(AEventType: TTaskEventType; ATaskID: Int64; AData: TObject);
+  public
+    constructor Create(AEventBus: ITaskEventBus);
+    destructor Destroy; override;
+  end;
+
+procedure TMyTaskMonitor.HandleTaskEvent(AEventType: TTaskEventType; ATaskID: Int64; AData: TObject);
+begin
+  case AEventType of
+    tetTaskCreated:
+      WriteLn(Format('New task created: #%d', [ATaskID]));
+    tetTaskStatusChanged:
+      WriteLn(Format('Task #%d status changed', [ATaskID]));
+    tetTaskOverdue:
+      WriteLn(Format('ALERT: Task #%d is overdue!', [ATaskID]));
+  end;
+end;
+
+constructor TMyTaskMonitor.Create(AEventBus: ITaskEventBus);
+begin
+  inherited Create;
+  FEventBus := AEventBus;
+  FSubscriptionID := FEventBus.Subscribe(tetTaskCreated, @HandleTaskEvent);
+  FEventBus.Subscribe(tetTaskStatusChanged, @HandleTaskEvent);
+  FEventBus.Subscribe(tetTaskOverdue, @HandleTaskEvent);
+end;
+
+destructor TMyTaskMonitor.Destroy;
+begin
+  FEventBus.Unsubscribe(FSubscriptionID);
+  inherited;
+end;
+```
+
+### 5.6 Validation API
+
+**Interface Definition:**
+
+```pascal
+type
+  ITaskValidator = interface
+    ['{B8C9D0E1-F2A3-4567-HIJK-678901234567}']
+    
+    // Validation Methods
+    function ValidateTask(const ATask: TTaskModel): TValidationResult;
+    function ValidateComment(const AComment: TCommentModel): TValidationResult;
+    function ValidateTag(const ATag: TTagModel): TValidationResult;
+    
+    // Custom Validation Rules
+    function AddValidationRule(ARuleName: string; AValidator: TValidationFunction): Boolean;
+    function RemoveValidationRule(ARuleName: string): Boolean;
+  end;
+  
+  TValidationResult = class
+  private
+    FIsValid: Boolean;
+    FErrors: TStringList;
+    FWarnings: TStringList;
+  public
+    constructor Create;
+    destructor Destroy; override;
+    
+    property IsValid: Boolean read FIsValid;
+    property Errors: TStringList read FErrors;
+    property Warnings: TStringList read FWarnings;
+  end;
+```
+
+**Usage Example:**
+
+```pascal
+var
+  Validator: ITaskValidator;
+  Task: TTaskModel;
+  ValidationResult: TValidationResult;
+begin
+  Validator := TTaskValidatorImpl.Create;
+  Task := TTaskModel.Create;
+  try
+    Task.Title := ''; // Invalid: empty title
+    Task.DueDate := Now - 1; // Warning: due date in the past
+    
+    ValidationResult := Validator.ValidateTask(Task);
+    try
+      if not ValidationResult.IsValid then
+      begin
+        WriteLn('Validation failed:');
+        for Error in ValidationResult.Errors do
+          WriteLn('  ERROR: ', Error);
+        for Warning in ValidationResult.Warnings do
+          WriteLn('  WARNING: ', Warning);
+      end;
+    finally
+      ValidationResult.Free;
+    end;
+  finally
+    Task.Free;
+  end;
+end;
+```
+
+### 5.7 Error Handling
+
+All API methods follow consistent error handling patterns:
+
+**Exception Hierarchy:**
+
+```pascal
+type
+  ETaskManagerException = class(Exception);
+  
+  ETaskNotFoundException = class(ETaskManagerException);
+  ETaskValidationException = class(ETaskManagerException);
+  EDatabaseException = class(ETaskManagerException);
+  EPermissionDeniedException = class(ETaskManagerException);
+  EInvalidOperationException = class(ETaskManagerException);
+```
+
+**Error Handling Example:**
+
+```pascal
+try
+  Task := TaskService.GetTask(999999);
+  try
+    // Work with task
+  finally
+    Task.Free;
+  end;
+except
+  on E: ETaskNotFoundException do
+    WriteLn('Task not found: ', E.Message);
+  on E: EDatabaseException do
+    WriteLn('Database error: ', E.Message);
+  on E: ETaskManagerException do
+    WriteLn('Task manager error: ', E.Message);
+end;
+```
+
+### 5.8 Thread Safety
+
+All service implementations are **thread-safe** with the following guarantees:
+
+1. **Read Operations**: Multiple concurrent reads are safe
+2. **Write Operations**: Protected by internal synchronization
+3. **Transactions**: ACID compliant through mORMot ORM
+
+**Thread-Safe Usage Example:**
+
+```pascal
+type
+  TTaskWorkerThread = class(TThread)
+  private
+    FTaskService: ITaskService;
+    FTaskID: Int64;
+  protected
+    procedure Execute; override;
+  public
+    constructor Create(ATaskService: ITaskService; ATaskID: Int64);
+  end;
+
+procedure TTaskWorkerThread.Execute;
+var
+  Task: TTaskModel;
+begin
+  // Thread-safe access to shared service
+  Task := FTaskService.GetTask(FTaskID);
+  try
+    // Process task
+    Task.Status := tsCompleted;
+    FTaskService.UpdateTask(Task);
+  finally
+    Task.Free;
+  end;
+end;
+```
+
+### 5.9 API Versioning and Compatibility
+
+**Versioning Strategy:**
+
+- **Semantic Versioning**: MAJOR.MINOR.PATCH (e.g., 1.2.3)
+- **Interface Stability**: Interfaces are versioned via GUIDs
+- **Backward Compatibility**: Maintained within major versions
+
+**Version Check Example:**
+
+```pascal
+const
+  REQUIRED_API_VERSION = '1.0.0';
+
+var
+  ActualVersion: string;
+begin
+  ActualVersion := TaskService.GetVersion;
+  if CompareVersions(ActualVersion, REQUIRED_API_VERSION) < 0 then
+    raise Exception.CreateFmt('API version %s required, found %s', 
+      [REQUIRED_API_VERSION, ActualVersion]);
+end;
+```
+
+### 5.10 Performance Considerations
+
+**Best Practices:**
+
+1. **Batch Operations**: Use bulk methods for multiple updates
+2. **Lazy Loading**: Related entities loaded on demand
+3. **Caching**: Implement application-level caching for frequently accessed data
+4. **Connection Pooling**: Reuse database connections
+5. **Pagination**: Use limits and offsets for large result sets
+
+**Pagination Example:**
+
+```pascal
+var
+  Page, PageSize: Integer;
+  Tasks: TTaskModelList;
+begin
+  Page := 1;
+  PageSize := 50;
+  
+  Tasks := TaskService.GetTasksPaginated(
+    Offset := (Page - 1) * PageSize,
+    Limit := PageSize,
+    OrderBy := 'CreatedAt DESC'
+  );
+  try
+    // Process page of tasks
+  finally
+    Tasks.Free;
+  end;
+end;
+```
+
+---
+
+This completes Section 5 with comprehensive API documentation including interfaces, usage examples, error handling, thread safety, and performance considerations.
+
