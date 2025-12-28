@@ -23,6 +23,7 @@
 10. [Class Diagrams and Methods](#10-class-diagrams-and-methods)
 11. [Source Code Organization](#11-source-code-organization)
 12. [Coding Task List](#12-coding-task-list)
+13. [Development Workflows and Best Practices](#13-development-workflows-and-best-practices)
 
 ---
 
@@ -8571,3 +8572,571 @@ This section provides a comprehensive task list for implementing the Free Pascal
 ---
 
 **End of Section 12: Coding Task List**
+
+---
+
+## 13. Development Workflows and Best Practices
+
+### 13.1 Overview
+
+This section provides practical, step-by-step workflows for common development tasks in the Free Pascal Task Manager project. These workflows ensure consistency, maintainability, and adherence to the architectural principles outlined in this specification.
+
+**Target Audience:**
+- New developers joining the project
+- Contributors adding new features
+- Maintainers performing code reviews
+- AI agents assisting with development tasks
+
+**Workflow Categories:**
+1. Adding New Feature Modules
+2. Creating New Services
+3. Implementing Data Models
+4. Writing Tests
+5. Code Review Process
+6. Database Schema Changes
+7. Performance Optimization
+8. Documentation Updates
+
+---
+
+### 13.2 Workflow: Adding a New Feature Module
+
+**Scenario:** You want to add a new feature module (e.g., `taskmanagerreports.pas` for reporting functionality)
+
+#### 13.2.1 Pre-Implementation Checklist
+
+- [ ] Feature has been discussed and approved (design document or issue)
+- [ ] Feature aligns with architectural principles (modularity, no UI dependencies)
+- [ ] Dependencies on core services are identified
+- [ ] Feature does not duplicate existing functionality
+
+#### 13.2.2 Step-by-Step Implementation
+
+**Step 1: Create the Unit File**
+
+Create `src/managers/taskmanagerreports.pas` with proper structure:
+
+```pascal
+unit TaskManagerReports;
+
+{$mode objfpc}{$H+}
+
+interface
+
+uses
+  Classes, SysUtils,
+  mormot.core.base,
+  mormot.orm.core,
+  task_models,
+  task_services;
+
+type
+  { TTaskReport - Base report data structure }
+  TTaskReport = class(TPersistent)
+  private
+    FTitle: RawUTF8;
+    FGeneratedAt: TDateTime;
+    FData: RawUTF8; // JSON formatted data
+  public
+    property Title: RawUTF8 read FTitle write FTitle;
+    property GeneratedAt: TDateTime read FGeneratedAt write FGeneratedAt;
+    property Data: RawUTF8 read FData write FData;
+  end;
+
+  { IReportService - Service interface for reporting }
+  IReportService = interface(IInvokable)
+    ['{GUID-FOR-YOUR-INTERFACE}']
+    function GenerateTaskSummaryReport(const AStartDate, AEndDate: TDateTime): TTaskReport;
+    function GenerateUserProductivityReport(AUserID: Int64): TTaskReport;
+  end;
+
+implementation
+
+end.
+```
+
+**Step 2: Create Unit Tests**
+
+Create `tests/test_taskmanagerreports.pas` following the testing patterns in Section 13.5.
+
+**Step 3: Update Documentation**
+
+Add module description to Section 3 (Detailed Module Descriptions) and update Section 12 (Coding Task List).
+
+**Step 4: Commit Changes**
+
+```bash
+git add src/managers/taskmanagerreports.pas tests/test_taskmanagerreports.pas
+git commit -m "feat: Add Reports Module for task analytics
+
+- Implement IReportService interface
+- Add comprehensive unit tests
+- Update specification documentation"
+```
+
+---
+
+### 13.3 Workflow: Creating a New Service
+
+**Scenario:** You need to create a new service (e.g., notification service)
+
+#### 13.3.1 Design the Service Interface
+
+**Step 1: Define the Interface**
+
+Create `src/services/notification_services.pas`:
+
+```pascal
+unit NotificationServices;
+
+{$mode objfpc}{$H+}
+
+interface
+
+uses
+  mormot.core.base,
+  mormot.core.interfaces,
+  task_models;
+
+type
+  TNotificationType = (ntTaskAssigned, ntTaskDueSoon, ntTaskCompleted, ntCommentAdded);
+  TNotificationPriority = (npLow, npNormal, npHigh, npUrgent);
+
+  { INotificationService - Interface for sending notifications }
+  INotificationService = interface(IInvokable)
+    ['{12345678-1234-1234-1234-123456789ABC}']
+    
+    function SendNotification(AUserID: Int64; const AMessage: RawUTF8; 
+      AType: TNotificationType; APriority: TNotificationPriority): Boolean;
+    
+    function BroadcastNotification(const AUserIDs: TInt64DynArray; 
+      const AMessage: RawUTF8; AType: TNotificationType): Integer;
+    
+    function GetPendingNotifications(AUserID: Int64): TNotificationModelArray;
+    function MarkAsRead(ANotificationID: Int64): Boolean;
+  end;
+
+implementation
+
+end.
+```
+
+**Step 2: Implement the Service**
+
+Create `src/services/notification_services_impl.pas` with full implementation following the service pattern documented in Section 3.
+
+**Step 3: Register the Service**
+
+Document service registration in application initialization code.
+
+---
+
+### 13.4 Workflow: Implementing a New Data Model
+
+**Scenario:** You need to add a new data model (e.g., `TAttachmentModel`)
+
+#### 13.4.1 Define the Model Class
+
+```pascal
+type
+  TAttachmentModel = class(TSQLRecord)
+  private
+    FTaskID: Int64;
+    FFileName: RawUTF8;
+    FFileSize: Int64;
+    FFilePath: RawUTF8;
+    FMimeType: RawUTF8;
+    FUploadedBy: Int64;
+    FUploadedAt: TDateTime;
+  published
+    property TaskID: Int64 read FTaskID write FTaskID;
+    property FileName: RawUTF8 read FFileName write FFileName;
+    property FileSize: Int64 read FFileSize write FFileSize;
+    property FilePath: RawUTF8 read FFilePath write FFilePath;
+    property MimeType: RawUTF8 read FMimeType write FMimeType;
+    property UploadedBy: Int64 read FUploadedBy write FUploadedBy;
+    property UploadedAt: TDateTime read FUploadedAt write FUploadedAt;
+  end;
+```
+
+#### 13.4.2 Add Validation Methods
+
+```pascal
+function TAttachmentModel.Validate: Boolean;
+begin
+  Result := (FTaskID > 0) and 
+            (FFileName <> '') and 
+            (FFileSize > 0) and 
+            (FFilePath <> '');
+end;
+```
+
+#### 13.4.3 Create Database Migration
+
+Create migration script to add the new table with proper foreign keys and indexes.
+
+---
+
+### 13.5 Workflow: Writing Comprehensive Tests
+
+#### 13.5.1 Test Structure Template
+
+```pascal
+unit TestMyService;
+
+{$mode objfpc}{$H+}
+
+interface
+
+uses
+  Classes, SysUtils, fpcunit, testregistry,
+  mormot.core.base, mormot.orm.core,
+  MyService, task_models;
+
+type
+  TTestMyService = class(TTestCase)
+  private
+    FService: IMyService;
+    FTestDatabase: TSQLRestServerDB;
+  protected
+    procedure SetUp; override;
+    procedure TearDown; override;
+  published
+    procedure TestServiceCreation;
+    procedure TestBasicOperation;
+    procedure TestOperationWithInvalidData;
+  end;
+
+implementation
+
+procedure TTestMyService.SetUp;
+begin
+  FTestDatabase := TSQLRestServerDB.Create(
+    TSQLModel.Create([TTaskModel]), ':memory:', False);
+  FTestDatabase.CreateMissingTables;
+  FService := TMyService.Create(FTestDatabase);
+end;
+
+procedure TTestMyService.TearDown;
+begin
+  FService := nil;
+  FTestDatabase.Free;
+end;
+
+initialization
+  RegisterTest(TTestMyService);
+end.
+```
+
+#### 13.5.2 AAA Pattern (Arrange-Act-Assert)
+
+```pascal
+procedure TTestTaskService.TestCreateTask;
+var
+  Task: TTaskModel;
+  TaskID: Int64;
+begin
+  // Arrange
+  Task := TTaskModel.Create;
+  try
+    Task.Title := 'Test Task';
+    Task.Priority := tpHigh;
+    
+    // Act
+    TaskID := FTaskService.CreateTask(Task);
+    
+    // Assert
+    AssertTrue('TaskID should be > 0', TaskID > 0);
+  finally
+    Task.Free;
+  end;
+end;
+```
+
+---
+
+### 13.6 Code Review Process
+
+#### 13.6.1 Pre-Review Checklist (Author)
+
+Before submitting code for review:
+
+- [ ] Code compiles without warnings
+- [ ] All unit tests pass
+- [ ] Code follows project style guidelines
+- [ ] Documentation is updated
+- [ ] No debug code remains
+- [ ] Error handling is implemented
+- [ ] Resource cleanup is handled
+
+#### 13.6.2 Review Checklist (Reviewer)
+
+**Architecture & Design:**
+- [ ] Changes align with architectural principles
+- [ ] No circular dependencies introduced
+- [ ] Proper separation of concerns maintained
+
+**Code Quality:**
+- [ ] Code is readable and well-structured
+- [ ] Variable and method names are descriptive
+- [ ] Proper error handling and validation
+- [ ] No code duplication
+
+**Testing:**
+- [ ] Unit tests cover new functionality
+- [ ] Edge cases are tested
+- [ ] Error conditions are tested
+
+---
+
+### 13.7 Database Schema Changes
+
+#### 13.7.1 Creating a Migration
+
+**Step 1: Create Migration File**
+
+Create `migrations/004_add_attachment_table.sql`:
+
+```sql
+-- Migration: Add attachments table
+-- Version: 004
+-- Date: 2024-12-28
+
+CREATE TABLE IF NOT EXISTS Attachment (
+    ID INTEGER PRIMARY KEY AUTOINCREMENT,
+    TaskID INTEGER NOT NULL,
+    FileName TEXT NOT NULL,
+    FileSize INTEGER NOT NULL,
+    FilePath TEXT NOT NULL,
+    MimeType TEXT,
+    UploadedBy INTEGER,
+    UploadedAt DATETIME NOT NULL,
+    FOREIGN KEY (TaskID) REFERENCES Task(ID) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_attachment_task ON Attachment(TaskID);
+```
+
+**Step 2: Create Rollback Script**
+
+```sql
+-- Rollback Migration 004
+DROP INDEX IF EXISTS idx_attachment_task;
+DROP TABLE IF EXISTS Attachment;
+```
+
+---
+
+### 13.8 Performance Optimization
+
+#### 13.8.1 Identify Bottlenecks
+
+**Step 1: Add Performance Logging**
+
+```pascal
+function TTaskService.GetTasksByProject(AProjectID: Int64): TTaskModelArray;
+var
+  StartTime: Int64;
+begin
+  StartTime := GetTickCount64;
+  try
+    Result := ...; // Query implementation
+  finally
+    LogDebug('GetTasksByProject took %d ms', [GetTickCount64 - StartTime]);
+  end;
+end;
+```
+
+#### 13.8.2 Optimization Techniques
+
+**Add Database Index:**
+
+```sql
+CREATE INDEX idx_task_project_due ON Task(ProjectID, DueDate DESC);
+```
+
+**Batch Operations:**
+
+```pascal
+function BulkCreateTasks(const ATasks: TTaskModelArray): TInt64DynArray;
+var
+  Batch: TSQLRestBatch;
+  i: Integer;
+begin
+  Batch := TSQLRestBatch.Create(FRestServer, TTaskModel);
+  try
+    for i := 0 to High(ATasks) do
+      Batch.Add(ATasks[i], True);
+    FRestServer.BatchSend(Batch);
+  finally
+    Batch.Free;
+  end;
+end;
+```
+
+---
+
+### 13.9 Common Pitfalls and Solutions
+
+#### 13.9.1 Memory Management
+
+**Always use try-finally for cleanup:**
+
+```pascal
+var
+  Task: TTaskModel;
+begin
+  Task := TTaskModel.Create;
+  try
+    // Use task
+  finally
+    Task.Free;
+  end;
+end;
+```
+
+#### 13.9.2 Exception Handling
+
+**Provide context in exceptions:**
+
+```pascal
+if Title = '' then
+  raise EValidationError.CreateFmt(
+    'Task title cannot be empty (Task ID: %d)', [TaskID]);
+```
+
+#### 13.9.3 Database Transactions
+
+**Always commit or rollback:**
+
+```pascal
+FRestServer.TransactionBegin(TTaskModel);
+try
+  FRestServer.Add(Task1, True);
+  FRestServer.Add(Task2, True);
+  FRestServer.TransactionCommit;
+except
+  FRestServer.TransactionRollback;
+  raise;
+end;
+```
+
+---
+
+### 13.10 Development Environment Setup
+
+#### 13.10.1 Quick Setup Guide
+
+```bash
+# Install Free Pascal Compiler
+sudo apt-get install fpc
+
+# Clone project
+git clone <repository-url>
+cd fpc-task-manager
+
+# Initialize submodules
+git submodule update --init --recursive
+
+# Build project
+fpc -B src/taskmanager.pas
+```
+
+#### 13.10.2 Running Tests
+
+```bash
+# Compile tests
+fpc -Fu./tests -Fu./src tests/AllTests.pas
+
+# Run tests
+./AllTests --format=plain
+```
+
+---
+
+### 13.11 Documentation Standards
+
+#### 13.11.1 Code Documentation Format
+
+Use XML documentation comments for public interfaces:
+
+```pascal
+/// <summary>Creates a new task in the database</summary>
+/// <param name="ATask">Task model to create</param>
+/// <returns>ID of created task, or 0 if failed</returns>
+/// <remarks>Validates task before creation</remarks>
+function CreateTask(const ATask: TTaskModel): Int64;
+```
+
+#### 13.11.2 Commit Message Format
+
+Follow conventional commits:
+
+```
+feat: Add notification service for real-time alerts
+fix: Correct task priority validation logic
+docs: Update API documentation for tag service
+refactor: Simplify task filtering implementation
+test: Add unit tests for comment service
+```
+
+---
+
+### 13.12 Continuous Integration
+
+#### 13.12.1 GitHub Actions Configuration
+
+Create `.github/workflows/ci.yml`:
+
+```yaml
+name: CI
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        submodules: recursive
+    
+    - name: Install FPC
+      run: sudo apt-get install -y fpc
+    
+    - name: Build
+      run: fpc -B src/taskmanager.pas
+    
+    - name: Test
+      run: |
+        fpc -B tests/AllTests.pas
+        ./tests/AllTests
+```
+
+---
+
+### 13.13 Summary
+
+This section provided comprehensive workflows for:
+
+- **Feature Development**: Structured approach to adding new modules
+- **Service Creation**: Interface-first design patterns
+- **Data Modeling**: Best practices for mORMot models
+- **Testing**: Comprehensive test strategies
+- **Code Review**: Quality assurance processes
+- **Database Changes**: Safe migration patterns
+- **Performance**: Optimization techniques
+- **Environment Setup**: Quick onboarding guide
+
+Following these workflows ensures consistent, high-quality code that aligns with the project's architectural principles and maintains the modular, reusable design philosophy of the Free Pascal Task Manager.
+
+---
+
+**Next Steps:**
+- Review existing codebase against these patterns
+- Create template files for common development tasks
+- Set up CI/CD pipeline
+- Establish code review process
+- Begin implementation following the coding task list in Section 12
+
+---
