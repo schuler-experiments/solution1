@@ -1774,6 +1774,89 @@ TemplateManager.AddTemplateStep(TemplateID, 'Test fix', 3);
 TaskID := TemplateManager.CreateTaskFromTemplate(TemplateID);
 ```
 
+
+### Gamification (TGamifiedTaskManager)
+
+**Module:** `taskmanagergamify.pas`  
+**Inherits from:** TTeamTaskManager  
+**Key Features:** Points system, achievements, levels, leaderboards, productivity metrics
+
+Transform task management into an engaging game with the Gamification module. This system motivates users through points, achievements, levels, and streaks.
+
+```pascal
+// Award points for task completion
+Points := GamificationManager.CompleteTaskWithRewards(TaskID);
+WriteLn('Earned ', Points, ' points!');
+
+// Check achievements
+Achievements := GamificationManager.GetUnlockedAchievements;
+for Achievement in Achievements do
+  WriteLn('Achievement: ', Achievement.Title);
+
+// Get user level and progress
+UserLevel := GamificationManager.GetCurrentLevel;
+WriteLn('Level: ', UserLevel.Level, ' - ', UserLevel.Title);
+WriteLn('XP: ', UserLevel.CurrentXP, '/', UserLevel.XPForNextLevel);
+
+// View productivity metrics
+Metrics := GamificationManager.GetProductivityMetrics;
+WriteLn('Completion Rate: ', Metrics.ProductivityScore:0:1, '%');
+WriteLn('Current Streak: ', Metrics.CurrentStreak, ' days');
+
+// Get motivational message
+Message := GamificationManager.GetMotivationalMessage;
+WriteLn(Message);
+```
+
+**Key Features:**
+
+1. **Achievement System** (16 types):
+   - First Task, 10/50/100 Tasks Completed
+   - Perfect Week, Early Bird, Speed Demon
+   - Marathoner (4+ hour session), Streaks (7/30 days)
+   - Team Player, Multitasker, Priority Master
+   - Organizer, Mentor, Time Wizard
+
+2. **Points System**:
+   - Points for task completion
+   - Bonus points for high priority and early completion
+   - Streak multipliers
+   - Session and note bonuses
+
+3. **Levels and Experience**:
+   - User levels based on accumulated XP
+   - Level titles (Beginner → Master)
+   - Dynamic XP requirements per level
+
+4. **Productivity Metrics**:
+   - Daily/weekly/monthly completion tracking
+   - Streak monitoring (consecutive work days)
+   - Productivity score (0-100)
+   - Focus score based on work sessions
+   - Velocity trends
+
+5. **Daily Activity Tracking**:
+   - Tasks completed per day
+   - Hours worked
+   - Points earned
+   - Productivity threshold monitoring
+
+6. **Leaderboard Features**:
+   - Personal bests tracking
+   - Achievement progress visualization
+   - Activity calendar view
+   - Streak information
+
+**Main Methods:**
+
+- `CompleteTaskWithRewards(TaskID)` - Complete task and earn rewards
+- `GetAllAchievements` - Retrieve all achievements with progress
+- `GetCurrentLevel` - Get current user level info
+- `GetProductivityMetrics` - Full productivity statistics
+- `GetMotivationalMessage` - Personalized motivation based on performance
+- `AwardPoints(Points)` - Manually award bonus points
+
+
 ### AI Intelligence & Analytics (TIntelligenceTaskManager)
 
 **Module:** `taskmanagerintelligence_final.pas`  
