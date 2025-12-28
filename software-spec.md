@@ -3627,3 +3627,809 @@ end;
 ---
 
 **End of Section 9: Class Diagrams and Methods/Properties**
+
+
+## 10. Source Code Organization and File Structure
+
+### 10.1 Overview
+
+The Free Pascal Task Manager Library follows a modular architecture with clear separation of concerns. The source code is organized into distinct layers (data model, business logic, storage, utilities) with minimal coupling and high cohesion.
+
+### 10.2 Directory Structure
+
+```
+TaskManagerLib/
+├── src/                          # Source code directory
+│   ├── core/                     # Core data models and types
+│   │   ├── TaskModel.pas         # TTask class definition
+│   │   ├── TaskTypes.pas         # Enumerations and type definitions
+│   │   └── TaskExceptions.pas    # Custom exception classes
+│   ├── collections/              # Collection management
+│   │   ├── TaskList.pas          # TTaskList class
+│   │   └── TaskCollection.pas    # Additional collection utilities
+│   ├── business/                 # Business logic layer
+│   │   ├── TaskManager.pas       # Main manager class
+│   │   ├── TaskValidator.pas     # Validation logic
+│   │   ├── TaskFilter.pas        # Filtering and search
+│   │   └── TaskStatistics.pas    # Analytics and reporting
+│   ├── storage/                  # Persistence layer
+│   │   ├── TaskStorage.pas       # ITaskStorage interface
+│   │   ├── TaskStorageJSON.pas   # JSON implementation
+│   │   ├── TaskStorageXML.pas    # XML implementation
+│   │   └── TaskStorageCSV.pas    # CSV implementation
+│   ├── utils/                    # Utility functions
+│   │   ├── TaskUtils.pas         # Helper functions
+│   │   ├── DateTimeUtils.pas     # Date/time utilities
+│   │   └── StringUtils.pas       # String manipulation
+│   └── TaskManagerLib.lpk        # Lazarus package file (optional)
+├── tests/                        # Unit and integration tests
+│   ├── core/                     # Tests for core modules
+│   │   ├── TestTaskModel.pas
+│   │   └── TestTaskTypes.pas
+│   ├── collections/              # Tests for collections
+│   │   └── TestTaskList.pas
+│   ├── business/                 # Tests for business logic
+│   │   ├── TestTaskManager.pas
+│   │   ├── TestTaskValidator.pas
+│   │   ├── TestTaskFilter.pas
+│   │   └── TestTaskStatistics.pas
+│   ├── storage/                  # Tests for storage layer
+│   │   ├── TestTaskStorageJSON.pas
+│   │   ├── TestTaskStorageXML.pas
+│   │   └── TestTaskStorageCSV.pas
+│   ├── integration/              # Integration tests
+│   │   ├── TestEndToEnd.pas
+│   │   └── TestStorageRoundTrip.pas
+│   └── AllTests.lpr              # Test runner project
+├── examples/                     # Example usage code
+│   ├── BasicUsage.lpr            # Simple CRUD operations
+│   ├── FilteringExample.lpr      # Advanced filtering
+│   ├── StatisticsExample.lpr     # Using statistics module
+│   └── CustomStorageExample.lpr  # Implementing custom storage
+├── docs/                         # Documentation
+│   ├── software-spec.md          # This specification document
+│   ├── API-Reference.md          # Detailed API documentation
+│   └── diagrams/                 # UML and other diagrams
+│       ├── class-diagram.png
+│       └── architecture.png
+├── bin/                          # Compiled binaries (gitignored)
+├── lib/                          # Compiled units (gitignored)
+├── data/                         # Sample data files
+│   ├── sample-tasks.json
+│   ├── sample-tasks.xml
+│   └── sample-tasks.csv
+└── README.md                     # Project overview
+```
+
+### 10.3 File Naming Conventions
+
+#### 10.3.1 Pascal Unit Files
+
+- **Pattern**: `{Prefix}{ComponentName}.pas`
+- **Prefix**: `Task` for all task manager components
+- **Examples**:
+  - `TaskModel.pas` - Core task model
+  - `TaskManager.pas` - Main manager
+  - `TaskStorageJSON.pas` - JSON storage implementation
+
+#### 10.3.2 Test Files
+
+- **Pattern**: `Test{ComponentName}.pas`
+- **Examples**:
+  - `TestTaskModel.pas` - Tests for TTask class
+  - `TestTaskManager.pas` - Tests for TTaskManager class
+
+#### 10.3.3 Example Files
+
+- **Pattern**: `{Feature}Example.lpr`
+- **Examples**:
+  - `BasicUsage.lpr` - Basic usage example
+  - `FilteringExample.lpr` - Filtering example
+
+### 10.4 Core Module Files
+
+#### 10.4.1 TaskTypes.pas
+
+**Purpose**: Defines all enumerations, constants, and type aliases used throughout the library.
+
+**Location**: `src/core/TaskTypes.pas`
+
+**Key Contents**:
+```pascal
+unit TaskTypes;
+
+{$mode objfpc}{$H+}
+
+interface
+
+type
+  // Enumerations
+  TTaskStatus = (tsNotStarted, tsInProgress, tsCompleted, tsCancelled, tsOnHold);
+  TTaskPriority = (tpLow, tpNormal, tpHigh, tpCritical);
+  TTaskCategory = (tcPersonal, tcWork, tcShopping, tcHealth, tcEducation, tcOther);
+  TReportFormat = (rfPlainText, rfJSON, rfXML, rfHTML, rfMarkdown);
+  TEncoding = (encUTF8, encUTF16, encASCII);
+  
+  // Constants
+const
+  MAX_TITLE_LENGTH = 200;
+  MAX_DESCRIPTION_LENGTH = 4000;
+  DEFAULT_ESTIMATED_HOURS = 0.0;
+  
+  // Type aliases
+type
+  TTaskID = Integer;
+  TTaskArray = array of TTask;
+
+implementation
+
+end.
+```
+
+**Dependencies**: None (base types only)
+
+**Used By**: All other modules
+
+#### 10.4.2 TaskModel.pas
+
+**Purpose**: Defines the `TTask` class, the core data model for a single task.
+
+**Location**: `src/core/TaskModel.pas`
+
+**Key Contents**:
+- `TTask` class with all properties and methods
+- Private field declarations
+- Public property accessors
+- Constructor/destructor
+- Serialization helper methods
+
+**Dependencies**: 
+- `Classes` (for TStringList)
+- `SysUtils` (for exception handling)
+- `TaskTypes` (for enumerations)
+
+**Used By**: `TaskList.pas`, `TaskManager.pas`, storage modules
+
+#### 10.4.3 TaskExceptions.pas
+
+**Purpose**: Defines custom exception classes for the library.
+
+**Location**: `src/core/TaskExceptions.pas`
+
+**Key Contents**:
+```pascal
+unit TaskExceptions;
+
+{$mode objfpc}{$H+}
+
+interface
+
+uses
+  SysUtils;
+
+type
+  ETaskException = class(Exception);
+  ETaskValidationException = class(ETaskException);
+  ETaskNotFoundException = class(ETaskException);
+  ETaskStorageException = class(ETaskException);
+  ETaskDuplicateException = class(ETaskException);
+  ETaskFilterException = class(ETaskException);
+
+implementation
+
+end.
+```
+
+**Dependencies**: `SysUtils`
+
+**Used By**: All modules that throw exceptions
+
+### 10.5 Collection Module Files
+
+#### 10.5.1 TaskList.pas
+
+**Purpose**: Implements `TTaskList` class for managing collections of tasks.
+
+**Location**: `src/collections/TaskList.pas`
+
+**Key Contents**:
+- `TTaskList` class (inherits from `TObjectList<TTask>`)
+- CRUD operations
+- Search and filter methods
+- Sorting capabilities
+- Import/export helpers
+
+**Dependencies**:
+- `Classes`, `Contnrs`
+- `TaskModel.pas`
+- `TaskTypes.pas`
+
+**Used By**: `TaskManager.pas`, `TaskFilter.pas`, `TaskStatistics.pas`
+
+### 10.6 Business Logic Module Files
+
+#### 10.6.1 TaskManager.pas
+
+**Purpose**: Main entry point for the library, coordinates all operations.
+
+**Location**: `src/business/TaskManager.pas`
+
+**Key Contents**:
+- `TTaskManager` class
+- Task lifecycle management
+- Integration with storage, validation, and statistics
+- High-level API methods
+
+**Dependencies**:
+- `TaskModel.pas`, `TaskList.pas`
+- `TaskStorage.pas`
+- `TaskValidator.pas`
+- `TaskStatistics.pas`
+- `TaskFilter.pas`
+
+**Used By**: Client applications
+
+#### 10.6.2 TaskValidator.pas
+
+**Purpose**: Implements validation rules for tasks.
+
+**Location**: `src/business/TaskValidator.pas`
+
+**Key Contents**:
+- `TTaskValidator` class
+- `TValidationResult` record
+- Validation rule implementations
+- Custom validation rule support
+
+**Dependencies**:
+- `TaskModel.pas`
+- `TaskTypes.pas`
+
+**Used By**: `TaskManager.pas`
+
+#### 10.6.3 TaskFilter.pas
+
+**Purpose**: Implements advanced filtering and searching capabilities.
+
+**Location**: `src/business/TaskFilter.pas`
+
+**Key Contents**:
+- `TTaskFilter` class
+- `TTaskFilterCriteria` record
+- Filter predicates
+- Composite filter support
+
+**Dependencies**:
+- `TaskModel.pas`, `TaskList.pas`
+- `TaskTypes.pas`
+
+**Used By**: `TaskManager.pas`, client applications
+
+#### 10.6.4 TaskStatistics.pas
+
+**Purpose**: Provides analytics and reporting on task collections.
+
+**Location**: `src/business/TaskStatistics.pas`
+
+**Key Contents**:
+- `TTaskStatistics` class
+- `TTaskStatisticsData` record
+- Statistical calculations
+- Report generation
+
+**Dependencies**:
+- `TaskModel.pas`, `TaskList.pas`
+- `TaskTypes.pas`
+
+**Used By**: `TaskManager.pas`, reporting applications
+
+### 10.7 Storage Layer Module Files
+
+#### 10.7.1 TaskStorage.pas
+
+**Purpose**: Defines the `ITaskStorage` interface for persistence.
+
+**Location**: `src/storage/TaskStorage.pas`
+
+**Key Contents**:
+```pascal
+unit TaskStorage;
+
+{$mode objfpc}{$H+}
+
+interface
+
+uses
+  TaskList, TaskModel;
+
+type
+  ITaskStorage = interface
+    ['{12345678-1234-1234-1234-123456789012}']
+    function LoadTasks: TTaskList;
+    procedure SaveTasks(ATasks: TTaskList);
+    function GetFilePath: string;
+    procedure SetFilePath(const APath: string);
+    property FilePath: string read GetFilePath write SetFilePath;
+  end;
+
+implementation
+
+end.
+```
+
+**Dependencies**: `TaskList.pas`, `TaskModel.pas`
+
+**Implemented By**: JSON, XML, CSV storage modules
+
+#### 10.7.2 TaskStorageJSON.pas
+
+**Purpose**: Implements JSON-based persistence.
+
+**Location**: `src/storage/TaskStorageJSON.pas`
+
+**Key Contents**:
+- `TJSONTaskStorage` class
+- JSON serialization/deserialization
+- Error handling for malformed JSON
+
+**Dependencies**:
+- `fpjson`, `jsonparser` (Free Pascal JSON units)
+- `TaskStorage.pas`, `TaskList.pas`, `TaskModel.pas`
+
+**Used By**: `TaskManager.pas`, client applications
+
+#### 10.7.3 TaskStorageXML.pas
+
+**Purpose**: Implements XML-based persistence.
+
+**Location**: `src/storage/TaskStorageXML.pas`
+
+**Key Contents**:
+- `TXMLTaskStorage` class
+- XML serialization/deserialization using DOM
+- Schema validation support
+
+**Dependencies**:
+- `DOM`, `XMLRead`, `XMLWrite` (Free Pascal XML units)
+- `TaskStorage.pas`, `TaskList.pas`, `TaskModel.pas`
+
+**Used By**: `TaskManager.pas`, client applications
+
+#### 10.7.4 TaskStorageCSV.pas
+
+**Purpose**: Implements CSV-based persistence (flat structure).
+
+**Location**: `src/storage/TaskStorageCSV.pas`
+
+**Key Contents**:
+- `TCSVTaskStorage` class
+- CSV parsing and generation
+- Delimiter and encoding configuration
+
+**Dependencies**:
+- `Classes`, `SysUtils`
+- `TaskStorage.pas`, `TaskList.pas`, `TaskModel.pas`
+
+**Used By**: `TaskManager.pas`, data import/export tools
+
+### 10.8 Utility Module Files
+
+#### 10.8.1 TaskUtils.pas
+
+**Purpose**: Provides utility functions used across the library.
+
+**Location**: `src/utils/TaskUtils.pas`
+
+**Key Contents**:
+- Enum-to-string conversions
+- String-to-enum conversions
+- Date/time formatting helpers
+- GUID generation
+
+**Dependencies**: `TaskTypes.pas`, `SysUtils`, `DateUtils`
+
+**Used By**: All modules
+
+#### 10.8.2 DateTimeUtils.pas
+
+**Purpose**: Date and time manipulation utilities specific to task management.
+
+**Location**: `src/utils/DateTimeUtils.pas`
+
+**Key Contents**:
+```pascal
+unit DateTimeUtils;
+
+{$mode objfpc}{$H+}
+
+interface
+
+uses
+  SysUtils, DateUtils;
+
+function IsOverdue(const ADueDate: TDateTime): Boolean;
+function DaysUntilDue(const ADueDate: TDateTime): Integer;
+function FormatTaskDateTime(const ADateTime: TDateTime): string;
+function ParseTaskDateTime(const ADateTimeStr: string): TDateTime;
+function GetWeekStartDate(const ADate: TDateTime): TDateTime;
+function GetWeekEndDate(const ADate: TDateTime): TDateTime;
+
+implementation
+
+// Implementation details...
+
+end.
+```
+
+**Dependencies**: `SysUtils`, `DateUtils`
+
+**Used By**: `TaskModel.pas`, `TaskFilter.pas`, `TaskStatistics.pas`
+
+#### 10.8.3 StringUtils.pas
+
+**Purpose**: String manipulation utilities.
+
+**Location**: `src/utils/StringUtils.pas`
+
+**Key Contents**:
+- String truncation
+- Case-insensitive comparison
+- Wildcard matching
+- String sanitization for storage
+
+**Dependencies**: `SysUtils`
+
+**Used By**: `TaskValidator.pas`, `TaskFilter.pas`, storage modules
+
+### 10.9 Compilation Units and Dependencies
+
+#### 10.9.1 Dependency Graph
+
+```
+Layer 1 (Foundation - No dependencies):
+  - TaskTypes.pas
+  - TaskExceptions.pas
+
+Layer 2 (Core Data Model):
+  - TaskModel.pas → TaskTypes, TaskExceptions
+  - DateTimeUtils.pas → (standard units)
+  - StringUtils.pas → (standard units)
+
+Layer 3 (Collections):
+  - TaskList.pas → TaskModel, TaskTypes
+
+Layer 4 (Storage Interface):
+  - TaskStorage.pas → TaskList, TaskModel
+
+Layer 5 (Storage Implementations):
+  - TaskStorageJSON.pas → TaskStorage, TaskList, TaskModel
+  - TaskStorageXML.pas → TaskStorage, TaskList, TaskModel
+  - TaskStorageCSV.pas → TaskStorage, TaskList, TaskModel
+
+Layer 6 (Business Logic):
+  - TaskValidator.pas → TaskModel, TaskTypes
+  - TaskFilter.pas → TaskModel, TaskList, TaskTypes
+  - TaskStatistics.pas → TaskModel, TaskList, TaskTypes
+  - TaskUtils.pas → TaskTypes, DateTimeUtils, StringUtils
+
+Layer 7 (Facade):
+  - TaskManager.pas → All of the above
+```
+
+#### 10.9.2 Compilation Order
+
+When compiling manually or creating makefiles, respect this order:
+
+1. `TaskTypes.pas`, `TaskExceptions.pas`
+2. `TaskModel.pas`, `DateTimeUtils.pas`, `StringUtils.pas`
+3. `TaskList.pas`
+4. `TaskStorage.pas`
+5. `TaskStorageJSON.pas`, `TaskStorageXML.pas`, `TaskStorageCSV.pas`
+6. `TaskValidator.pas`, `TaskFilter.pas`, `TaskStatistics.pas`, `TaskUtils.pas`
+7. `TaskManager.pas`
+
+### 10.10 Package Files
+
+#### 10.10.1 Lazarus Package (TaskManagerLib.lpk)
+
+**Purpose**: Defines a Lazarus package for easy integration into Lazarus projects.
+
+**Location**: `src/TaskManagerLib.lpk`
+
+**Contents**:
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<CONFIG>
+  <Package Version="5">
+    <Name Value="TaskManagerLib"/>
+    <Type Value="RunAndDesignTime"/>
+    <CompilerOptions>
+      <Version Value="11"/>
+      <SearchPaths>
+        <IncludeFiles Value="core;collections;business;storage;utils"/>
+        <OtherUnitFiles Value="core;collections;business;storage;utils"/>
+        <UnitOutputDirectory Value="lib/$(TargetCPU)-$(TargetOS)"/>
+      </SearchPaths>
+    </CompilerOptions>
+    <Files Count="15">
+      <Item1>
+        <Filename Value="core/TaskTypes.pas"/>
+        <UnitName Value="TaskTypes"/>
+      </Item1>
+      <Item2>
+        <Filename Value="core/TaskExceptions.pas"/>
+        <UnitName Value="TaskExceptions"/>
+      </Item2>
+      <Item3>
+        <Filename Value="core/TaskModel.pas"/>
+        <UnitName Value="TaskModel"/>
+      </Item3>
+      <!-- Additional items for all units -->
+    </Files>
+    <RequiredPkgs Count="1">
+      <Item1>
+        <PackageName Value="FCL"/>
+      </Item1>
+    </RequiredPkgs>
+  </Package>
+</CONFIG>
+```
+
+### 10.11 Build Configuration
+
+#### 10.11.1 Free Pascal Compiler Options
+
+Recommended FPC compiler options (`fpc.cfg` or command line):
+
+```
+# Mode and syntax
+-Mobjfpc          # Object Pascal mode
+-Sh               # Use ansistrings
+
+# Optimization
+-O2               # Level 2 optimization
+-Xs               # Strip symbols (release builds)
+
+# Warnings and errors
+-vewn             # Verbose: errors, warnings, notes
+-Sew              # Stop on warnings (strict mode)
+
+# Output
+-FU./lib          # Unit output directory
+-FE./bin          # Executable output directory
+
+# Search paths
+-Fu./src/core
+-Fu./src/collections
+-Fu./src/business
+-Fu./src/storage
+-Fu./src/utils
+
+# Include paths
+-Fi./src/core
+-Fi./src/collections
+-Fi./src/business
+-Fi./src/storage
+-Fi./src/utils
+```
+
+#### 10.11.2 Makefile Structure
+
+**Location**: `Makefile` (root directory)
+
+```makefile
+# Free Pascal Task Manager Library Makefile
+
+FPC := fpc
+FPCFLAGS := -Mobjfpc -Sh -O2 -vewn
+SRCDIR := src
+UNITDIRS := $(SRCDIR)/core $(SRCDIR)/collections $(SRCDIR)/business $(SRCDIR)/storage $(SRCDIR)/utils
+UNITSEARCH := $(addprefix -Fu,$(UNITDIRS))
+INCSEARCH := $(addprefix -Fi,$(UNITDIRS))
+LIBDIR := lib
+BINDIR := bin
+
+# Core units (in compilation order)
+CORE_UNITS := $(SRCDIR)/core/TaskTypes.pas               $(SRCDIR)/core/TaskExceptions.pas               $(SRCDIR)/core/TaskModel.pas
+
+COLLECTION_UNITS := $(SRCDIR)/collections/TaskList.pas
+
+STORAGE_UNITS := $(SRCDIR)/storage/TaskStorage.pas                  $(SRCDIR)/storage/TaskStorageJSON.pas                  $(SRCDIR)/storage/TaskStorageXML.pas                  $(SRCDIR)/storage/TaskStorageCSV.pas
+
+BUSINESS_UNITS := $(SRCDIR)/business/TaskValidator.pas                   $(SRCDIR)/business/TaskFilter.pas                   $(SRCDIR)/business/TaskStatistics.pas                   $(SRCDIR)/business/TaskManager.pas
+
+UTIL_UNITS := $(SRCDIR)/utils/DateTimeUtils.pas               $(SRCDIR)/utils/StringUtils.pas               $(SRCDIR)/utils/TaskUtils.pas
+
+ALL_UNITS := $(CORE_UNITS) $(COLLECTION_UNITS) $(STORAGE_UNITS) $(BUSINESS_UNITS) $(UTIL_UNITS)
+
+.PHONY: all clean tests examples
+
+all: $(ALL_UNITS)
+	@echo "Compiling all units..."
+	$(FPC) $(FPCFLAGS) $(UNITSEARCH) $(INCSEARCH) -FU$(LIBDIR) $(SRCDIR)/business/TaskManager.pas
+
+clean:
+	rm -rf $(LIBDIR)/* $(BINDIR)/*
+	find . -name "*.o" -delete
+	find . -name "*.ppu" -delete
+
+tests:
+	@echo "Running tests..."
+	$(FPC) $(FPCFLAGS) $(UNITSEARCH) $(INCSEARCH) -FU$(LIBDIR) -FE$(BINDIR) tests/AllTests.lpr
+	./$(BINDIR)/AllTests
+
+examples:
+	@echo "Compiling examples..."
+	$(FPC) $(FPCFLAGS) $(UNITSEARCH) $(INCSEARCH) -FU$(LIBDIR) -FE$(BINDIR) examples/BasicUsage.lpr
+```
+
+### 10.12 Version Control Structure
+
+#### 10.12.1 .gitignore
+
+**Location**: `.gitignore` (root directory)
+
+```gitignore
+# Compiled Units
+*.o
+*.ppu
+*.compiled
+*.rst
+*.rsj
+*.or
+
+# Compiled binaries
+bin/
+lib/
+backup/
+
+# Lazarus IDE files
+*.lps
+*.lrt
+*.bak
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Temporary files
+*~
+*.tmp
+*.swp
+*.swo
+
+# Test output
+test-results/
+coverage/
+```
+
+### 10.13 Code Organization Best Practices
+
+#### 10.13.1 Unit Structure Template
+
+Every unit should follow this structure:
+
+```pascal
+unit UnitName;
+
+{$mode objfpc}{$H+}
+
+interface
+
+uses
+  // Standard units first
+  Classes, SysUtils,
+  // Then project units
+  TaskTypes, TaskModel;
+
+type
+  // Type declarations
+
+const
+  // Constants
+
+var
+  // Global variables (avoid if possible)
+
+// Function/procedure declarations
+
+implementation
+
+uses
+  // Implementation-only units
+
+// Function/procedure implementations
+
+initialization
+  // Initialization code (if needed)
+
+finalization
+  // Cleanup code (if needed)
+
+end.
+```
+
+#### 10.13.2 Naming Conventions Summary
+
+- **Classes**: `TClassName` (e.g., `TTaskManager`)
+- **Interfaces**: `IInterfaceName` (e.g., `ITaskStorage`)
+- **Enumerations**: `TEnumName` with values `enPrefix` (e.g., `TTaskStatus` with `tsCompleted`)
+- **Records**: `TRecordName` (e.g., `TValidationResult`)
+- **Methods**: `VerbNoun` (e.g., `GetTaskByID`, `ValidateTask`)
+- **Properties**: `PropertyName` (e.g., `Title`, `CreatedAt`)
+- **Private Fields**: `FFieldName` (e.g., `FTitle`, `FCreatedAt`)
+- **Parameters**: `AParameterName` (e.g., `ATaskID`, `ATitle`)
+- **Local Variables**: `LocalVarName` (e.g., `Task`, `Index`)
+
+#### 10.13.3 Documentation Comments
+
+Use XML-style documentation comments for all public interfaces:
+
+```pascal
+type
+  /// <summary>
+  /// Manages a collection of tasks with CRUD operations.
+  /// </summary>
+  TTaskManager = class
+  public
+    /// <summary>
+    /// Creates a new task with the specified parameters.
+    /// </summary>
+    /// <param name="ATitle">The title of the task</param>
+    /// <param name="ADescription">The detailed description</param>
+    /// <returns>The newly created task instance</returns>
+    /// <exception cref="ETaskValidationException">
+    /// Raised when the title is empty or exceeds maximum length
+    /// </exception>
+    function CreateTask(const ATitle, ADescription: string): TTask;
+  end;
+```
+
+### 10.14 File Size and Complexity Guidelines
+
+- **Maximum lines per unit**: 1000 lines (recommendation)
+- **Maximum methods per class**: 30 methods (recommendation)
+- **Maximum cyclomatic complexity per method**: 10 (recommendation)
+
+When units exceed these limits, consider refactoring into smaller, more focused units.
+
+### 10.15 Integration with Build Systems
+
+#### 10.15.1 Continuous Integration
+
+The library structure supports CI systems like GitHub Actions, GitLab CI, or Jenkins:
+
+**Example GitHub Actions Workflow** (`.github/workflows/build.yml`):
+
+```yaml
+name: Build and Test
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install FPC
+        run: sudo apt-get install -y fpc
+      - name: Compile Library
+        run: make all
+      - name: Run Tests
+        run: make tests
+      - name: Build Examples
+        run: make examples
+```
+
+#### 10.15.2 Documentation Generation
+
+The structure supports automated documentation generation using PasDoc:
+
+```bash
+pasdoc --format html        --output docs/api        --source src/core/*.pas        --source src/collections/*.pas        --source src/business/*.pas        --source src/storage/*.pas        --source src/utils/*.pas
+```
+
+---
+
+**End of Section 10: Source Code Organization and File Structure**
