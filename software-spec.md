@@ -2311,3 +2311,1319 @@ Each test file should include:
 - [ ] Memory leaks checked and resolved
 - [ ] Edge cases and error conditions tested
 
+
+
+
+## 9. Class Diagrams and Methods/Properties
+
+### 9.1 Overview
+
+This section provides detailed class diagrams for all major components of the Free Pascal Task Manager Library. Each class diagram includes:
+
+- All public properties with their types
+- All public methods with parameters and return types
+- Private/protected members where relevant for understanding
+- Inheritance relationships
+- Interface implementations
+- Key dependencies between classes
+
+### 9.2 Core Data Model Classes
+
+#### 9.2.1 TTask Class Diagram
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                            TTask                                 │
+├─────────────────────────────────────────────────────────────────┤
+│ Private Fields:                                                  │
+│   FID: string                                                    │
+│   FTitle: string                                                 │
+│   FDescription: string                                           │
+│   FStatus: TTaskStatus                                           │
+│   FPriority: TTaskPriority                                       │
+│   FCategory: TTaskCategory                                       │
+│   FCreatedAt: TDateTime                                          │
+│   FUpdatedAt: TDateTime                                          │
+│   FDueDate: TDateTime                                            │
+│   FCompletedAt: TDateTime                                        │
+│   FTags: TStringList                                             │
+│   FNotes: string                                                 │
+│   FEstimatedHours: Double                                        │
+│   FActualHours: Double                                           │
+│   FParentTaskID: string                                          │
+│   FSubtasks: TStringList                                         │
+├─────────────────────────────────────────────────────────────────┤
+│ Public Properties:                                               │
+│   property ID: string read FID write FID                         │
+│   property Title: string read FTitle write SetTitle              │
+│   property Description: string read FDescription write FDesc...  │
+│   property Status: TTaskStatus read FStatus write SetStatus      │
+│   property Priority: TTaskPriority read FPriority write SetPr... │
+│   property Category: TTaskCategory read FCategory write SetCa... │
+│   property CreatedAt: TDateTime read FCreatedAt write FCreat...  │
+│   property UpdatedAt: TDateTime read FUpdatedAt write FUpdat...  │
+│   property DueDate: TDateTime read FDueDate write SetDueDate    │
+│   property CompletedAt: TDateTime read FCompletedAt write FC...  │
+│   property Tags: TStringList read FTags                          │
+│   property Notes: string read FNotes write SetNotes              │
+│   property EstimatedHours: Double read FEstimatedHours write...  │
+│   property ActualHours: Double read FActualHours write SetAc...  │
+│   property ParentTaskID: string read FParentTaskID write FPa...  │
+│   property Subtasks: TStringList read FSubtasks                  │
+├─────────────────────────────────────────────────────────────────┤
+│ Public Constructors:                                             │
+│   + Create(): TTask                                              │
+│   + CreateWithParams(                                            │
+│       ATitle: string;                                            │
+│       ADescription: string;                                      │
+│       APriority: TTaskPriority;                                  │
+│       ACategory: TTaskCategory                                   │
+│     ): TTask                                                     │
+├─────────────────────────────────────────────────────────────────┤
+│ Public Destructor:                                               │
+│   + Destroy(): void override                                     │
+├─────────────────────────────────────────────────────────────────┤
+│ Public Methods:                                                  │
+│   + AddTag(ATag: string): Boolean                                │
+│   + RemoveTag(ATag: string): Boolean                             │
+│   + HasTag(ATag: string): Boolean                                │
+│   + ClearTags(): void                                            │
+│   + AddSubtask(ATaskID: string): Boolean                         │
+│   + RemoveSubtask(ATaskID: string): Boolean                      │
+│   + HasSubtask(ATaskID: string): Boolean                         │
+│   + ClearSubtasks(): void                                        │
+│   + MarkAsCompleted(): void                                      │
+│   + MarkAsInProgress(): void                                     │
+│   + MarkAsPending(): void                                        │
+│   + MarkAsCancelled(): void                                      │
+│   + IsOverdue(): Boolean                                         │
+│   + IsCompleted(): Boolean                                       │
+│   + DaysUntilDue(): Integer                                      │
+│   + DaysOverdue(): Integer                                       │
+│   + Clone(): TTask                                               │
+│   + CopyFrom(ATask: TTask): void                                 │
+│   + ToJSON(): string                                             │
+│   + FromJSON(const AJSON: string): Boolean                       │
+│   + ToXML(): string                                              │
+│   + FromXML(const AXML: string): Boolean                         │
+│   + ToString(): string override                                  │
+│   + Equals(ATask: TTask): Boolean                                │
+│   + GetProgressPercentage(): Double                              │
+│   + UpdateTimestamp(): void                                      │
+├─────────────────────────────────────────────────────────────────┤
+│ Private Methods:                                                 │
+│   - SetTitle(const AValue: string): void                         │
+│   - SetDescription(const AValue: string): void                   │
+│   - SetStatus(const AValue: TTaskStatus): void                   │
+│   - SetPriority(const AValue: TTaskPriority): void               │
+│   - SetCategory(const AValue: TTaskCategory): void               │
+│   - SetDueDate(const AValue: TDateTime): void                    │
+│   - SetNotes(const AValue: string): void                         │
+│   - SetEstimatedHours(const AValue: Double): void                │
+│   - SetActualHours(const AValue: Double): void                   │
+│   - GenerateID(): string                                         │
+│   - ValidateData(): Boolean                                      │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Key Characteristics:**
+- Inherits from: `TObject`
+- Manages its own `TStringList` instances for Tags and Subtasks
+- Automatically updates `UpdatedAt` timestamp on property changes
+- Generates unique ID on creation using GUID
+- Supports serialization to/from JSON and XML formats
+
+#### 9.2.2 TTaskList Class Diagram
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                          TTaskList                               │
+├─────────────────────────────────────────────────────────────────┤
+│ Private Fields:                                                  │
+│   FTasks: TFPList                                                │
+│   FOwnsObjects: Boolean                                          │
+│   FSorted: Boolean                                               │
+│   FSortOrder: TSortOrder (ascending/descending)                  │
+│   FSortField: TSortField (title/date/priority/status)            │
+├─────────────────────────────────────────────────────────────────┤
+│ Public Properties:                                               │
+│   property Count: Integer read GetCount                          │
+│   property Items[Index: Integer]: TTask read GetItem write...    │
+│     default                                                      │
+│   property OwnsObjects: Boolean read FOwnsObjects write FOw...   │
+│   property Sorted: Boolean read FSorted write SetSorted          │
+│   property SortOrder: TSortOrder read FSortOrder write SetSo...  │
+│   property SortField: TSortField read FSortField write SetSo...  │
+├─────────────────────────────────────────────────────────────────┤
+│ Public Constructors:                                             │
+│   + Create(): TTaskList                                          │
+│   + Create(AOwnsObjects: Boolean): TTaskList                     │
+├─────────────────────────────────────────────────────────────────┤
+│ Public Destructor:                                               │
+│   + Destroy(): void override                                     │
+├─────────────────────────────────────────────────────────────────┤
+│ Public Methods - Collection Management:                          │
+│   + Add(ATask: TTask): Integer                                   │
+│   + Insert(Index: Integer; ATask: TTask): void                   │
+│   + Remove(ATaskID: string): Boolean                             │
+│   + Delete(Index: Integer): void                                 │
+│   + Clear(): void                                                │
+│   + IndexOf(ATaskID: string): Integer                            │
+│   + FindByID(const AID: string): TTask                           │
+│   + Contains(ATaskID: string): Boolean                           │
+│   + Extract(ATask: TTask): TTask                                 │
+├─────────────────────────────────────────────────────────────────┤
+│ Public Methods - Filtering:                                      │
+│   + FilterByStatus(AStatus: TTaskStatus): TTaskList              │
+│   + FilterByPriority(APriority: TTaskPriority): TTaskList        │
+│   + FilterByCategory(ACategory: TTaskCategory): TTaskList        │
+│   + FilterByTag(const ATag: string): TTaskList                   │
+│   + FilterByDateRange(                                           │
+│       AStartDate: TDateTime;                                     │
+│       AEndDate: TDateTime                                        │
+│     ): TTaskList                                                 │
+│   + FilterOverdue(): TTaskList                                   │
+│   + FilterCompleted(): TTaskList                                 │
+│   + FilterActive(): TTaskList                                    │
+│   + FilterByCustomCriteria(                                      │
+│       ACriteria: TTaskFilterCriteria                             │
+│     ): TTaskList                                                 │
+├─────────────────────────────────────────────────────────────────┤
+│ Public Methods - Searching:                                      │
+│   + Search(const AQuery: string): TTaskList                      │
+│   + SearchInTitle(const AQuery: string): TTaskList               │
+│   + SearchInDescription(const AQuery: string): TTaskList         │
+│   + SearchInTags(const ATag: string): TTaskList                  │
+├─────────────────────────────────────────────────────────────────┤
+│ Public Methods - Sorting:                                        │
+│   + Sort(): void                                                 │
+│   + SortByTitle(AOrder: TSortOrder): void                        │
+│   + SortByPriority(AOrder: TSortOrder): void                     │
+│   + SortByDueDate(AOrder: TSortOrder): void                      │
+│   + SortByStatus(AOrder: TSortOrder): void                       │
+│   + SortByCreatedDate(AOrder: TSortOrder): void                  │
+│   + SortByCustomComparator(                                      │
+│       AComparator: TTaskComparator                               │
+│     ): void                                                      │
+├─────────────────────────────────────────────────────────────────┤
+│ Public Methods - Iteration:                                      │
+│   + First(): TTask                                               │
+│   + Last(): TTask                                                │
+│   + GetEnumerator(): TTaskListEnumerator                         │
+├─────────────────────────────────────────────────────────────────┤
+│ Public Methods - Serialization:                                  │
+│   + ToJSON(): string                                             │
+│   + FromJSON(const AJSON: string): Boolean                       │
+│   + ToXML(): string                                              │
+│   + FromXML(const AXML: string): Boolean                         │
+│   + ToCSV(): string                                              │
+│   + FromCSV(const ACSV: string): Boolean                         │
+├─────────────────────────────────────────────────────────────────┤
+│ Public Methods - Utilities:                                      │
+│   + Clone(): TTaskList                                           │
+│   + CopyFrom(AList: TTaskList): void                             │
+│   + Merge(AList: TTaskList): void                                │
+│   + GetStatistics(): TTaskStatisticsData                         │
+│   + GetTasksByParentID(const AParentID: string): TTaskList       │
+├─────────────────────────────────────────────────────────────────┤
+│ Private Methods:                                                 │
+│   - GetCount(): Integer                                          │
+│   - GetItem(Index: Integer): TTask                               │
+│   - SetItem(Index: Integer; AValue: TTask): void                 │
+│   - SetSorted(AValue: Boolean): void                             │
+│   - SetSortOrder(AValue: TSortOrder): void                       │
+│   - SetSortField(AValue: TSortField): void                       │
+│   - QuickSort(L, R: Integer): void                               │
+│   - CompareTasksByField(                                         │
+│       Task1, Task2: TTask;                                       │
+│       Field: TSortField                                          │
+│     ): Integer                                                   │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Key Characteristics:**
+- Inherits from: `TObject`
+- Uses `TFPList` internally for efficient storage
+- Owns task objects by default (frees them on destruction)
+- Supports custom sorting and filtering
+- Implements enumerator for for-in loops
+- All filter methods return new `TTaskList` instances
+
+### 9.3 Business Logic Classes
+
+#### 9.3.1 TTaskManager Class Diagram
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        TTaskManager                              │
+├─────────────────────────────────────────────────────────────────┤
+│ Private Fields:                                                  │
+│   FTaskList: TTaskList                                           │
+│   FStorage: ITaskStorage                                         │
+│   FValidator: TTaskValidator                                     │
+│   FStatistics: TTaskStatistics                                   │
+│   FAutoSave: Boolean                                             │
+│   FDefaultStorageFile: string                                    │
+│   FOnTaskAdded: TTaskEvent                                       │
+│   FOnTaskUpdated: TTaskEvent                                     │
+│   FOnTaskDeleted: TTaskEvent                                     │
+│   FOnTaskCompleted: TTaskEvent                                   │
+├─────────────────────────────────────────────────────────────────┤
+│ Public Properties:                                               │
+│   property TaskList: TTaskList read FTaskList                    │
+│   property TaskCount: Integer read GetTaskCount                  │
+│   property AutoSave: Boolean read FAutoSave write FAutoSave      │
+│   property DefaultStorageFile: string read FDefaultStorage...    │
+│     write FDefaultStorageFile                                    │
+│   property OnTaskAdded: TTaskEvent read FOnTaskAdded write...    │
+│   property OnTaskUpdated: TTaskEvent read FOnTaskUpdated w...    │
+│   property OnTaskDeleted: TTaskEvent read FOnTaskDeleted w...    │
+│   property OnTaskCompleted: TTaskEvent read FOnTaskComplet...    │
+├─────────────────────────────────────────────────────────────────┤
+│ Public Constructors:                                             │
+│   + Create(): TTaskManager                                       │
+│   + Create(AStorage: ITaskStorage): TTaskManager                 │
+├─────────────────────────────────────────────────────────────────┤
+│ Public Destructor:                                               │
+│   + Destroy(): void override                                     │
+├─────────────────────────────────────────────────────────────────┤
+│ Public Methods - CRUD Operations:                                │
+│   + CreateTask(                                                  │
+│       const ATitle: string;                                      │
+│       const ADescription: string;                                │
+│       APriority: TTaskPriority;                                  │
+│       ACategory: TTaskCategory                                   │
+│     ): string {returns TaskID}                                   │
+│   + CreateTaskFull(ATask: TTask): string                         │
+│   + GetTask(const ATaskID: string): TTask                        │
+│   + GetAllTasks(): TTaskList                                     │
+│   + UpdateTask(ATask: TTask): Boolean                            │
+│   + DeleteTask(const ATaskID: string): Boolean                   │
+│   + TaskExists(const ATaskID: string): Boolean                   │
+├─────────────────────────────────────────────────────────────────┤
+│ Public Methods - Task Operations:                                │
+│   + CompleteTask(const ATaskID: string): Boolean                 │
+│   + StartTask(const ATaskID: string): Boolean                    │
+│   + CancelTask(const ATaskID: string): Boolean                   │
+│   + ReopenTask(const ATaskID: string): Boolean                   │
+│   + CloneTask(const ATaskID: string): string                     │
+│   + MoveTask(                                                    │
+│       const ATaskID: string;                                     │
+│       ANewCategory: TTaskCategory                                │
+│     ): Boolean                                                   │
+│   + SetTaskPriority(                                             │
+│       const ATaskID: string;                                     │
+│       APriority: TTaskPriority                                   │
+│     ): Boolean                                                   │
+│   + SetTaskDueDate(                                              │
+│       const ATaskID: string;                                     │
+│       ADueDate: TDateTime                                        │
+│     ): Boolean                                                   │
+│   + AddTaskTag(                                                  │
+│       const ATaskID: string;                                     │
+│       const ATag: string                                         │
+│     ): Boolean                                                   │
+│   + RemoveTaskTag(                                               │
+│       const ATaskID: string;                                     │
+│       const ATag: string                                         │
+│     ): Boolean                                                   │
+├─────────────────────────────────────────────────────────────────┤
+│ Public Methods - Filtering and Searching:                        │
+│   + FilterTasks(                                                 │
+│       ACriteria: TTaskFilterCriteria                             │
+│     ): TTaskList                                                 │
+│   + SearchTasks(const AQuery: string): TTaskList                 │
+│   + GetTasksByStatus(AStatus: TTaskStatus): TTaskList            │
+│   + GetTasksByPriority(                                          │
+│       APriority: TTaskPriority                                   │
+│     ): TTaskList                                                 │
+│   + GetTasksByCategory(                                          │
+│       ACategory: TTaskCategory                                   │
+│     ): TTaskList                                                 │
+│   + GetTasksByTag(const ATag: string): TTaskList                 │
+│   + GetOverdueTasks(): TTaskList                                 │
+│   + GetUpcomingTasks(ADays: Integer): TTaskList                  │
+│   + GetCompletedTasks(): TTaskList                               │
+│   + GetActiveTasks(): TTaskList                                  │
+├─────────────────────────────────────────────────────────────────┤
+│ Public Methods - Persistence:                                    │
+│   + SaveToFile(const AFileName: string): Boolean                 │
+│   + LoadFromFile(const AFileName: string): Boolean               │
+│   + Save(): Boolean                                              │
+│   + Load(): Boolean                                              │
+│   + ImportFromFile(                                              │
+│       const AFileName: string;                                   │
+│       AFormat: TStorageFormat                                    │
+│     ): Boolean                                                   │
+│   + ExportToFile(                                                │
+│       const AFileName: string;                                   │
+│       AFormat: TStorageFormat                                    │
+│     ): Boolean                                                   │
+│   + SetStorage(AStorage: ITaskStorage): void                     │
+├─────────────────────────────────────────────────────────────────┤
+│ Public Methods - Statistics and Analytics:                       │
+│   + GetStatistics(): TTaskStatisticsData                         │
+│   + GetCompletionRate(): Double                                  │
+│   + GetAverageCompletionTime(): Double                           │
+│   + GetProductivityScore(): Double                               │
+│   + GetTaskDistribution(): TTaskDistribution                     │
+├─────────────────────────────────────────────────────────────────┤
+│ Public Methods - Validation:                                     │
+│   + ValidateTask(ATask: TTask): TValidationResult                │
+│   + ValidateTaskData(                                            │
+│       const ATitle: string;                                      │
+│       const ADescription: string                                 │
+│     ): TValidationResult                                         │
+├─────────────────────────────────────────────────────────────────┤
+│ Public Methods - Batch Operations:                               │
+│   + BulkDelete(ATaskIDs: TStringList): Integer                   │
+│   + BulkUpdateStatus(                                            │
+│       ATaskIDs: TStringList;                                     │
+│       AStatus: TTaskStatus                                       │
+│     ): Integer                                                   │
+│   + BulkUpdatePriority(                                          │
+│       ATaskIDs: TStringList;                                     │
+│       APriority: TTaskPriority                                   │
+│     ): Integer                                                   │
+│   + BulkAddTag(                                                  │
+│       ATaskIDs: TStringList;                                     │
+│       const ATag: string                                         │
+│     ): Integer                                                   │
+│   + DeleteCompletedTasks(): Integer                              │
+│   + ArchiveOldTasks(ADaysOld: Integer): Integer                  │
+├─────────────────────────────────────────────────────────────────┤
+│ Public Methods - Utilities:                                      │
+│   + Clear(): void                                                │
+│   + GetUniqueTaskID(): string                                    │
+│   + GetAllTags(): TStringList                                    │
+│   + GetAllCategories(): TStringList                              │
+├─────────────────────────────────────────────────────────────────┤
+│ Private Methods:                                                 │
+│   - GetTaskCount(): Integer                                      │
+│   - DoAutoSave(): void                                           │
+│   - NotifyTaskAdded(ATask: TTask): void                          │
+│   - NotifyTaskUpdated(ATask: TTask): void                        │
+│   - NotifyTaskDeleted(const ATaskID: string): void               │
+│   - NotifyTaskCompleted(ATask: TTask): void                      │
+│   - ValidateTaskID(const ATaskID: string): Boolean               │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Key Characteristics:**
+- Inherits from: `TObject`
+- Central facade for all task management operations
+- Uses composition with `TTaskList`, `ITaskStorage`, `TTaskValidator`, `TTaskStatistics`
+- Implements event system for task state changes
+- Supports auto-save functionality
+- Thread-safe for read operations (write operations should be synchronized externally)
+
+#### 9.3.2 TTaskFilter Class Diagram
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        TTaskFilter                               │
+├─────────────────────────────────────────────────────────────────┤
+│ Private Fields:                                                  │
+│   FCriteria: TTaskFilterCriteria                                 │
+│   FMatchCount: Integer                                           │
+├─────────────────────────────────────────────────────────────────┤
+│ Public Properties:                                               │
+│   property Criteria: TTaskFilterCriteria read FCriteria          │
+│     write FCriteria                                              │
+│   property MatchCount: Integer read FMatchCount                  │
+├─────────────────────────────────────────────────────────────────┤
+│ Public Constructors:                                             │
+│   + Create(): TTaskFilter                                        │
+│   + Create(ACriteria: TTaskFilterCriteria): TTaskFilter          │
+├─────────────────────────────────────────────────────────────────┤
+│ Public Methods - Filtering:                                      │
+│   + Filter(ATaskList: TTaskList): TTaskList                      │
+│   + Matches(ATask: TTask): Boolean                               │
+│   + MatchesStatus(ATask: TTask): Boolean                         │
+│   + MatchesPriority(ATask: TTask): Boolean                       │
+│   + MatchesCategory(ATask: TTask): Boolean                       │
+│   + MatchesDateRange(ATask: TTask): Boolean                      │
+│   + MatchesTags(ATask: TTask): Boolean                           │
+│   + MatchesSearchQuery(ATask: TTask): Boolean                    │
+├─────────────────────────────────────────────────────────────────┤
+│ Public Methods - Criteria Building:                              │
+│   + SetStatusFilter(AStatus: TTaskStatus): TTaskFilter           │
+│   + SetPriorityFilter(                                           │
+│       APriority: TTaskPriority                                   │
+│     ): TTaskFilter                                               │
+│   + SetCategoryFilter(                                           │
+│       ACategory: TTaskCategory                                   │
+│     ): TTaskFilter                                               │
+│   + SetDateRangeFilter(                                          │
+│       AStartDate, AEndDate: TDateTime                            │
+│     ): TTaskFilter                                               │
+│   + SetTagFilter(const ATag: string): TTaskFilter                │
+│   + SetSearchQuery(const AQuery: string): TTaskFilter            │
+│   + SetOverdueFilter(): TTaskFilter                              │
+│   + SetCompletedFilter(): TTaskFilter                            │
+│   + ClearFilters(): TTaskFilter                                  │
+├─────────────────────────────────────────────────────────────────┤
+│ Public Methods - Advanced:                                       │
+│   + AddCustomFilter(                                             │
+│       AFilterFunc: TTaskFilterFunction                           │
+│     ): TTaskFilter                                               │
+│   + CombineWith(                                                 │
+│       AOther: TTaskFilter;                                       │
+│       AOperation: TFilterCombineOp                               │
+│     ): TTaskFilter                                               │
+│   + Clone(): TTaskFilter                                         │
+├─────────────────────────────────────────────────────────────────┤
+│ Private Methods:                                                 │
+│   - ApplyFilters(ATask: TTask): Boolean                          │
+│   - MatchesText(                                                 │
+│       const AText, AQuery: string                                │
+│     ): Boolean                                                   │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Key Characteristics:**
+- Inherits from: `TObject`
+- Fluent interface for building filter criteria
+- Supports method chaining
+- Can combine multiple filters with AND/OR logic
+- Immutable filter operations (returns new instances)
+
+#### 9.3.3 TTaskValidator Class Diagram
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                      TTaskValidator                              │
+├─────────────────────────────────────────────────────────────────┤
+│ Private Fields:                                                  │
+│   FMinTitleLength: Integer                                       │
+│   FMaxTitleLength: Integer                                       │
+│   FMinDescriptionLength: Integer                                 │
+│   FMaxDescriptionLength: Integer                                 │
+│   FRequireDueDate: Boolean                                       │
+│   FRequireCategory: Boolean                                      │
+│   FAllowPastDueDates: Boolean                                    │
+│   FCustomValidators: TList                                       │
+├─────────────────────────────────────────────────────────────────┤
+│ Public Properties:                                               │
+│   property MinTitleLength: Integer read FMinTitleLength          │
+│     write FMinTitleLength                                        │
+│   property MaxTitleLength: Integer read FMaxTitleLength          │
+│     write FMaxTitleLength                                        │
+│   property RequireDueDate: Boolean read FRequireDueDate          │
+│     write FRequireDueDate                                        │
+│   property RequireCategory: Boolean read FRequireCategory        │
+│     write FRequireCategory                                       │
+│   property AllowPastDueDates: Boolean read FAllowPastDueD...     │
+│     write FAllowPastDueDates                                     │
+├─────────────────────────────────────────────────────────────────┤
+│ Public Constructors:                                             │
+│   + Create(): TTaskValidator                                     │
+├─────────────────────────────────────────────────────────────────┤
+│ Public Destructor:                                               │
+│   + Destroy(): void override                                     │
+├─────────────────────────────────────────────────────────────────┤
+│ Public Methods - Validation:                                     │
+│   + Validate(ATask: TTask): TValidationResult                    │
+│   + ValidateTitle(const ATitle: string): TValidationResult       │
+│   + ValidateDescription(                                         │
+│       const ADescription: string                                 │
+│     ): TValidationResult                                         │
+│   + ValidateDueDate(ADueDate: TDateTime): TValidationResult      │
+│   + ValidatePriority(                                            │
+│       APriority: TTaskPriority                                   │
+│     ): TValidationResult                                         │
+│   + ValidateCategory(                                            │
+│       ACategory: TTaskCategory                                   │
+│     ): TValidationResult                                         │
+│   + ValidateStatus(AStatus: TTaskStatus): TValidationResult      │
+│   + ValidateTags(ATags: TStringList): TValidationResult          │
+│   + ValidateEstimatedHours(                                      │
+│       AHours: Double                                             │
+│     ): TValidationResult                                         │
+│   + IsValid(ATask: TTask): Boolean                               │
+├─────────────────────────────────────────────────────────────────┤
+│ Public Methods - Custom Validation:                              │
+│   + AddCustomValidator(                                          │
+│       AValidator: TCustomValidatorProc                           │
+│     ): void                                                      │
+│   + RemoveCustomValidator(                                       │
+│       AValidator: TCustomValidatorProc                           │
+│     ): void                                                      │
+│   + ClearCustomValidators(): void                                │
+├─────────────────────────────────────────────────────────────────┤
+│ Public Methods - Configuration:                                  │
+│   + SetDefaultRules(): void                                      │
+│   + SetStrictRules(): void                                       │
+│   + SetLenientRules(): void                                      │
+│   + LoadRulesFromConfig(const AFileName: string): Boolean        │
+│   + SaveRulesToConfig(const AFileName: string): Boolean          │
+├─────────────────────────────────────────────────────────────────┤
+│ Private Methods:                                                 │
+│   - ValidateLength(                                              │
+│       const AText: string;                                       │
+│       AMin, AMax: Integer;                                       │
+│       const AFieldName: string                                   │
+│     ): TValidationResult                                         │
+│   - AddError(                                                    │
+│       var AResult: TValidationResult;                            │
+│       const AMessage: string                                     │
+│     ): void                                                      │
+│   - AddWarning(                                                  │
+│       var AResult: TValidationResult;                            │
+│       const AMessage: string                                     │
+│     ): void                                                      │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Key Characteristics:**
+- Inherits from: `TObject`
+- Configurable validation rules
+- Supports custom validators via procedural callbacks
+- Returns detailed validation results with errors and warnings
+- Can load/save validation configuration
+
+#### 9.3.4 TTaskStatistics Class Diagram
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                     TTaskStatistics                              │
+├─────────────────────────────────────────────────────────────────┤
+│ Private Fields:                                                  │
+│   FTaskList: TTaskList                                           │
+│   FCachedData: TTaskStatisticsData                               │
+│   FCacheValid: Boolean                                           │
+├─────────────────────────────────────────────────────────────────┤
+│ Public Properties:                                               │
+│   property TaskList: TTaskList read FTaskList write SetTask...   │
+├─────────────────────────────────────────────────────────────────┤
+│ Public Constructors:                                             │
+│   + Create(ATaskList: TTaskList): TTaskStatistics                │
+├─────────────────────────────────────────────────────────────────┤
+│ Public Methods - Basic Statistics:                               │
+│   + GetTotalTasks(): Integer                                     │
+│   + GetCompletedTasks(): Integer                                 │
+│   + GetPendingTasks(): Integer                                   │
+│   + GetInProgressTasks(): Integer                                │
+│   + GetCancelledTasks(): Integer                                 │
+│   + GetOverdueTasks(): Integer                                   │
+│   + GetCompletionRate(): Double                                  │
+├─────────────────────────────────────────────────────────────────┤
+│ Public Methods - By Priority:                                    │
+│   + GetTasksByPriority(                                          │
+│       APriority: TTaskPriority                                   │
+│     ): Integer                                                   │
+│   + GetHighPriorityTasks(): Integer                              │
+│   + GetMediumPriorityTasks(): Integer                            │
+│   + GetLowPriorityTasks(): Integer                               │
+│   + GetPriorityDistribution(): TPriorityDistribution             │
+├─────────────────────────────────────────────────────────────────┤
+│ Public Methods - By Category:                                    │
+│   + GetTasksByCategory(                                          │
+│       ACategory: TTaskCategory                                   │
+│     ): Integer                                                   │
+│   + GetCategoryDistribution(): TCategoryDistribution             │
+│   + GetMostUsedCategory(): TTaskCategory                         │
+├─────────────────────────────────────────────────────────────────┤
+│ Public Methods - Time-Based:                                     │
+│   + GetAverageCompletionTime(): Double                           │
+│   + GetMedianCompletionTime(): Double                            │
+│   + GetTasksCreatedToday(): Integer                              │
+│   + GetTasksCreatedThisWeek(): Integer                           │
+│   + GetTasksCreatedThisMonth(): Integer                          │
+│   + GetTasksCompletedToday(): Integer                            │
+│   + GetTasksCompletedThisWeek(): Integer                         │
+│   + GetTasksCompletedThisMonth(): Integer                        │
+│   + GetTasksDueThisWeek(): Integer                               │
+│   + GetOldestTask(): TTask                                       │
+│   + GetNewestTask(): TTask                                       │
+├─────────────────────────────────────────────────────────────────┤
+│ Public Methods - Advanced Analytics:                             │
+│   + GetProductivityScore(): Double                               │
+│   + GetTaskVelocity(): Double                                    │
+│   + GetAverageTasksPerDay(): Double                              │
+│   + GetCompletionTrend(ADays: Integer): TArray<Double>           │
+│   + GetBusiestDayOfWeek(): Integer                               │
+│   + GetMostProductiveHour(): Integer                             │
+│   + GetTagFrequency(): TStringIntegerMap                         │
+│   + GetEstimatedVsActualHours(): TEstimateAccuracy               │
+├─────────────────────────────────────────────────────────────────┤
+│ Public Methods - Reporting:                                      │
+│   + GetFullStatistics(): TTaskStatisticsData                     │
+│   + GenerateReport(                                              │
+│       AFormat: TReportFormat                                     │
+│     ): string                                                    │
+│   + ExportStatistics(const AFileName: string): Boolean           │
+├─────────────────────────────────────────────────────────────────┤
+│ Private Methods:                                                 │
+│   - SetTaskList(AValue: TTaskList): void                         │
+│   - InvalidateCache(): void                                      │
+│   - CalculateStatistics(): void                                  │
+│   - GetTasksInDateRange(                                         │
+│       AStart, AEnd: TDateTime                                    │
+│     ): Integer                                                   │
+│   - CalculateCompletionTime(ATask: TTask): Double                │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Key Characteristics:**
+- Inherits from: `TObject`
+- Provides comprehensive analytics on task data
+- Implements caching for expensive calculations
+- Supports various reporting formats
+- Can analyze productivity trends over time
+
+### 9.4 Storage Layer Classes
+
+#### 9.4.1 ITaskStorage Interface Diagram
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                      ITaskStorage                                │
+│                      <<interface>>                               │
+├─────────────────────────────────────────────────────────────────┤
+│ Methods:                                                         │
+│   + SaveTasks(                                                   │
+│       ATaskList: TTaskList;                                      │
+│       const AFileName: string                                    │
+│     ): Boolean                                                   │
+│   + LoadTasks(                                                   │
+│       ATaskList: TTaskList;                                      │
+│       const AFileName: string                                    │
+│     ): Boolean                                                   │
+│   + GetFormatName(): string                                      │
+│   + GetFileExtension(): string                                   │
+│   + SupportsCompression(): Boolean                               │
+│   + SetCompression(AEnabled: Boolean): void                      │
+│   + Validate(const AFileName: string): Boolean                   │
+│   + GetLastError(): string                                       │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Key Characteristics:**
+- Interface (no implementation)
+- Defines contract for all storage implementations
+- Supports validation before loading
+- Error reporting through `GetLastError()`
+
+#### 9.4.2 TJSONTaskStorage Class Diagram
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    TJSONTaskStorage                              │
+├─────────────────────────────────────────────────────────────────┤
+│ Private Fields:                                                  │
+│   FPrettyPrint: Boolean                                          │
+│   FCompression: Boolean                                          │
+│   FLastError: string                                             │
+│   FEncoding: TEncoding                                           │
+├─────────────────────────────────────────────────────────────────┤
+│ Public Properties:                                               │
+│   property PrettyPrint: Boolean read FPrettyPrint write FPr...   │
+│   property Compression: Boolean read FCompression write FCo...   │
+│   property Encoding: TEncoding read FEncoding write FEncoding    │
+├─────────────────────────────────────────────────────────────────┤
+│ Public Constructors:                                             │
+│   + Create(): TJSONTaskStorage                                   │
+├─────────────────────────────────────────────────────────────────┤
+│ Interface Methods (ITaskStorage):                                │
+│   + SaveTasks(                                                   │
+│       ATaskList: TTaskList;                                      │
+│       const AFileName: string                                    │
+│     ): Boolean                                                   │
+│   + LoadTasks(                                                   │
+│       ATaskList: TTaskList;                                      │
+│       const AFileName: string                                    │
+│     ): Boolean                                                   │
+│   + GetFormatName(): string                                      │
+│   + GetFileExtension(): string                                   │
+│   + SupportsCompression(): Boolean                               │
+│   + SetCompression(AEnabled: Boolean): void                      │
+│   + Validate(const AFileName: string): Boolean                   │
+│   + GetLastError(): string                                       │
+├─────────────────────────────────────────────────────────────────┤
+│ Public Methods:                                                  │
+│   + TaskToJSON(ATask: TTask): TJSONObject                        │
+│   + JSONToTask(AJSON: TJSONObject): TTask                        │
+│   + TaskListToJSON(ATaskList: TTaskList): TJSONArray             │
+│   + JSONToTaskList(                                              │
+│       AJSON: TJSONArray;                                         │
+│       ATaskList: TTaskList                                       │
+│     ): Boolean                                                   │
+├─────────────────────────────────────────────────────────────────┤
+│ Private Methods:                                                 │
+│   - SerializeTask(ATask: TTask): TJSONObject                     │
+│   - DeserializeTask(AJSON: TJSONObject): TTask                   │
+│   - CompressData(const AData: string): string                    │
+│   - DecompressData(const AData: string): string                  │
+│   - SetLastError(const AError: string): void                     │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Key Characteristics:**
+- Inherits from: `TInterfacedObject`
+- Implements: `ITaskStorage`
+- Uses fpjson unit for JSON parsing
+- Supports pretty-printing and compression
+- UTF-8 encoding by default
+
+#### 9.4.3 TXMLTaskStorage Class Diagram
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                     TXMLTaskStorage                              │
+├─────────────────────────────────────────────────────────────────┤
+│ Private Fields:                                                  │
+│   FIndentation: Integer                                          │
+│   FCompression: Boolean                                          │
+│   FLastError: string                                             │
+│   FValidateSchema: Boolean                                       │
+│   FSchemaFile: string                                            │
+├─────────────────────────────────────────────────────────────────┤
+│ Public Properties:                                               │
+│   property Indentation: Integer read FIndentation write FIn...   │
+│   property ValidateSchema: Boolean read FValidateSchema w...     │
+│   property SchemaFile: string read FSchemaFile write FSchem...   │
+├─────────────────────────────────────────────────────────────────┤
+│ Public Constructors:                                             │
+│   + Create(): TXMLTaskStorage                                    │
+├─────────────────────────────────────────────────────────────────┤
+│ Interface Methods (ITaskStorage):                                │
+│   + SaveTasks(                                                   │
+│       ATaskList: TTaskList;                                      │
+│       const AFileName: string                                    │
+│     ): Boolean                                                   │
+│   + LoadTasks(                                                   │
+│       ATaskList: TTaskList;                                      │
+│       const AFileName: string                                    │
+│     ): Boolean                                                   │
+│   + GetFormatName(): string                                      │
+│   + GetFileExtension(): string                                   │
+│   + SupportsCompression(): Boolean                               │
+│   + SetCompression(AEnabled: Boolean): void                      │
+│   + Validate(const AFileName: string): Boolean                   │
+│   + GetLastError(): string                                       │
+├─────────────────────────────────────────────────────────────────┤
+│ Public Methods:                                                  │
+│   + TaskToXML(ATask: TTask): TDOMNode                            │
+│   + XMLToTask(ANode: TDOMNode): TTask                            │
+│   + CreateXMLDocument(                                           │
+│       ATaskList: TTaskList                                       │
+│     ): TXMLDocument                                              │
+│   + ParseXMLDocument(                                            │
+│       ADoc: TXMLDocument;                                        │
+│       ATaskList: TTaskList                                       │
+│     ): Boolean                                                   │
+├─────────────────────────────────────────────────────────────────┤
+│ Private Methods:                                                 │
+│   - SerializeTask(                                               │
+│       ATask: TTask;                                              │
+│       ADoc: TXMLDocument                                         │
+│     ): TDOMNode                                                  │
+│   - DeserializeTask(ANode: TDOMNode): TTask                      │
+│   - ValidateAgainstSchema(                                       │
+│       const AFileName: string                                    │
+│     ): Boolean                                                   │
+│   - SetLastError(const AError: string): void                     │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Key Characteristics:**
+- Inherits from: `TInterfacedObject`
+- Implements: `ITaskStorage`
+- Uses DOM (Document Object Model) for XML
+- Optional XSD schema validation
+- Supports configurable indentation
+
+#### 9.4.4 TCSVTaskStorage Class Diagram
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                     TCSVTaskStorage                              │
+├─────────────────────────────────────────────────────────────────┤
+│ Private Fields:                                                  │
+│   FDelimiter: Char                                               │
+│   FQuoteChar: Char                                               │
+│   FIncludeHeader: Boolean                                        │
+│   FLastError: string                                             │
+│   FCompression: Boolean                                          │
+├─────────────────────────────────────────────────────────────────┤
+│ Public Properties:                                               │
+│   property Delimiter: Char read FDelimiter write FDelimiter      │
+│   property QuoteChar: Char read FQuoteChar write FQuoteChar      │
+│   property IncludeHeader: Boolean read FIncludeHeader write...   │
+├─────────────────────────────────────────────────────────────────┤
+│ Public Constructors:                                             │
+│   + Create(): TCSVTaskStorage                                    │
+├─────────────────────────────────────────────────────────────────┤
+│ Interface Methods (ITaskStorage):                                │
+│   + SaveTasks(                                                   │
+│       ATaskList: TTaskList;                                      │
+│       const AFileName: string                                    │
+│     ): Boolean                                                   │
+│   + LoadTasks(                                                   │
+│       ATaskList: TTaskList;                                      │
+│       const AFileName: string                                    │
+│     ): Boolean                                                   │
+│   + GetFormatName(): string                                      │
+│   + GetFileExtension(): string                                   │
+│   + SupportsCompression(): Boolean                               │
+│   + SetCompression(AEnabled: Boolean): void                      │
+│   + Validate(const AFileName: string): Boolean                   │
+│   + GetLastError(): string                                       │
+├─────────────────────────────────────────────────────────────────┤
+│ Public Methods:                                                  │
+│   + TaskToCSVRow(ATask: TTask): string                           │
+│   + CSVRowToTask(const ARow: string): TTask                      │
+│   + GetHeaderRow(): string                                       │
+├─────────────────────────────────────────────────────────────────┤
+│ Private Methods:                                                 │
+│   - EscapeCSVField(const AField: string): string                 │
+│   - UnescapeCSVField(const AField: string): string               │
+│   - ParseCSVRow(const ARow: string): TStringArray                │
+│   - SetLastError(const AError: string): void                     │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Key Characteristics:**
+- Inherits from: `TInterfacedObject`
+- Implements: `ITaskStorage`
+- Configurable delimiter and quote characters
+- RFC 4180 compliant CSV parsing
+- Optional header row
+- Note: Limited support for complex structures (tags, subtasks stored as delimited strings)
+
+### 9.5 Utility Classes
+
+#### 9.5.1 TTaskUtils Class Diagram
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                       TTaskUtils                                 │
+│                    <<static class>>                              │
+├─────────────────────────────────────────────────────────────────┤
+│ Class Methods - ID Generation:                                   │
+│   + class function GenerateGUID(): string; static;               │
+│   + class function GenerateShortID(): string; static;            │
+│   + class function GenerateSequentialID(                         │
+│       APrefix: string                                            │
+│     ): string; static;                                           │
+├─────────────────────────────────────────────────────────────────┤
+│ Class Methods - Date/Time:                                       │
+│   + class function FormatDateTime(                               │
+│       ADateTime: TDateTime                                       │
+│     ): string; static;                                           │
+│   + class function ParseDateTime(                                │
+│       const ADateTimeStr: string                                 │
+│     ): TDateTime; static;                                        │
+│   + class function GetStartOfDay(                                │
+│       ADate: TDateTime                                           │
+│     ): TDateTime; static;                                        │
+│   + class function GetEndOfDay(                                  │
+│       ADate: TDateTime                                           │
+│     ): TDateTime; static;                                        │
+│   + class function GetStartOfWeek(                               │
+│       ADate: TDateTime                                           │
+│     ): TDateTime; static;                                        │
+│   + class function GetEndOfWeek(                                 │
+│       ADate: TDateTime                                           │
+│     ): TDateTime; static;                                        │
+│   + class function DaysBetween(                                  │
+│       ADate1, ADate2: TDateTime                                  │
+│     ): Integer; static;                                          │
+│   + class function IsToday(ADate: TDateTime): Boolean; static;   │
+│   + class function IsThisWeek(                                   │
+│       ADate: TDateTime                                           │
+│     ): Boolean; static;                                          │
+├─────────────────────────────────────────────────────────────────┤
+│ Class Methods - String Utilities:                                │
+│   + class function TrimString(                                   │
+│       const AStr: string                                         │
+│     ): string; static;                                           │
+│   + class function CompareStringsIgnoreCase(                     │
+│       const AStr1, AStr2: string                                 │
+│     ): Integer; static;                                          │
+│   + class function ContainsText(                                 │
+│       const AText, ASubText: string                              │
+│     ): Boolean; static;                                          │
+│   + class function SplitString(                                  │
+│       const AStr: string;                                        │
+│       ADelimiter: Char                                           │
+│     ): TStringArray; static;                                     │
+│   + class function JoinStrings(                                  │
+│       AStrings: TStringArray;                                    │
+│       const ASeparator: string                                   │
+│     ): string; static;                                           │
+├─────────────────────────────────────────────────────────────────┤
+│ Class Methods - Enum Conversions:                                │
+│   + class function StatusToString(                               │
+│       AStatus: TTaskStatus                                       │
+│     ): string; static;                                           │
+│   + class function StringToStatus(                               │
+│       const AStr: string                                         │
+│     ): TTaskStatus; static;                                      │
+│   + class function PriorityToString(                             │
+│       APriority: TTaskPriority                                   │
+│     ): string; static;                                           │
+│   + class function StringToPriority(                             │
+│       const AStr: string                                         │
+│     ): TTaskPriority; static;                                    │
+│   + class function CategoryToString(                             │
+│       ACategory: TTaskCategory                                   │
+│     ): string; static;                                           │
+│   + class function StringToCategory(                             │
+│       const AStr: string                                         │
+│     ): TTaskCategory; static;                                    │
+├─────────────────────────────────────────────────────────────────┤
+│ Class Methods - Validation:                                      │
+│   + class function IsValidEmail(                                 │
+│       const AEmail: string                                       │
+│     ): Boolean; static;                                          │
+│   + class function IsValidURL(                                   │
+│       const AURL: string                                         │
+│     ): Boolean; static;                                          │
+│   + class function IsValidGUID(                                  │
+│       const AGUID: string                                        │
+│     ): Boolean; static;                                          │
+├─────────────────────────────────────────────────────────────────┤
+│ Class Methods - File Utilities:                                  │
+│   + class function GetFileExtension(                             │
+│       const AFileName: string                                    │
+│     ): string; static;                                           │
+│   + class function ChangeFileExtension(                          │
+│       const AFileName, ANewExt: string                           │
+│     ): string; static;                                           │
+│   + class function FileExists(                                   │
+│       const AFileName: string                                    │
+│     ): Boolean; static;                                          │
+│   + class function CreateBackupFile(                             │
+│       const AFileName: string                                    │
+│     ): Boolean; static;                                          │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Key Characteristics:**
+- All methods are class methods (static)
+- No instance creation needed
+- Provides utility functions used across the library
+- Pure functions (no side effects)
+
+### 9.6 Enumerations and Records
+
+#### 9.6.1 Enumeration Type Definitions
+
+```pascal
+type
+  // Task status enumeration
+  TTaskStatus = (
+    tsPending,      // Task created but not started
+    tsInProgress,   // Task actively being worked on
+    tsCompleted,    // Task finished successfully
+    tsCancelled,    // Task cancelled/abandoned
+    tsOnHold        // Task temporarily paused
+  );
+
+  // Task priority enumeration
+  TTaskPriority = (
+    tpLow,          // Low priority task
+    tpMedium,       // Medium priority task
+    tpHigh,         // High priority task
+    tpCritical      // Critical/urgent task
+  );
+
+  // Task category enumeration
+  TTaskCategory = (
+    tcWork,         // Work-related task
+    tcPersonal,     // Personal task
+    tcShopping,     // Shopping/errands
+    tcHealth,       // Health/fitness
+    tcEducation,    // Learning/education
+    tcHousehold,    // Household chores
+    tcOther         // Miscellaneous
+  );
+
+  // Storage format enumeration
+  TStorageFormat = (
+    sfJSON,         // JSON format
+    sfXML,          // XML format
+    sfCSV           // CSV format
+  );
+
+  // Sort order enumeration
+  TSortOrder = (
+    soAscending,    // A-Z, 0-9, oldest-newest
+    soDescending    // Z-A, 9-0, newest-oldest
+  );
+
+  // Sort field enumeration
+  TSortField = (
+    sfTitle,        // Sort by task title
+    sfPriority,     // Sort by priority
+    sfDueDate,      // Sort by due date
+    sfStatus,       // Sort by status
+    sfCreatedDate,  // Sort by creation date
+    sfCategory      // Sort by category
+  );
+```
+
+#### 9.6.2 Record Type Definitions
+
+```pascal
+type
+  // Validation result record
+  TValidationResult = record
+    IsValid: Boolean;
+    Errors: TStringList;
+    Warnings: TStringList;
+    
+    procedure AddError(const AMessage: string);
+    procedure AddWarning(const AMessage: string);
+    procedure Clear;
+    function HasErrors: Boolean;
+    function HasWarnings: Boolean;
+    function GetErrorCount: Integer;
+    function GetWarningCount: Integer;
+    function ToString: string;
+  end;
+
+  // Task filter criteria record
+  TTaskFilterCriteria = record
+    Status: TTaskStatus;
+    Priority: TTaskPriority;
+    Category: TTaskCategory;
+    StartDate: TDateTime;
+    EndDate: TDateTime;
+    SearchQuery: string;
+    Tags: TStringList;
+    IncludeCompleted: Boolean;
+    IncludeCancelled: Boolean;
+    OnlyOverdue: Boolean;
+    
+    procedure Clear;
+    function IsEmpty: Boolean;
+  end;
+
+  // Task statistics data record
+  TTaskStatisticsData = record
+    TotalTasks: Integer;
+    CompletedTasks: Integer;
+    PendingTasks: Integer;
+    InProgressTasks: Integer;
+    CancelledTasks: Integer;
+    OverdueTasks: Integer;
+    CompletionRate: Double;
+    AverageCompletionTime: Double;
+    HighPriorityCount: Integer;
+    MediumPriorityCount: Integer;
+    LowPriorityCount: Integer;
+    TasksByCategory: array[TTaskCategory] of Integer;
+    
+    procedure Clear;
+    function ToString: string;
+  end;
+```
+
+### 9.7 Class Relationship Diagram
+
+```
+                    ┌──────────────┐
+                    │ TTaskManager │
+                    └──────┬───────┘
+                           │
+                           │ owns
+                           ▼
+        ┌──────────────────┴──────────────────┐
+        │                                      │
+        ▼                                      ▼
+   ┌──────────┐                        ┌──────────────┐
+   │ TTaskList│◄───────────────────────│ ITaskStorage │
+   └────┬─────┘                        └──────┬───────┘
+        │                                     │
+        │ contains                            │ implements
+        │ multiple                            │
+        ▼                                     ▼
+   ┌────────┐           ┌───────────────────────────────┐
+   │ TTask  │           │  ┌──────────────────────┐     │
+   └────────┘           │  │ TJSONTaskStorage     │     │
+        │               │  ├──────────────────────┤     │
+        │ uses          │  │ TXMLTaskStorage      │     │
+        ▼               │  ├──────────────────────┤     │
+   ┌──────────────┐    │  │ TCSVTaskStorage      │     │
+   │ TTaskUtils   │    │  └──────────────────────┘     │
+   │ (static)     │    └───────────────────────────────┘
+   └──────────────┘
+        ▲
+        │ uses
+        │
+   ┌────┴─────────┐
+   │              │
+   ▼              ▼
+┌────────────┐ ┌──────────────┐
+│ TTaskFilter│ │TTaskValidator│
+└────────────┘ └──────────────┘
+   ▲              ▲
+   │              │
+   │ uses         │ uses
+   │              │
+   └──────┬───────┘
+          │
+          ▼
+   ┌──────────────────┐
+   │ TTaskStatistics  │
+   └──────────────────┘
+```
+
+### 9.8 Inheritance Hierarchy
+
+```
+TObject (FPC RTL)
+│
+├─ TTask
+│
+├─ TTaskList
+│
+├─ TTaskManager
+│
+├─ TTaskFilter
+│
+├─ TTaskValidator
+│
+├─ TTaskStatistics
+│
+└─ TInterfacedObject
+    │
+    ├─ TJSONTaskStorage (implements ITaskStorage)
+    │
+    ├─ TXMLTaskStorage (implements ITaskStorage)
+    │
+    └─ TCSVTaskStorage (implements ITaskStorage)
+```
+
+### 9.9 Method Signature Details
+
+#### 9.9.1 Key Type Definitions for Method Signatures
+
+```pascal
+type
+  // Event handler types
+  TTaskEvent = procedure(ATask: TTask) of object;
+  TTaskFilterFunction = function(ATask: TTask): Boolean;
+  TTaskComparator = function(Task1, Task2: TTask): Integer;
+  TCustomValidatorProc = procedure(
+    ATask: TTask; 
+    var AResult: TValidationResult
+  );
+
+  // Array types
+  TStringArray = array of string;
+  TTaskArray = array of TTask;
+
+  // Map types (simplified - could use generics)
+  TStringIntegerMap = class
+    // Maps string keys to integer values
+    // Used for tag frequency, etc.
+  end;
+
+  // Distribution types
+  TPriorityDistribution = record
+    Low: Integer;
+    Medium: Integer;
+    High: Integer;
+    Critical: Integer;
+  end;
+
+  TCategoryDistribution = array[TTaskCategory] of Integer;
+
+  TTaskDistribution = record
+    ByStatus: array[TTaskStatus] of Integer;
+    ByPriority: TPriorityDistribution;
+    ByCategory: TCategoryDistribution;
+  end;
+
+  TEstimateAccuracy = record
+    TotalTasks: Integer;
+    AverageEstimatedHours: Double;
+    AverageActualHours: Double;
+    AccuracyPercentage: Double;
+  end;
+
+  // Report format
+  TReportFormat = (
+    rfPlainText,
+    rfJSON,
+    rfXML,
+    rfHTML,
+    rfMarkdown
+  );
+
+  // Filter combination operation
+  TFilterCombineOp = (
+    fcoAnd,  // Both filters must match
+    fcoOr,   // Either filter must match
+    fcoXor   // Exactly one filter must match
+  );
+
+  // Encoding type
+  TEncoding = (
+    encUTF8,
+    encUTF16,
+    encASCII
+  );
+```
+
+### 9.10 Property Access Methods
+
+Most properties use private fields with getter/setter methods for:
+
+1. **Validation**: Setters can validate data before assignment
+2. **Side Effects**: Setters can trigger updates (e.g., updating `UpdatedAt` timestamp)
+3. **Lazy Loading**: Getters can calculate or load data on-demand
+4. **Encapsulation**: Prevent direct field access
+
+**Example Pattern:**
+```pascal
+type
+  TTask = class
+  private
+    FTitle: string;
+    procedure SetTitle(const AValue: string);
+  public
+    property Title: string read FTitle write SetTitle;
+  end;
+
+procedure TTask.SetTitle(const AValue: string);
+begin
+  if FTitle <> AValue then
+  begin
+    FTitle := AValue;
+    UpdateTimestamp;  // Side effect: update timestamp
+  end;
+end;
+```
+
+### 9.11 Memory Management Notes
+
+1. **TTask**: Owns its `TStringList` instances (Tags, Subtasks) - frees them in destructor
+2. **TTaskList**: By default owns contained `TTask` objects (controlled by `OwnsObjects` property)
+3. **TTaskManager**: Owns its `TTaskList`, `TTaskValidator`, and `TTaskStatistics` instances
+4. **Filter Results**: Methods like `FilterByStatus` return new `TTaskList` instances - caller must free
+5. **Storage Implementations**: Implement reference counting via `TInterfacedObject`
+6. **Validation Results**: `TValidationResult` owns its `TStringList` instances (Errors, Warnings)
+
+**Best Practice:** Always use try-finally blocks when working with returned objects:
+
+```pascal
+var
+  FilteredTasks: TTaskList;
+begin
+  FilteredTasks := TaskManager.FilterTasks(MyCriteria);
+  try
+    // Use FilteredTasks
+  finally
+    FilteredTasks.Free;
+  end;
+end;
+```
+
+---
+
+**End of Section 9: Class Diagrams and Methods/Properties**
