@@ -5120,6 +5120,319 @@ function LoadFocusDataFromFile(const AFilename: string): Boolean;
 - **Personal Analytics:** Generate insights from focus patterns and trends
 
 
+### Comments & Discussions (TCommentedTaskManager)
+
+**Module:** `taskmanagercomments.pas`  
+**Inherits from:** TWellbeingTaskManager  
+**Lines of Code:** 1,502  
+**Key Features:** Threaded Comments, Reactions, Mentions, Attachments, Moderation, Edit History
+
+The Comments & Discussions module transforms task management into a collaborative platform by enabling rich, threaded discussions on tasks. Team members can comment, reply, react, attach files, and mention others, creating a comprehensive communication layer around each task.
+
+**Core Capabilities:**
+
+1. **Threaded Discussions**
+   - Top-level comments on tasks
+   - Nested replies to create conversation threads
+   - Automatic mention detection (@username)
+   - Reply count tracking
+   
+2. **Social Reactions**
+   - Six reaction types: Like, Helpful, Agree, Disagree, ThumbsUp, ThumbsDown
+   - Multiple users can react to the same comment
+   - Reaction count aggregation per comment
+   
+3. **Rich Attachments**
+   - Links, images, documents, code snippets
+   - Attachment metadata (title, description, URL)
+   - Multiple attachments per comment
+   
+4. **Edit History & Auditing**
+   - Complete edit history for each comment
+   - Track who edited and when
+   - Optional edit reason field
+   - Previous content preservation
+   
+5. **Moderation Features**
+   - Pin important comments
+   - Hide inappropriate content
+   - Flag comments for review
+   - Soft delete (recoverable)
+
+**Basic Usage:**
+
+```pascal
+uses taskmanagercomments;
+
+var
+  Manager: TCommentedTaskManager;
+  TaskID, CommentID, ReplyID: Integer;
+  Comments: TTaskCommentArray;
+  Thread: TCommentThread;
+begin
+  Manager := TCommentedTaskManager.Create;
+  try
+    // Create a task first (inherited functionality)
+    TaskID := Manager.AddTask(
+      'Implement authentication',
+      'Add OAuth2 support',
+      'Backend',
+      tpHigh,
+      Now + 7,
+      8.0
+    );
+    
+    // Add a top-level comment
+    CommentID := Manager.AddComment(
+      TaskID,
+      'john.doe',
+      'Started working on this. @jane.smith can you review the OAuth flow?'
+    );
+    WriteLn('Added comment: ', CommentID);
+    
+    // Add a reply to the comment
+    ReplyID := Manager.AddReply(
+      CommentID,
+      'jane.smith',
+      'Sure! I''ll review it this afternoon.'
+    );
+    
+    // Add a reaction
+    Manager.AddReaction(ReplyID, rtThumbsUp, 'john.doe');
+    
+    // Add an attachment with a link
+    Manager.AddAttachment(
+      CommentID,
+      catLink,
+      'https://oauth.net/2/',
+      'OAuth 2.0 Specification',
+      'Official OAuth 2.0 documentation'
+    );
+    
+    // Retrieve all comments for the task
+    Comments := Manager.GetTaskComments(TaskID);
+    WriteLn(Format('Task has %d comments', [Length(Comments)]));
+    
+    // Get comment thread (with replies)
+    Thread := Manager.GetCommentThread(CommentID);
+    WriteLn(Format('Thread has %d total replies', [Thread.TotalReplies]));
+    
+  finally
+    Manager.Free;
+  end;
+end.
+```
+
+**Advanced Features:**
+
+```pascal
+// Edit a comment with audit trail
+Manager.EditComment(
+  CommentID,
+  'Updated: Started working on OAuth2. @jane.smith please review.',
+  'Clarified the OAuth version'
+);
+
+// Pin an important comment
+Manager.PinComment(CommentID);
+
+// Search comments across all tasks
+SearchResults := Manager.SearchComments('OAuth');
+for Comment in SearchResults do
+  WriteLn('Found in task ', Comment.TaskID, ': ', Comment.Content);
+
+// Get mentions for a specific user
+Mentions := Manager.GetMentions('jane.smith');
+WriteLn(Format('@jane.smith has %d mentions', [Length(Mentions)]));
+
+// Get comment statistics
+Stats := Manager.GetCommentStatistics;
+WriteLn('Total comments: ', Stats.TotalComments);
+WriteLn('Total threads: ', Stats.TotalThreads);
+WriteLn('Total reactions: ', Stats.TotalReactions);
+WriteLn('Most active task: ', Stats.MostActiveTask);
+
+// Export comments to Markdown
+MarkdownText := Manager.ExportCommentsToMarkdown(TaskID);
+// Save to file or display in documentation
+```
+
+**Data Structures:**
+
+```pascal
+type
+  // Reaction types available
+  TReactionType = (rtLike, rtHelpful, rtAgree, rtDisagree, 
+                   rtThumbsUp, rtThumbsDown);
+  
+  // Comment status for moderation
+  TCommentStatus = (csVisible, csHidden, csPinned, 
+                    csDeleted, csFlagged);
+  
+  // Attachment types supported
+  TCommentAttachmentType = (catLink, catImage, 
+                            catDocument, catCode);
+  
+  // Main comment record
+  TTaskComment = record
+    ID: Integer;
+    TaskID: Integer;
+    ParentCommentID: Integer;  // 0 for top-level
+    AuthorName: string;
+    Content: string;
+    CreatedDate: TDateTime;
+    ModifiedDate: TDateTime;
+    Status: TCommentStatus;
+    IsEdited: Boolean;
+    EditHistory: TEditHistoryArray;
+    Mentions: TStringArray;    // Extracted @username
+    ReplyCount: Integer;
+    ReactionCounts: array[TReactionType] of Integer;
+  end;
+```
+
+**Key Methods:**
+
+**Comment Management:**
+- `AddComment(TaskID, AuthorName, Content): Integer` - Add top-level comment
+- `AddReply(ParentCommentID, AuthorName, Content): Integer` - Reply to comment
+- `EditComment(CommentID, NewContent, EditReason): Boolean` - Edit with history
+- `DeleteComment(CommentID): Boolean` - Soft delete comment
+- `GetComment(CommentID): TTaskComment` - Get single comment
+- `GetTaskComments(TaskID): TTaskCommentArray` - All comments for task
+- `GetCommentReplies(ParentCommentID): TTaskCommentArray` - Get replies
+- `GetCommentThread(RootCommentID): TCommentThread` - Full thread with replies
+- `GetAllThreads(TaskID): TCommentThreadArray` - All threads for task
+
+**Reactions:**
+- `AddReaction(CommentID, ReactionType, UserName): Integer` - React to comment
+- `RemoveReaction(ReactionID): Boolean` - Remove reaction
+- `GetCommentReactions(CommentID): TCommentReactionArray` - All reactions
+- `GetUserReaction(CommentID, UserName): Integer` - Specific user's reaction
+
+**Attachments:**
+- `AddAttachment(CommentID, Type, URL, Title, Description): Integer` - Attach file/link
+- `RemoveAttachment(AttachmentID): Boolean` - Remove attachment
+- `GetCommentAttachments(CommentID): TCommentAttachmentArray` - All attachments
+
+**Moderation:**
+- `PinComment(CommentID): Boolean` - Pin comment to top
+- `UnpinComment(CommentID): Boolean` - Unpin comment
+- `HideComment(CommentID): Boolean` - Hide from view
+- `UnhideComment(CommentID): Boolean` - Make visible again
+- `FlagComment(CommentID): Boolean` - Flag for moderation
+
+**Search & Analytics:**
+- `SearchComments(SearchTerm): TTaskCommentArray` - Full-text search
+- `GetCommentsByAuthor(AuthorName): TTaskCommentArray` - Filter by author
+- `GetCommentsByDateRange(Start, End): TTaskCommentArray` - Date filter
+- `GetPinnedComments(TaskID): TTaskCommentArray` - Only pinned comments
+- `GetMentions(UserName): TTaskCommentArray` - Find all @mentions
+- `GetCommentStatistics: TCommentStatistics` - System-wide stats
+- `GetTaskCommentCount(TaskID): Integer` - Comment count per task
+- `GetMostCommentedTasks(Limit): TIntegerArray` - Top discussed tasks
+- `GetMostActiveCommenters(Limit): TStringArray` - Most active users
+
+**Export:**
+- `ExportCommentsToMarkdown(TaskID): string` - Export as Markdown
+- `ExportCommentsToHTML(TaskID): string` - Export as HTML
+- `ExportThreadToMarkdown(RootCommentID): string` - Export thread
+- `SaveCommentsToFile(Filename): Boolean` - Save to file
+- `LoadCommentsFromFile(Filename): Boolean` - Load from file
+
+**Practical Examples:**
+
+**Example 1: Code Review Discussion**
+```pascal
+// Developer posts code for review
+ReviewCommentID := Manager.AddComment(
+  TaskID,
+  'dev.alice',
+  'Ready for review. @lead.bob please check the error handling.'
+);
+
+// Attach code snippet
+Manager.AddAttachment(
+  ReviewCommentID,
+  catCode,
+  'https://gist.github.com/alice/abc123',
+  'Error handling implementation',
+  'New try-catch blocks added'
+);
+
+// Lead reviews and comments
+Manager.AddReply(
+  ReviewCommentID,
+  'lead.bob',
+  'Good work! Just one concern about the timeout value.'
+);
+
+// Others react
+Manager.AddReaction(ReviewCommentID, rtHelpful, 'dev.charlie');
+Manager.AddReaction(ReviewCommentID, rtAgree, 'dev.diana');
+```
+
+**Example 2: Team Collaboration**
+```pascal
+// Pin important update
+UpdateID := Manager.AddComment(
+  TaskID,
+  'project.manager',
+  'IMPORTANT: Deadline moved to next Friday. @team please note.'
+);
+Manager.PinComment(UpdateID);
+
+// Team members acknowledge
+Manager.AddReaction(UpdateID, rtThumbsUp, 'dev.alice');
+Manager.AddReaction(UpdateID, rtThumbsUp, 'dev.bob');
+
+// Get all mentions for notification
+Mentions := Manager.GetMentions('team');
+// Send notifications to mentioned users
+```
+
+**Example 3: Documentation & Knowledge Sharing**
+```pascal
+// Document a solution
+DocCommentID := Manager.AddComment(
+  TaskID,
+  'senior.dev',
+  'Fixed the race condition by adding a mutex. See attached documentation.'
+);
+
+// Attach documentation
+Manager.AddAttachment(
+  DocCommentID,
+  catDocument,
+  'https://wiki.company.com/race-conditions',
+  'Race Condition Best Practices',
+  'Internal wiki article on thread safety'
+);
+
+// Others find it helpful
+Manager.AddReaction(DocCommentID, rtHelpful, 'junior.dev1');
+Manager.AddReaction(DocCommentID, rtHelpful, 'junior.dev2');
+
+// Later: Search for this knowledge
+Results := Manager.SearchComments('race condition');
+// Results will include this helpful comment
+```
+
+**Use Cases:**
+
+- **Code Reviews:** Threaded discussions on implementation details
+- **Team Communication:** Asynchronous collaboration on tasks
+- **Knowledge Base:** Documenting solutions and best practices
+- **Decision Making:** Track discussions that led to decisions
+- **Stakeholder Updates:** Keep everyone informed with @mentions
+- **Bug Reporting:** Detailed conversations about issues
+- **Feature Requests:** Community discussion and feedback
+- **Documentation:** Inline documentation attached to tasks
+- **Training:** Senior developers mentoring juniors through comments
+- **Project History:** Audit trail of all task-related discussions
+
+
+
 ## Development History
 
 ### Version 3.0 - December 2024
