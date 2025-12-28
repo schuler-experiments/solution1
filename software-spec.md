@@ -3583,3 +3583,694 @@ This section clarifies that **user interface design is intentionally excluded** 
 - Clean separation of concerns enables better testability and maintainability
 
 ---
+
+
+## 7. Third-Party Libraries and Services
+
+### 7.1 Overview
+
+The Free Pascal Task Manager leverages carefully selected third-party libraries and services to provide robust, enterprise-grade functionality while maintaining code quality, performance, and maintainability. This section documents all external dependencies, their purposes, integration patterns, and licensing considerations.
+
+### 7.2 Core Framework: mORMot 2.x
+
+#### 7.2.1 Purpose and Role
+
+**mORMot** (Model-Object-Relational-Mapping for Delphi and Free Pascal) is the foundational framework for this project, providing:
+
+- **ORM (Object-Relational Mapping):** Type-safe database access with automatic CRUD operations
+- **RESTful Services:** Built-in REST server and client capabilities
+- **JSON Support:** High-performance JSON serialization/deserialization
+- **SQLite3 Integration:** Embedded database engine with full ACID compliance
+- **Cross-Platform Support:** Works on Windows, Linux, macOS, and FreeBSD
+
+#### 7.2.2 Version Requirements
+
+```pascal
+{
+  mORMot Version: 2.x (latest stable)
+  Minimum Version: 2.0
+  Recommended: 2.2+
+  
+  Repository: https://github.com/synopse/mORMot2
+  Documentation: https://synopse.info/fossil/wiki/Synopse+OpenSource
+}
+```
+
+#### 7.2.3 Key Components Used
+
+**1. mormot.orm.core**
+- Base ORM functionality
+- `TOrm` base class for all persistent models
+- `TRestServer` and `TRestClient` for data access
+
+```pascal
+uses
+  mormot.orm.core,
+  mormot.orm.base,
+  mormot.orm.sqlite3;
+
+type
+  TTaskModel = class(TOrm)
+  private
+    FTitle: RawUtf8;
+    FDescription: RawUtf8;
+    FPriority: Integer;
+    FStatus: Integer;
+    FDueDate: TDateTime;
+  published
+    property Title: RawUtf8 read FTitle write FTitle;
+    property Description: RawUtf8 read FDescription write FDescription;
+    property Priority: Integer read FPriority write FPriority;
+    property Status: Integer read FStatus write FStatus;
+    property DueDate: TDateTime read FDueDate write FDueDate;
+  end;
+```
+
+**2. mormot.db.raw.sqlite3**
+- SQLite3 database engine
+- High-performance embedded database
+- Full SQL support with transactions
+
+**3. mormot.core.json**
+- Fast JSON parsing and generation
+- Automatic object-to-JSON serialization
+- Support for complex nested structures
+
+**4. mormot.core.data**
+- Data type definitions and utilities
+- Variant handling and conversions
+- Dynamic arrays and collections
+
+**5. mormot.rest.server**
+- RESTful API server (optional for web services)
+- HTTP/HTTPS protocol support
+- Authentication and authorization
+
+#### 7.2.4 Integration Pattern
+
+```pascal
+unit TaskManagerCore;
+
+interface
+
+uses
+  mormot.orm.core,
+  mormot.orm.sqlite3,
+  mormot.rest.server,
+  mormot.rest.sqlite3;
+
+type
+  TTaskManagerDatabase = class
+  private
+    FModel: TOrmModel;
+    FServer: TRestServerDB;
+  public
+    constructor Create(const ADatabaseFileName: TFileName);
+    destructor Destroy; override;
+    
+    function GetServer: TRestServer;
+    property Server: TRestServer read GetServer;
+  end;
+
+implementation
+
+constructor TTaskManagerDatabase.Create(const ADatabaseFileName: TFileName);
+begin
+  inherited Create;
+  
+  // Create ORM model with all entities
+  FModel := TOrmModel.Create([
+    TTaskModel,
+    TCommentModel,
+    TTagModel,
+    TTaskTagModel,
+    TProjectModel,
+    TBoardModel,
+    TUserModel
+  ]);
+  
+  // Create SQLite3 REST server
+  FServer := TRestServerDB.Create(FModel, ADatabaseFileName);
+  FServer.CreateMissingTables;
+end;
+
+destructor TTaskManagerDatabase.Destroy;
+begin
+  FServer.Free;
+  FModel.Free;
+  inherited;
+end;
+```
+
+#### 7.2.5 License
+
+- **License:** MPL 1.1/GPL 2.0/LGPL 2.1 tri-license
+- **Commercial Use:** Allowed
+- **Attribution:** Required in documentation
+- **Modifications:** Must be disclosed if distributed
+
+### 7.3 Free Pascal Compiler (FPC)
+
+#### 7.3.1 Version Requirements
+
+```
+Minimum Version: FPC 3.2.0
+Recommended: FPC 3.2.2 or later
+Target: 64-bit platforms (x86_64, ARM64)
+```
+
+#### 7.3.2 Required Packages
+
+```bash
+# Debian/Ubuntu
+sudo apt-get install fpc
+sudo apt-get install fpc-source
+
+# Fedora/RedHat
+sudo dnf install fpc
+sudo dnf install fpc-src
+
+# macOS (via Homebrew)
+brew install fpc
+```
+
+#### 7.3.3 Compiler Directives
+
+```pascal
+{$mode objfpc}{$H+}
+{$modeswitch advancedrecords}
+{$modeswitch typehelpers}
+{$interfaces corba}
+
+// Optimization flags
+{$optimization level3}
+{$inline on}
+{$ifdef release}
+  {$assertions off}
+  {$debuginfo off}
+{$endif}
+```
+
+### 7.4 Optional Libraries
+
+#### 7.4.1 Lazarus Component Library (LCL) - For GUI Applications
+
+**Purpose:** Optional, only if building GUI applications
+
+```pascal
+// LCL is NOT required for the core library
+// Only needed by consumer GUI applications
+
+uses
+  Forms, Controls, StdCtrls, Grids; // LCL components
+```
+
+**Installation:**
+```bash
+# Full Lazarus IDE installation includes LCL
+sudo apt-get install lazarus
+```
+
+#### 7.4.2 FCL (Free Component Library)
+
+**Purpose:** Standard Free Pascal library (included with FPC)
+
+**Key Units Used:**
+- `Classes` - Object-oriented base classes (TObject, TList, TStringList)
+- `SysUtils` - System utilities and exception handling
+- `DateUtils` - Date/time manipulation
+- `StrUtils` - String utilities
+
+```pascal
+uses
+  Classes,      // TComponent, TList, TStringList
+  SysUtils,     // Exception, Format, FileExists
+  DateUtils,    // IncDay, DaysBetween, etc.
+  StrUtils;     // String manipulation
+```
+
+#### 7.4.3 Synopse Libraries (Part of mORMot)
+
+**mormot.core.base**
+- Base types and utilities
+- Cross-platform abstractions
+- Memory management helpers
+
+**mormot.core.log**
+- Comprehensive logging framework
+- Performance monitoring
+- Debug and trace capabilities
+
+```pascal
+uses
+  mormot.core.log;
+
+var
+  Log: TSynLog;
+
+begin
+  Log := TSynLog.Family.Add;
+  Log.Log(sllInfo, 'Task created: %', [TaskTitle]);
+end;
+```
+
+### 7.5 Database: SQLite3
+
+#### 7.5.1 Purpose
+
+SQLite3 serves as the embedded database engine, providing:
+- File-based database storage
+- ACID compliance
+- Cross-platform compatibility
+- Zero-configuration operation
+- Full SQL support
+
+#### 7.5.2 Integration
+
+SQLite3 is integrated via mORMot's `mormot.db.raw.sqlite3` unit, which provides:
+- Static linking (no external DLL required)
+- Optimized for mORMot ORM
+- Thread-safe operations
+- Transaction support
+
+#### 7.5.3 Database Schema Management
+
+```pascal
+// Automatic table creation based on ORM models
+FServer.CreateMissingTables;
+
+// Manual schema updates if needed
+FServer.Server.DB.Execute(
+  'CREATE INDEX IF NOT EXISTS idx_tasks_duedate ON tasks(duedate)'
+);
+```
+
+#### 7.5.4 Database File Location
+
+```pascal
+const
+  DEFAULT_DATABASE_FILE = 'taskmanager.db';
+  
+// Linux/Unix
+// ~/.local/share/taskmanager/taskmanager.db
+
+// Windows
+// %APPDATA%\TaskManager\taskmanager.db
+
+// macOS
+// ~/Library/Application Support/TaskManager/taskmanager.db
+```
+
+### 7.6 External Services (Optional)
+
+#### 7.6.1 Email Notifications (SMTP)
+
+**Purpose:** Optional email notification support
+
+**Libraries:**
+- `mormot.net.client` - HTTP/SMTP client
+- Indy (alternative): `IdSMTP`, `IdMessage`
+
+```pascal
+// Example: Send email notification using mORMot
+uses
+  mormot.net.client;
+
+procedure SendTaskNotification(const AEmail, ATaskTitle: string);
+var
+  Client: THttpClientSocket;
+begin
+  // Implementation would use SMTP or web service API
+  // This is optional functionality
+end;
+```
+
+#### 7.6.2 Calendar Integration (Optional)
+
+**Purpose:** Integration with external calendars (Google Calendar, iCal)
+
+**Libraries:**
+- Custom HTTP REST clients using mORMot
+- OAuth2 authentication via `mormot.net.oauth`
+
+### 7.7 Development Tools
+
+#### 7.7.1 IDE Support
+
+**Lazarus IDE (Recommended)**
+- Version: 2.2.0 or later
+- Code completion
+- Integrated debugger
+- Visual form designer (for GUI apps)
+
+**VS Code (Alternative)**
+- Pascal extension: OmniPascal or Pascal Language Server
+- Tasks integration
+- Git integration
+
+#### 7.7.2 Build Tools
+
+**fpmake**
+```pascal
+// fpmake.pp - Build script
+program fpmake;
+
+uses fpmkunit;
+
+Var
+  P : TPackage;
+  T : TTarget;
+
+begin
+  With Installer do
+    begin
+      P:=AddPackage('taskmanager');
+      P.Version:='1.0.0';
+
+      P.Dependencies.Add('mormot');
+      
+      T:=P.Targets.AddUnit('taskmanager.pas');
+      T.Dependencies.AddUnit('task_models');
+      T.Dependencies.AddUnit('task_services');
+      
+      Run;
+    end;
+end.
+```
+
+**Make**
+```makefile
+# Makefile
+FPC=fpc
+FPCFLAGS=-O3 -XX -CX -Mobjfpc
+
+all: taskmanager
+
+taskmanager:
+	$(FPC) $(FPCFLAGS) taskmanager.pas
+
+clean:
+	rm -f *.o *.ppu *.a taskmanager
+
+test:
+	$(FPC) $(FPCFLAGS) -Fu../src tests/test_taskmanager.pas
+	./tests/test_taskmanager
+```
+
+### 7.8 Testing Libraries
+
+#### 7.8.1 FPCUnit
+
+**Purpose:** Unit testing framework for Free Pascal
+
+```pascal
+unit TaskServiceTests;
+
+{$mode objfpc}{$H+}
+
+interface
+
+uses
+  Classes, SysUtils, fpcunit, testregistry,
+  task_services, task_models;
+
+type
+  TTaskServiceTest = class(TTestCase)
+  private
+    FService: ITaskService;
+  protected
+    procedure SetUp; override;
+    procedure TearDown; override;
+  published
+    procedure TestCreateTask;
+    procedure TestUpdateTask;
+    procedure TestDeleteTask;
+    procedure TestGetTaskById;
+  end;
+
+implementation
+
+procedure TTaskServiceTest.SetUp;
+begin
+  // Initialize service with test database
+  FService := TTaskServiceImpl.Create(':memory:');
+end;
+
+procedure TTaskServiceTest.TestCreateTask;
+var
+  Task: TTaskModel;
+begin
+  Task := TTaskModel.Create;
+  try
+    Task.Title := 'Test Task';
+    Task.Description := 'Test Description';
+    
+    FService.CreateTask(Task);
+    
+    AssertTrue('Task ID should be assigned', Task.ID > 0);
+    AssertEquals('Test Task', Task.Title);
+  finally
+    Task.Free;
+  end;
+end;
+
+initialization
+  RegisterTest(TTaskServiceTest);
+end.
+```
+
+#### 7.8.2 DUnit2 (Alternative)
+
+**Purpose:** Alternative testing framework compatible with Delphi's DUnit
+
+```bash
+# Installation
+git clone https://github.com/VSoftTechnologies/DUnit2.git
+```
+
+### 7.9 Version Control and Dependencies Management
+
+#### 7.9.1 Git Submodules
+
+```bash
+# Add mORMot2 as submodule
+git submodule add https://github.com/synopse/mORMot2.git lib/mormot2
+
+# Initialize and update
+git submodule init
+git submodule update
+```
+
+#### 7.9.2 fppkg (FPC Package Manager)
+
+```bash
+# Install packages
+fppkg install mormot
+
+# List installed packages
+fppkg list
+```
+
+### 7.10 Dependency Summary Table
+
+| Component | Version | Purpose | License | Required |
+|-----------|---------|---------|---------|----------|
+| Free Pascal Compiler | 3.2.2+ | Compilation | GPL | Yes |
+| mORMot 2.x | 2.2+ | ORM, REST, JSON | MPL/GPL/LGPL | Yes |
+| SQLite3 | 3.x (via mORMot) | Database | Public Domain | Yes |
+| FCL | (included with FPC) | Standard library | LGPL | Yes |
+| FPCUnit | 3.x | Unit testing | LGPL | Dev only |
+| Lazarus LCL | 2.2+ | GUI components | LGPL | Optional |
+| Indy | 10.x | Network protocols | BSD-like | Optional |
+
+### 7.11 License Compliance
+
+#### 7.11.1 Project License
+
+The Free Pascal Task Manager itself is licensed under:
+- **License:** MIT License (permissive)
+- **Commercial Use:** Allowed
+- **Modification:** Allowed
+- **Distribution:** Allowed with attribution
+
+#### 7.11.2 Third-Party License Summary
+
+**mORMot (MPL/GPL/LGPL tri-license):**
+- Static linking allowed under LGPL
+- No viral requirements if using LGPL terms
+- Commercial use permitted
+
+**Free Pascal Compiler (GPL):**
+- Runtime library exception allows proprietary applications
+- Compiled binaries are not subject to GPL
+
+**SQLite3 (Public Domain):**
+- No restrictions
+- Free for commercial use
+
+#### 7.11.3 Attribution Requirements
+
+Include in documentation and about dialogs:
+
+```
+This software uses the following open-source components:
+
+- mORMot Framework (https://synopse.info)
+  Copyright (c) Synopse Informatique
+  Licensed under MPL 1.1/GPL 2.0/LGPL 2.1
+
+- Free Pascal Compiler (https://www.freepascal.org)
+  Copyright (c) Free Pascal Team
+  Licensed under GPL with runtime library exception
+
+- SQLite3 (https://www.sqlite.org)
+  Public Domain
+```
+
+### 7.12 Installation and Setup Guide
+
+#### 7.12.1 Prerequisites Installation
+
+**Linux (Ubuntu/Debian):**
+```bash
+# Install FPC and Lazarus
+sudo apt-get update
+sudo apt-get install -y fpc lazarus
+
+# Clone mORMot2
+cd ~/projects
+git clone https://github.com/synopse/mORMot2.git
+```
+
+**Windows:**
+```batch
+REM Download and install Lazarus (includes FPC)
+REM https://www.lazarus-ide.org/
+
+REM Clone mORMot2
+cd C:\Projects
+git clone https://github.com/synopse/mORMot2.git
+```
+
+**macOS:**
+```bash
+# Install FPC via Homebrew
+brew install fpc
+
+# Clone mORMot2
+cd ~/Projects
+git clone https://github.com/synopse/mORMot2.git
+```
+
+#### 7.12.2 Project Configuration
+
+**fpc.cfg** (Compiler configuration):
+```
+# Add mORMot source path
+-Fu/path/to/mORMot2/src/core
+-Fu/path/to/mORMot2/src/db
+-Fu/path/to/mORMot2/src/orm
+-Fu/path/to/mORMot2/src/rest
+
+# Output directory
+-FU./lib/$(TargetCPU)-$(TargetOS)
+
+# Optimizations
+-O3
+-XX
+-CX
+```
+
+**lazarus.lpi** (Lazarus project configuration):
+```xml
+<CompilerOptions>
+  <SearchPaths>
+    <OtherUnitFiles Value="../mORMot2/src/core;../mORMot2/src/orm"/>
+  </SearchPaths>
+  <CodeGeneration>
+    <Optimizations>
+      <OptimizationLevel Value="3"/>
+    </Optimizations>
+  </CodeGeneration>
+</CompilerOptions>
+```
+
+### 7.13 Security Considerations
+
+#### 7.13.1 Database Security
+
+```pascal
+// Use parameterized queries (mORMot handles this automatically)
+// NEVER use string concatenation for SQL
+
+// WRONG:
+// SQL := 'SELECT * FROM Tasks WHERE Title = ''' + UserInput + '''';
+
+// CORRECT (mORMot ORM handles this):
+TaskList := FServer.RetrieveList<TTaskModel>(
+  'Title LIKE ?', ['%' + UserInput + '%']
+);
+```
+
+#### 7.13.2 Input Validation
+
+```pascal
+uses
+  mormot.core.text; // For string sanitization
+
+function SanitizeInput(const AInput: RawUtf8): RawUtf8;
+begin
+  Result := StringReplaceAll(AInput, [#0, #13, #10], ' ');
+  Result := Trim(Result);
+end;
+```
+
+### 7.14 Performance Optimization
+
+#### 7.14.1 mORMot Performance Settings
+
+```pascal
+// Enable batch operations
+FServer.Server.AcquireExecutionMode[execOrmWrite] := amBackgroundThread;
+
+// Use batch inserts
+FServer.BatchStart(TTaskModel);
+try
+  for i := 0 to 999 do
+  begin
+    Task := TTaskModel.Create;
+    Task.Title := 'Batch Task ' + IntToStr(i);
+    FServer.BatchAdd(Task, true);
+  end;
+  FServer.BatchSend(Results);
+finally
+  FServer.BatchAbort;
+end;
+```
+
+#### 7.14.2 SQLite Optimization
+
+```pascal
+// Pragma settings for better performance
+FServer.Server.DB.Execute('PRAGMA journal_mode=WAL');
+FServer.Server.DB.Execute('PRAGMA synchronous=NORMAL');
+FServer.Server.DB.Execute('PRAGMA cache_size=10000');
+FServer.Server.DB.Execute('PRAGMA temp_store=MEMORY');
+```
+
+### 7.15 Future Considerations
+
+#### 7.15.1 Potential Additional Libraries
+
+- **Synapse** - Alternative networking library
+- **Brook Framework** - Web application framework
+- **ZeosLib** - Multi-database connectivity (if moving beyond SQLite)
+- **Graphics Libraries** - For report generation (if needed)
+
+#### 7.15.2 Cloud Services Integration
+
+- REST API clients for cloud storage
+- OAuth2 authentication libraries
+- WebSocket support for real-time updates
+
+---
