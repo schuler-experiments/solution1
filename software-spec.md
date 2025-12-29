@@ -1294,6 +1294,37 @@ Manages relationships and dependencies between tasks, enabling complex task work
 - **Thread Safety**: Can be wrapped in thread-safe decorator if needed
 - **Persistence**: Dependencies are serialized with task data
 
+### 2.13 Task Recurrence Module (`TaskRecurrence.pas`)
+
+**Purpose**: Manages recurring task patterns and generates task instances based on recurrence rules.
+
+**Key Classes**:
+- `TRecurrencePattern`: Enumeration of recurrence types
+- `TRecurrenceRule`: Configuration for task recurrence
+- `TRecurrenceEngine`: Generates task instances from patterns
+- `TRecurrenceException`: Handles skipped occurrences
+
+**Responsibilities**:
+- Define recurrence patterns (daily, weekly, monthly, yearly, custom)
+- Calculate next occurrence dates based on rules
+- Handle exception dates (skip specific occurrences)
+- Generate task instances for date ranges
+- Validate recurrence rules
+- Support complex recurrence patterns (e.g., "every 2nd Tuesday")
+- Integrate with task validation and persistence layers
+
+**Dependencies**:
+- Uses: `TaskModel.pas`, `TaskList.pas`, `SysUtils`, `DateUtils`, `Classes`
+- Used by: `TaskManager.pas`, `TaskFilter.pas`, `TaskStorage.pas` implementations
+
+**Design Considerations**:
+- **Immutability**: Recurrence rules are immutable once created for thread safety
+- **Performance**: Efficient date calculation algorithms (O(1) for simple patterns)
+- **Flexibility**: Support for complex recurrence patterns and exceptions
+- **Validation**: Comprehensive validation of recurrence rules before use
+- **Storage**: Recurrence rules serialize/deserialize with task data
+- **Instance Generation**: Lazy generation strategy to avoid creating unnecessary instances
+- **Template Pattern**: Uses template method pattern for different recurrence calculations
 ## 3. Data Models and Structures
 
 ### 3.1 TTaskStatus Enumeration
@@ -1662,6 +1693,273 @@ type
   end;
 ```
 
+### 3.13 TRecurrencePattern Enumeration
+
+Defines the types of recurrence patterns supported by the task manager.
+
+```pascal
+type
+  TRecurrencePattern = (
+    rpNone,           // No recurrence (one-time task) - default
+    rpDaily,          // Repeats every day(s)
+    rpWeekly,         // Repeats every week(s) on specific days
+    rpMonthly,        // Repeats every month(s) on specific day
+    rpYearly,         // Repeats every year(s) on specific date
+    rpCustom          // Custom pattern with specific interval
+  );
+```
+
+**Usage Notes:**
+- `rpNone`: Default for all tasks - indicates a one-time task
+- `rpDaily`: Can be configured with interval (e.g., every 2 days)
+- `rpWeekly`: Requires `DaysOfWeek` to be set (e.g., Monday and Friday)
+- `rpMonthly`: Uses `DayOfMonth` (1-31, or 0 for last day of month)
+- `rpYearly`: Uses `MonthOfYear` (1-12) and `DayOfMonth`
+- `rpCustom`: For advanced patterns not covered by standard types
+
+### 3.14 TDayOfWeek Set Type
+
+Defines days of the week for weekly recurrence patterns.
+
+```pascal
+type
+  TDayOfWeek = (
+    dwSunday,
+    dwMonday,
+    dwTuesday,
+    dwWednesday,
+    dwThursday,
+    dwFriday,
+    dwSaturday
+  );
+  
+  TDaysOfWeek = set of TDayOfWeek;
+```
+
+**Example Usage:**
+```pascal
+// Every weekday (Monday-Friday)
+Rule.DaysOfWeek := [dwMonday, dwTuesday, dwWednesday, dwThursday, dwFriday];
+
+// Every weekend
+Rule.DaysOfWeek := [dwSaturday, dwSunday];
+
+// Every Monday, Wednesday, and Friday
+Rule.DaysOfWeek := [dwMonday, dwWednesday, dwFriday];
+```
+
+### 3.15 TRecurrenceRule Class
+
+Encapsulates all configuration for a recurring task pattern.
+
+```pascal
+type
+  TRecurrenceRule = class
+  private
+    FPattern: TRecurrencePattern;
+    FInterval: Integer;              // Repeat every N days/weeks/months/years
+    FStartDate: TDateTime;           // When recurrence begins
+    FEndDate: TDateTime;             // When recurrence ends (0 = no end)
+    FMaxOccurrences: Integer;        // Maximum number of occurrences (0 = unlimited)
+    FDaysOfWeek: TDaysOfWeek;        // For weekly recurrence
+    FDayOfMonth: Integer;            // For monthly/yearly (1-31, 0=last day)
+    FMonthOfYear: Integer;           // For yearly recurrence (1-12)
+    FExceptionDates: TList<TDateTime>; // Dates to skip
+    FGeneratedCount: Integer;        // Internal: count of generated instances
+    
+    procedure ValidatePattern;
+    procedure ValidateInterval;
+    procedure ValidateDates;
+  public
+    constructor Create(APattern: TRecurrencePattern);
+    destructor Destroy; override;
+    
+    // Properties
+    property Pattern: TRecurrencePattern read FPattern write FPattern;
+    property Interval: Integer read FInterval write FInterval;
+    property StartDate: TDateTime read FStartDate write FStartDate;
+    property EndDate: TDateTime read FEndDate write FEndDate;
+    property MaxOccurrences: Integer read FMaxOccurrences write FMaxOccurrences;
+    property DaysOfWeek: TDaysOfWeek read FDaysOfWeek write FDaysOfWeek;
+    property DayOfMonth: Integer read FDayOfMonth write FDayOfMonth;
+    property MonthOfYear: Integer read FMonthOfYear write FMonthOfYear;
+    property ExceptionDates: TList<TDateTime> read FExceptionDates;
+    property GeneratedCount: Integer read FGeneratedCount write FGeneratedCount;
+    
+    // Validation
+    function IsValid: Boolean;
+    function GetValidationErrors: TStringList;
+    
+    // Exception date management
+    procedure AddExceptionDate(const ADate: TDateTime);
+    procedure RemoveExceptionDate(const ADate: TDateTime);
+    function IsExceptionDate(const ADate: TDateTime): Boolean;
+    procedure ClearExceptionDates;
+    
+    // Utility methods
+    function Clone: TRecurrenceRule;
+    function Equals(ARule: TRecurrenceRule): Boolean;
+    function ToString: string; override;
+    function ToHumanReadable: string;  // "Every 2 weeks on Monday and Friday"
+    
+    // Serialization support
+    function ToJSON: string;
+    procedure FromJSON(const AJSON: string);
+  end;
+```
+
+**Key Features:**
+- **Immutable Core**: Pattern type cannot change after creation
+- **Flexible Configuration**: Supports simple and complex recurrence rules
+- **Validation**: Comprehensive validation before use
+- **Exception Handling**: Skip specific occurrences
+- **Human Readable**: Convert rules to natural language
+- **Serialization**: Full JSON support for persistence
+
+**Validation Rules:**
+- `Interval` must be >= 1
+- `StartDate` must be set and valid
+- `EndDate` (if set) must be after `StartDate`
+- `MaxOccurrences` (if set) must be >= 1
+- For weekly patterns, at least one day must be selected
+- For monthly patterns, `DayOfMonth` must be 0-31
+- For yearly patterns, `MonthOfYear` must be 1-12
+
+### 3.16 TRecurrenceEngine Class
+
+Calculates occurrence dates and generates task instances from recurrence rules.
+
+```pascal
+type
+  TRecurrenceEngine = class
+  private
+    FRule: TRecurrenceRule;
+    
+    // Pattern-specific calculation methods
+    function CalculateNextDaily(const AFromDate: TDateTime): TDateTime;
+    function CalculateNextWeekly(const AFromDate: TDateTime): TDateTime;
+    function CalculateNextMonthly(const AFromDate: TDateTime): TDateTime;
+    function CalculateNextYearly(const AFromDate: TDateTime): TDateTime;
+    function CalculateNextCustom(const AFromDate: TDateTime): TDateTime;
+    
+    // Helper methods
+    function IsDateValid(const ADate: TDateTime): Boolean;
+    function AdjustForExceptions(const ADate: TDateTime): TDateTime;
+    function GetLastDayOfMonth(Year, Month: Word): Word;
+    function GetNextWeekdayOccurrence(const AFromDate: TDateTime; 
+                                     ADayOfWeek: TDayOfWeek): TDateTime;
+  public
+    constructor Create(ARule: TRecurrenceRule);
+    destructor Destroy; override;
+    
+    // Core recurrence calculation
+    function GetNextOccurrence(const AFromDate: TDateTime): TDateTime;
+    function GetPreviousOccurrence(const AFromDate: TDateTime): TDateTime;
+    function GetOccurrencesBetween(const AStartDate, AEndDate: TDateTime): TList<TDateTime>;
+    function GetNextNOccurrences(const AFromDate: TDateTime; N: Integer): TList<TDateTime>;
+    
+    // Validation and queries
+    function WillOccurOn(const ADate: TDateTime): Boolean;
+    function GetOccurrenceCount(const AStartDate, AEndDate: TDateTime): Integer;
+    function HasEnded(const AAsOfDate: TDateTime): Boolean;
+    function GetEffectiveEndDate: TDateTime;  // Calculates end based on max occurrences
+    
+    // Task generation from template
+    function GenerateTaskInstance(const ATemplate: TTask; 
+                                  const AOccurrenceDate: TDateTime): TTask;
+    function GenerateTaskInstances(const ATemplate: TTask;
+                                   const AStartDate, AEndDate: TDateTime): TTaskList;
+    
+    // Statistics
+    function GetAverageInterval: Double;  // Average days between occurrences
+    function GetTotalOccurrences: Integer;  // Total if end date is set
+    
+    property Rule: TRecurrenceRule read FRule;
+  end;
+```
+
+**Design Pattern**: Uses **Template Method Pattern** where `GetNextOccurrence` delegates to pattern-specific calculation methods.
+
+**Performance Characteristics:**
+- Daily/Weekly patterns: O(1) calculation
+- Monthly/Yearly patterns: O(1) to O(12) depending on constraints
+- Exception date checking: O(n) where n = number of exceptions
+- Instance generation: O(k) where k = number of occurrences
+
+**Thread Safety**: Read-only operations are thread-safe. Not safe for concurrent rule modification.
+
+### 3.17 Enhanced TTask Class for Recurrence
+
+Extensions to the existing `TTask` class to support recurring tasks.
+
+**Additional Fields:**
+
+```pascal
+type
+  TTask = class
+  private
+    // ... existing fields ...
+    
+    // Recurrence-related fields
+    FIsRecurring: Boolean;
+    FRecurrenceRule: TRecurrenceRule;
+    FParentRecurringTaskID: Integer;  // 0 if template, >0 if instance
+    FRecurrenceInstanceDate: TDateTime; // The occurrence date for this instance
+    FRecurrenceSeriesID: string;      // Unique ID for the recurrence series
+    
+    procedure SetRecurrenceRule(ARule: TRecurrenceRule);
+  public
+    // ... existing methods ...
+    
+    // Recurrence methods
+    function IsRecurringTask: Boolean;      // Is this a recurring template?
+    function IsRecurrenceInstance: Boolean; // Is this a generated instance?
+    procedure SetRecurrence(ARule: TRecurrenceRule);
+    procedure ClearRecurrence;
+    function GetRecurrenceRule: TRecurrenceRule;
+    function GetNextOccurrence: TDateTime;
+    function GetPreviousOccurrence: TDateTime;
+    
+    // Properties
+    property IsRecurring: Boolean read FIsRecurring;
+    property RecurrenceRule: TRecurrenceRule read FRecurrenceRule write SetRecurrenceRule;
+    property ParentRecurringTaskID: Integer read FParentRecurringTaskID write FParentRecurringTaskID;
+    property RecurrenceInstanceDate: TDateTime read FRecurrenceInstanceDate write FRecurrenceInstanceDate;
+    property RecurrenceSeriesID: string read FRecurrenceSeriesID write FRecurrenceSeriesID;
+  end;
+```
+
+**Usage Patterns:**
+
+```pascal
+// Creating a recurring task template
+var
+  Template: TTask;
+  Rule: TRecurrenceRule;
+begin
+  Template := TTask.Create('Weekly team meeting');
+  
+  Rule := TRecurrenceRule.Create(rpWeekly);
+  Rule.Interval := 1;
+  Rule.DaysOfWeek := [dwMonday];
+  Rule.StartDate := Date;
+  
+  Template.SetRecurrence(Rule);
+  // Template.IsRecurring = True
+  // Template.IsRecurrenceInstance = False
+  // Template.ParentRecurringTaskID = 0
+end;
+
+// Checking if a task is a generated instance
+if MyTask.IsRecurrenceInstance then
+  WriteLn('This task is part of series: ', MyTask.RecurrenceSeriesID);
+```
+
+**Storage Considerations:**
+- Template tasks store the full `TRecurrenceRule`
+- Instance tasks store only `ParentRecurringTaskID`, `RecurrenceInstanceDate`, and `RecurrenceSeriesID`
+- Instances can be edited independently of the template
+- Deleting a template can optionally delete all instances
 ## 4. API Endpoints and Usage
 
 ### 4.1 Overview
@@ -2395,6 +2693,463 @@ begin
 end;
 ```
 
+### 4.9 Recurring Tasks API
+
+The Recurring Tasks API provides comprehensive functionality for creating, managing, and generating instances from recurring task patterns.
+
+#### 4.9.1 Creating a Simple Recurring Task
+
+```pascal
+uses
+  TaskManager, TaskModel, TaskRecurrence;
+
+var
+  RecurringTask: TTask;
+  Rule: TRecurrenceRule;
+begin
+  // Create the task template
+  RecurringTask := TTask.Create('Daily standup meeting');
+  RecurringTask.Description := 'Team sync meeting at 9:00 AM';
+  RecurringTask.Priority := tpNormal;
+  RecurringTask.Category := tcWork;
+  RecurringTask.EstimatedMinutes := 15;
+  
+  // Create a daily recurrence rule
+  Rule := TRecurrenceRule.Create(rpDaily);
+  Rule.Interval := 1;  // Every day
+  Rule.StartDate := Date;  // Start today
+  Rule.EndDate := Date + 90;  // End in 90 days
+  
+  // Apply the rule to the task
+  RecurringTask.SetRecurrence(Rule);
+  
+  // Add to task manager
+  TaskMgr.AddTask(RecurringTask);
+  
+  WriteLn('Created recurring task: ', RecurringTask.Title);
+  WriteLn('Pattern: ', Rule.ToHumanReadable);
+end;
+```
+
+#### 4.9.2 Creating a Weekly Recurring Task
+
+```pascal
+var
+  WeeklyTask: TTask;
+  WeeklyRule: TRecurrenceRule;
+begin
+  WeeklyTask := TTask.Create('Team retrospective');
+  WeeklyTask.Description := 'Weekly team retrospective and planning';
+  WeeklyTask.Priority := tpHigh;
+  WeeklyTask.EstimatedMinutes := 60;
+  
+  // Every Friday
+  WeeklyRule := TRecurrenceRule.Create(rpWeekly);
+  WeeklyRule.Interval := 1;
+  WeeklyRule.DaysOfWeek := [dwFriday];
+  WeeklyRule.StartDate := Date;
+  WeeklyRule.MaxOccurrences := 52;  // One year (52 weeks)
+  
+  WeeklyTask.SetRecurrence(WeeklyRule);
+  TaskMgr.AddTask(WeeklyTask);
+end;
+```
+
+#### 4.9.3 Creating a Complex Weekly Pattern
+
+```pascal
+var
+  Task: TTask;
+  Rule: TRecurrenceRule;
+begin
+  // Every weekday (Monday through Friday)
+  Task := TTask.Create('Check emails');
+  
+  Rule := TRecurrenceRule.Create(rpWeekly);
+  Rule.Interval := 1;
+  Rule.DaysOfWeek := [dwMonday, dwTuesday, dwWednesday, dwThursday, dwFriday];
+  Rule.StartDate := Date;
+  // No end date - continues indefinitely
+  
+  Task.SetRecurrence(Rule);
+  TaskMgr.AddTask(Task);
+end;
+```
+
+#### 4.9.4 Creating Monthly Recurring Tasks
+
+```pascal
+var
+  MonthlyTask: TTask;
+  MonthlyRule: TRecurrenceRule;
+begin
+  // First Monday of every month
+  MonthlyTask := TTask.Create('Monthly status report');
+  
+  MonthlyRule := TRecurrenceRule.Create(rpMonthly);
+  MonthlyRule.Interval := 1;  // Every month
+  MonthlyRule.DayOfMonth := 1;  // 1st day of month
+  MonthlyRule.StartDate := EncodeDate(2024, 1, 1);
+  MonthlyRule.MaxOccurrences := 12;  // One year
+  
+  MonthlyTask.SetRecurrence(MonthlyRule);
+  TaskMgr.AddTask(MonthlyTask);
+  
+  // Last day of every month
+  MonthlyTask := TTask.Create('Month-end closing');
+  MonthlyRule := TRecurrenceRule.Create(rpMonthly);
+  MonthlyRule.Interval := 1;
+  MonthlyRule.DayOfMonth := 0;  // 0 = last day of month
+  MonthlyRule.StartDate := Date;
+  
+  MonthlyTask.SetRecurrence(MonthlyRule);
+  TaskMgr.AddTask(MonthlyTask);
+end;
+```
+
+#### 4.9.5 Generating Task Instances
+
+```pascal
+uses
+  TaskRecurrence;
+
+var
+  Template: TTask;
+  Engine: TRecurrenceEngine;
+  Instances: TTaskList;
+  Instance: TTask;
+  StartDate, EndDate: TDateTime;
+begin
+  // Get the recurring task template
+  Template := TaskMgr.GetTaskByID(123);
+  
+  if Template.IsRecurring then
+  begin
+    // Create recurrence engine
+    Engine := TRecurrenceEngine.Create(Template.RecurrenceRule);
+    try
+      // Generate instances for the next 30 days
+      StartDate := Date;
+      EndDate := Date + 30;
+      
+      Instances := Engine.GenerateTaskInstances(Template, StartDate, EndDate);
+      try
+        WriteLn(Format('Generated %d task instances', [Instances.Count]));
+        
+        // Add each instance to the task manager
+        for Instance in Instances do
+        begin
+          TaskMgr.AddTask(Instance);
+          WriteLn(Format('  Instance for %s', [DateToStr(Instance.RecurrenceInstanceDate)]));
+        end;
+      finally
+        Instances.Free;
+      end;
+    finally
+      Engine.Free;
+    end;
+  end;
+end;
+```
+
+#### 4.9.6 Working with Exception Dates
+
+```pascal
+var
+  Task: TTask;
+  Rule: TRecurrenceRule;
+  HolidayDate, VacationStart, VacationEnd: TDateTime;
+  CurrentDate: TDateTime;
+begin
+  Task := TaskMgr.GetTaskByID(456);
+  
+  if Task.IsRecurring then
+  begin
+    Rule := Task.RecurrenceRule;
+    
+    // Skip specific holidays
+    HolidayDate := EncodeDate(2024, 12, 25);  // Christmas
+    Rule.AddExceptionDate(HolidayDate);
+    
+    HolidayDate := EncodeDate(2024, 1, 1);  // New Year's Day
+    Rule.AddExceptionDate(HolidayDate);
+    
+    // Skip a range of dates (vacation period)
+    VacationStart := EncodeDate(2024, 7, 1);
+    VacationEnd := EncodeDate(2024, 7, 14);
+    CurrentDate := VacationStart;
+    
+    while CurrentDate <= VacationEnd do
+    begin
+      Rule.AddExceptionDate(CurrentDate);
+      CurrentDate := CurrentDate + 1;
+    end;
+    
+    // Update the task
+    TaskMgr.UpdateTask(Task);
+    
+    WriteLn(Format('Added %d exception dates', [Rule.ExceptionDates.Count]));
+  end;
+end;
+```
+
+#### 4.9.7 Querying Recurrence Information
+
+```pascal
+var
+  Task: TTask;
+  Engine: TRecurrenceEngine;
+  NextOccurrence: TDateTime;
+  OccurrenceCount: Integer;
+  Occurrences: TList<TDateTime>;
+  OccDate: TDateTime;
+begin
+  Task := TaskMgr.GetTaskByID(789);
+  
+  if Task.IsRecurring then
+  begin
+    WriteLn('Task: ', Task.Title);
+    WriteLn('Pattern: ', Task.RecurrenceRule.ToHumanReadable);
+    
+    // Get next occurrence
+    NextOccurrence := Task.GetNextOccurrence;
+    WriteLn('Next occurrence: ', DateTimeToStr(NextOccurrence));
+    
+    // Create engine for advanced queries
+    Engine := TRecurrenceEngine.Create(Task.RecurrenceRule);
+    try
+      // Check if task will occur on a specific date
+      if Engine.WillOccurOn(EncodeDate(2024, 12, 31)) then
+        WriteLn('Task will occur on Dec 31, 2024');
+      
+      // Count occurrences in a date range
+      OccurrenceCount := Engine.GetOccurrenceCount(Date, Date + 365);
+      WriteLn(Format('Will occur %d times in the next year', [OccurrenceCount]));
+      
+      // Get next 10 occurrences
+      Occurrences := Engine.GetNextNOccurrences(Date, 10);
+      try
+        WriteLn('Next 10 occurrences:');
+        for OccDate in Occurrences do
+          WriteLn('  - ', DateToStr(OccDate));
+      finally
+        Occurrences.Free;
+      end;
+      
+      // Check if recurrence has ended
+      if Engine.HasEnded(Date) then
+        WriteLn('This recurrence has ended');
+    finally
+      Engine.Free;
+    end;
+  end;
+end;
+```
+
+#### 4.9.8 Modifying Recurring Task Instances
+
+```pascal
+var
+  Instance: TTask;
+  Template: TTask;
+begin
+  // Get a specific instance
+  Instance := TaskMgr.GetTaskByID(1001);
+  
+  if Instance.IsRecurrenceInstance then
+  begin
+    WriteLn('This is an instance of series: ', Instance.RecurrenceSeriesID);
+    WriteLn('Instance date: ', DateToStr(Instance.RecurrenceInstanceDate));
+    WriteLn('Parent template ID: ', Instance.ParentRecurringTaskID);
+    
+    // Modify this instance independently
+    Instance.Status := tsCompleted;
+    Instance.Notes := 'Completed early this week';
+    TaskMgr.UpdateTask(Instance);
+    
+    // The template task remains unchanged
+    Template := TaskMgr.GetTaskByID(Instance.ParentRecurringTaskID);
+    WriteLn('Template status: ', GetEnumName(TypeInfo(TTaskStatus), Ord(Template.Status)));
+  end;
+end;
+```
+
+#### 4.9.9 Deleting Recurring Tasks
+
+```pascal
+var
+  Template: TTask;
+  Instances: TTaskList;
+  Instance: TTask;
+begin
+  Template := TaskMgr.GetTaskByID(500);
+  
+  if Template.IsRecurring then
+  begin
+    // Option 1: Delete only the template (keep instances)
+    TaskMgr.DeleteTask(Template.ID);
+    
+    // Option 2: Delete template and all future instances
+    Template := TaskMgr.GetTaskByID(500);
+    Instances := TaskMgr.GetTasksByFilter(
+      function(T: TTask): Boolean
+      begin
+        Result := (T.ParentRecurringTaskID = Template.ID) and
+                  (T.RecurrenceInstanceDate >= Date);
+      end
+    );
+    try
+      for Instance in Instances do
+        TaskMgr.DeleteTask(Instance.ID);
+      TaskMgr.DeleteTask(Template.ID);
+    finally
+      Instances.Free;
+    end;
+    
+    WriteLn('Deleted recurring task and all future instances');
+  end;
+end;
+```
+
+#### 4.9.10 Converting Human-Readable Recurrence Descriptions
+
+```pascal
+var
+  Rule: TRecurrenceRule;
+  Description: string;
+begin
+  // Create various rules and get human-readable descriptions
+  
+  // Daily
+  Rule := TRecurrenceRule.Create(rpDaily);
+  Rule.Interval := 1;
+  Description := Rule.ToHumanReadable;
+  // Output: "Every day"
+  
+  Rule.Interval := 3;
+  Description := Rule.ToHumanReadable;
+  // Output: "Every 3 days"
+  
+  // Weekly
+  Rule := TRecurrenceRule.Create(rpWeekly);
+  Rule.Interval := 1;
+  Rule.DaysOfWeek := [dwMonday, dwFriday];
+  Description := Rule.ToHumanReadable;
+  // Output: "Every week on Monday and Friday"
+  
+  Rule.Interval := 2;
+  Rule.DaysOfWeek := [dwWednesday];
+  Description := Rule.ToHumanReadable;
+  // Output: "Every 2 weeks on Wednesday"
+  
+  // Monthly
+  Rule := TRecurrenceRule.Create(rpMonthly);
+  Rule.Interval := 1;
+  Rule.DayOfMonth := 15;
+  Description := Rule.ToHumanReadable;
+  // Output: "Every month on day 15"
+  
+  Rule.DayOfMonth := 0;
+  Description := Rule.ToHumanReadable;
+  // Output: "Every month on the last day"
+  
+  // Yearly
+  Rule := TRecurrenceRule.Create(rpYearly);
+  Rule.MonthOfYear := 12;
+  Rule.DayOfMonth := 25;
+  Description := Rule.ToHumanReadable;
+  // Output: "Every year on December 25"
+  
+  WriteLn('Recurrence pattern: ', Description);
+end;
+```
+
+#### 4.9.11 Best Practices for Recurring Tasks
+
+**1. Instance Generation Strategy:**
+```pascal
+// Generate instances for a rolling window (recommended)
+procedure GenerateUpcomingInstances(const Template: TTask; DaysAhead: Integer = 90);
+var
+  Engine: TRecurrenceEngine;
+  Instances: TTaskList;
+begin
+  Engine := TRecurrenceEngine.Create(Template.RecurrenceRule);
+  try
+    // Generate instances for the next N days
+    Instances := Engine.GenerateTaskInstances(Template, Date, Date + DaysAhead);
+    try
+      // Add only new instances (check if they don't already exist)
+      for Instance in Instances do
+      begin
+        if not TaskMgr.InstanceExists(Instance.RecurrenceSeriesID, 
+                                      Instance.RecurrenceInstanceDate) then
+          TaskMgr.AddTask(Instance);
+      end;
+    finally
+      Instances.Free;
+    end;
+  finally
+    Engine.Free;
+  end;
+end;
+```
+
+**2. Cleanup Old Instances:**
+```pascal
+// Delete completed instances older than 30 days
+procedure CleanupOldInstances;
+var
+  AllTasks: TTaskList;
+  Task: TTask;
+  CutoffDate: TDateTime;
+begin
+  CutoffDate := Date - 30;
+  AllTasks := TaskMgr.GetAllTasks;
+  try
+    for Task in AllTasks do
+    begin
+      if Task.IsRecurrenceInstance and
+         (Task.Status = tsCompleted) and
+         (Task.CompletedDate < CutoffDate) then
+      begin
+        TaskMgr.DeleteTask(Task.ID);
+      end;
+    end;
+  finally
+    AllTasks.Free;
+  end;
+end;
+```
+
+**3. Validation Before Creating:**
+```pascal
+function CreateValidatedRecurringTask(const Title: string; 
+                                     Rule: TRecurrenceRule): TTask;
+var
+  Errors: TStringList;
+begin
+  Result := nil;
+  
+  // Validate the recurrence rule first
+  if not Rule.IsValid then
+  begin
+    Errors := Rule.GetValidationErrors;
+    try
+      WriteLn('Invalid recurrence rule:');
+      for Error in Errors do
+        WriteLn('  - ', Error);
+    finally
+      Errors.Free;
+    end;
+    Exit;
+  end;
+  
+  // Create the task
+  Result := TTask.Create(Title);
+  Result.SetRecurrence(Rule);
+end;
+```
 ## 5. User Interface Designs
 
 ### 5.1 Overview
@@ -2909,6 +3664,83 @@ begin
 end;
 ```
 
+#### 7.6.4 Scaling for Recurring Task Instances
+
+**Challenge**: Recurring tasks can generate large numbers of instances over time, potentially impacting performance and storage.
+
+**Solutions**:
+
+1. **Lazy Instance Generation**
+   - Generate instances only for a rolling window (e.g., next 90 days)
+   - Avoid pre-generating all instances for long-running or unlimited recurrences
+   - Generate on-demand as users navigate forward in time
+
+2. **Instance Cleanup Strategy**
+   - Automatically delete completed instances older than a threshold (e.g., 30 days)
+   - Archive important completed instances before deletion
+   - Provide manual override for instances that should be kept
+
+3. **Template-Based Storage**
+   - Store only the template task and its recurrence rule
+   - Generate instances dynamically at query time when possible
+   - Persist only instances that have been modified from the template
+
+4. **Efficient Query Patterns**
+   ```pascal
+   // Efficient: Generate instances for visible date range only
+   procedure ShowTasksForMonth(Year, Month: Word);
+   var
+     StartDate, EndDate: TDateTime;
+     RecurringTasks: TTaskList;
+     Template: TTask;
+     Engine: TRecurrenceEngine;
+     Instances: TTaskList;
+   begin
+     StartDate := EncodeDate(Year, Month, 1);
+     EndDate := EndOfMonth(EncodeDate(Year, Month, 1));
+     
+     // Get all recurring task templates
+     RecurringTasks := TaskMgr.GetRecurringTasks;
+     try
+       for Template in RecurringTasks do
+       begin
+         Engine := TRecurrenceEngine.Create(Template.RecurrenceRule);
+         try
+           // Generate only for this month
+           Instances := Engine.GenerateTaskInstances(Template, StartDate, EndDate);
+           try
+             DisplayInstances(Instances);
+           finally
+             Instances.Free;
+           end;
+         finally
+           Engine.Free;
+         end;
+       end;
+     finally
+       RecurringTasks.Free;
+     end;
+   end;
+   ```
+
+5. **Performance Monitoring**
+   - Track number of active recurring task templates
+   - Monitor instance generation time
+   - Alert when instance count exceeds thresholds
+   - Log recurrence rule calculation performance
+
+**Best Practices**:
+- Set reasonable `MaxOccurrences` for recurring tasks
+- Use `EndDate` to limit open-ended recurrences
+- Implement background job for instance generation (don't block UI)
+- Cache frequently accessed recurrence calculations
+- Consider database storage for systems with many recurring tasks
+
+**Performance Targets**:
+- Instance generation: < 100ms for 100 occurrences
+- Recurrence calculation: < 1ms per occurrence
+- Storage overhead: < 500 bytes per recurring task template
+- Maximum recommended active instances per template: 365 (one year)
 ### 7.7 Performance Optimization
 
 **Key Metrics**:
@@ -3896,6 +4728,565 @@ begin
 end;
 ```
 
+### 8.13 Recurring Tasks Testing
+
+Comprehensive testing for the recurring tasks feature to ensure correct recurrence calculation, instance generation, and edge case handling.
+
+#### 8.13.1 TRecurrenceRule Unit Tests
+
+```pascal
+unit RecurrenceRuleTests;
+
+{$mode objfpc}{$H+}
+
+interface
+
+uses
+  fpcunit, testregistry, TaskRecurrence, SysUtils, DateUtils;
+
+type
+  TRecurrenceRuleTest = class(TTestCase)
+  published
+    procedure TestCreateDailyRule;
+    procedure TestCreateWeeklyRule;
+    procedure TestCreateMonthlyRule;
+    procedure TestCreateYearlyRule;
+    procedure TestRuleValidation;
+    procedure TestIntervalValidation;
+    procedure TestDateRangeValidation;
+    procedure TestDaysOfWeekValidation;
+    procedure TestExceptionDateManagement;
+    procedure TestRuleCloning;
+    procedure TestRuleEquality;
+    procedure TestToHumanReadable;
+    procedure TestRuleSerialization;
+  end;
+
+implementation
+
+procedure TRecurrenceRuleTest.TestCreateDailyRule;
+var
+  Rule: TRecurrenceRule;
+begin
+  Rule := TRecurrenceRule.Create(rpDaily);
+  try
+    AssertEquals('Pattern', Ord(rpDaily), Ord(Rule.Pattern));
+    AssertEquals('Default interval', 1, Rule.Interval);
+    AssertTrue('Should be valid by default', Rule.IsValid);
+  finally
+    Rule.Free;
+  end;
+end;
+
+procedure TRecurrenceRuleTest.TestCreateWeeklyRule;
+var
+  Rule: TRecurrenceRule;
+begin
+  Rule := TRecurrenceRule.Create(rpWeekly);
+  try
+    Rule.Interval := 1;
+    Rule.DaysOfWeek := [dwMonday, dwFriday];
+    Rule.StartDate := Date;
+    
+    AssertTrue('Should be valid', Rule.IsValid);
+    AssertEquals('Interval', 1, Rule.Interval);
+    AssertTrue('Has Monday', dwMonday in Rule.DaysOfWeek);
+    AssertTrue('Has Friday', dwFriday in Rule.DaysOfWeek);
+  finally
+    Rule.Free;
+  end;
+end;
+
+procedure TRecurrenceRuleTest.TestRuleValidation;
+var
+  Rule: TRecurrenceRule;
+  Errors: TStringList;
+begin
+  Rule := TRecurrenceRule.Create(rpDaily);
+  try
+    // Test invalid interval
+    Rule.Interval := 0;
+    AssertFalse('Should be invalid with zero interval', Rule.IsValid);
+    
+    Errors := Rule.GetValidationErrors;
+    try
+      AssertTrue('Should have errors', Errors.Count > 0);
+    finally
+      Errors.Free;
+    end;
+    
+    // Fix interval
+    Rule.Interval := 1;
+    Rule.StartDate := Date;
+    AssertTrue('Should be valid after fixing', Rule.IsValid);
+  finally
+    Rule.Free;
+  end;
+end;
+
+procedure TRecurrenceRuleTest.TestExceptionDateManagement;
+var
+  Rule: TRecurrenceRule;
+  ExDate: TDateTime;
+begin
+  Rule := TRecurrenceRule.Create(rpDaily);
+  try
+    ExDate := EncodeDate(2024, 12, 25);
+    
+    // Add exception
+    Rule.AddExceptionDate(ExDate);
+    AssertEquals('Exception count', 1, Rule.ExceptionDates.Count);
+    AssertTrue('Is exception', Rule.IsExceptionDate(ExDate));
+    
+    // Remove exception
+    Rule.RemoveExceptionDate(ExDate);
+    AssertEquals('Exception count after remove', 0, Rule.ExceptionDates.Count);
+    AssertFalse('Not exception anymore', Rule.IsExceptionDate(ExDate));
+  finally
+    Rule.Free;
+  end;
+end;
+
+procedure TRecurrenceRuleTest.TestRuleCloning;
+var
+  Original, Clone: TRecurrenceRule;
+begin
+  Original := TRecurrenceRule.Create(rpWeekly);
+  try
+    Original.Interval := 2;
+    Original.DaysOfWeek := [dwMonday, dwWednesday];
+    Original.StartDate := Date;
+    Original.EndDate := Date + 365;
+    Original.AddExceptionDate(Date + 10);
+    
+    Clone := Original.Clone;
+    try
+      AssertEquals('Cloned pattern', Ord(Original.Pattern), Ord(Clone.Pattern));
+      AssertEquals('Cloned interval', Original.Interval, Clone.Interval);
+      AssertEquals('Cloned days count', 2, Clone.DaysOfWeek.Count);
+      AssertTrue('Cloned has Monday', dwMonday in Clone.DaysOfWeek);
+      AssertEquals('Cloned exceptions', 1, Clone.ExceptionDates.Count);
+    finally
+      Clone.Free;
+    end;
+  finally
+    Original.Free;
+  end;
+end;
+
+procedure TRecurrenceRuleTest.TestToHumanReadable;
+var
+  Rule: TRecurrenceRule;
+  Description: string;
+begin
+  // Test daily
+  Rule := TRecurrenceRule.Create(rpDaily);
+  try
+    Rule.Interval := 1;
+    Description := Rule.ToHumanReadable;
+    AssertTrue('Contains "day"', Pos('day', LowerCase(Description)) > 0);
+  finally
+    Rule.Free;
+  end;
+  
+  // Test weekly
+  Rule := TRecurrenceRule.Create(rpWeekly);
+  try
+    Rule.Interval := 1;
+    Rule.DaysOfWeek := [dwMonday, dwFriday];
+    Description := Rule.ToHumanReadable;
+    AssertTrue('Contains "week"', Pos('week', LowerCase(Description)) > 0);
+    AssertTrue('Contains "Monday"', Pos('Monday', Description) > 0);
+  finally
+    Rule.Free;
+  end;
+end;
+```
+
+**Test Coverage Requirements:**
+- [ ] Test all recurrence patterns (daily, weekly, monthly, yearly, custom)
+- [ ] Test interval validation (positive integers only)
+- [ ] Test date range validation (end after start)
+- [ ] Test max occurrences validation
+- [ ] Test days of week selection for weekly patterns
+- [ ] Test day of month for monthly patterns
+- [ ] Test exception date management (add, remove, check)
+- [ ] Test rule cloning (deep copy verification)
+- [ ] Test rule equality comparison
+- [ ] Test human-readable description generation
+- [ ] Test JSON serialization/deserialization
+- [ ] Test edge cases (leap years, month-end dates)
+
+#### 8.13.2 TRecurrenceEngine Unit Tests
+
+```pascal
+unit RecurrenceEngineTests;
+
+{$mode objfpc}{$H+}
+
+interface
+
+uses
+  fpcunit, testregistry, TaskRecurrence, TaskModel, DateUtils, SysUtils;
+
+type
+  TRecurrenceEngineTest = class(TTestCase)
+  private
+    FRule: TRecurrenceRule;
+    FEngine: TRecurrenceEngine;
+  protected
+    procedure SetUp; override;
+    procedure TearDown; override;
+  published
+    procedure TestDailyNextOccurrence;
+    procedure TestWeeklyNextOccurrence;
+    procedure TestMonthlyNextOccurrence;
+    procedure TestYearlyNextOccurrence;
+    procedure TestOccurrencesBetween;
+    procedure TestNextNOccurrences;
+    procedure TestExceptionDateSkipping;
+    procedure TestEndDateEnforcement;
+    procedure TestMaxOccurrencesEnforcement;
+    procedure TestWillOccurOn;
+    procedure TestOccurrenceCount;
+    procedure TestHasEnded;
+    procedure TestTaskInstanceGeneration;
+    procedure TestPerformance;
+  end;
+
+implementation
+
+procedure TRecurrenceEngineTest.SetUp;
+begin
+  FRule := nil;
+  FEngine := nil;
+end;
+
+procedure TRecurrenceEngineTest.TearDown;
+begin
+  FEngine.Free;
+  FRule.Free;
+end;
+
+procedure TRecurrenceEngineTest.TestDailyNextOccurrence;
+var
+  StartDate, NextDate: TDateTime;
+begin
+  StartDate := EncodeDate(2024, 1, 1);
+  
+  FRule := TRecurrenceRule.Create(rpDaily);
+  FRule.Interval := 1;
+  FRule.StartDate := StartDate;
+  
+  FEngine := TRecurrenceEngine.Create(FRule);
+  
+  NextDate := FEngine.GetNextOccurrence(StartDate);
+  AssertEquals('Next day', 1, DaysBetween(StartDate, NextDate));
+  
+  // Test with interval of 3
+  FRule.Interval := 3;
+  NextDate := FEngine.GetNextOccurrence(StartDate);
+  AssertEquals('Every 3 days', 3, DaysBetween(StartDate, NextDate));
+end;
+
+procedure TRecurrenceEngineTest.TestWeeklyNextOccurrence;
+var
+  StartDate, NextDate: TDateTime;
+  Monday: TDateTime;
+begin
+  // Start on a Monday
+  Monday := EncodeDate(2024, 1, 1);  // January 1, 2024 is a Monday
+  
+  FRule := TRecurrenceRule.Create(rpWeekly);
+  FRule.Interval := 1;
+  FRule.DaysOfWeek := [dwMonday, dwFriday];
+  FRule.StartDate := Monday;
+  
+  FEngine := TRecurrenceEngine.Create(FRule);
+  
+  // From Monday, next should be Friday
+  NextDate := FEngine.GetNextOccurrence(Monday);
+  AssertEquals('Day of week', 5, DayOfWeek(NextDate));  // 5 = Friday
+  
+  // From Friday, next should be next Monday
+  NextDate := FEngine.GetNextOccurrence(Monday + 4);
+  AssertEquals('Next Monday', DayOfWeek(NextDate), 1);  // 1 = Monday
+end;
+
+procedure TRecurrenceEngineTest.TestOccurrencesBetween;
+var
+  StartDate, EndDate: TDateTime;
+  Occurrences: TList<TDateTime>;
+begin
+  StartDate := EncodeDate(2024, 1, 1);
+  EndDate := EncodeDate(2024, 1, 31);
+  
+  FRule := TRecurrenceRule.Create(rpDaily);
+  FRule.Interval := 1;
+  FRule.StartDate := StartDate;
+  
+  FEngine := TRecurrenceEngine.Create(FRule);
+  
+  Occurrences := FEngine.GetOccurrencesBetween(StartDate, EndDate);
+  try
+    AssertEquals('Days in January', 31, Occurrences.Count);
+  finally
+    Occurrences.Free;
+  end;
+end;
+
+procedure TRecurrenceEngineTest.TestExceptionDateSkipping;
+var
+  StartDate, ExceptionDate: TDateTime;
+  Occurrences: TList<TDateTime>;
+begin
+  StartDate := EncodeDate(2024, 1, 1);
+  ExceptionDate := EncodeDate(2024, 1, 15);
+  
+  FRule := TRecurrenceRule.Create(rpDaily);
+  FRule.Interval := 1;
+  FRule.StartDate := StartDate;
+  FRule.AddExceptionDate(ExceptionDate);
+  
+  FEngine := TRecurrenceEngine.Create(FRule);
+  
+  Occurrences := FEngine.GetOccurrencesBetween(StartDate, StartDate + 30);
+  try
+    // Should be 30 occurrences (31 days - 1 exception)
+    AssertEquals('Occurrences with exception', 30, Occurrences.Count);
+    
+    // Verify exception date is not in list
+    AssertFalse('Exception not in list', Occurrences.Contains(ExceptionDate));
+  finally
+    Occurrences.Free;
+  end;
+end;
+
+procedure TRecurrenceEngineTest.TestTaskInstanceGeneration;
+var
+  Template: TTask;
+  Instances: TTaskList;
+  StartDate, EndDate: TDateTime;
+begin
+  Template := TTask.Create('Recurring Task');
+  try
+    Template.Description := 'This is a recurring task';
+    Template.Priority := tpHigh;
+    
+    StartDate := Date;
+    EndDate := Date + 7;
+    
+    FRule := TRecurrenceRule.Create(rpDaily);
+    FRule.Interval := 1;
+    FRule.StartDate := StartDate;
+    
+    FEngine := TRecurrenceEngine.Create(FRule);
+    
+    Instances := FEngine.GenerateTaskInstances(Template, StartDate, EndDate);
+    try
+      AssertEquals('Instance count', 8, Instances.Count);
+      
+      // Verify first instance
+      AssertEquals('Title copied', Template.Title, Instances[0].Title);
+      AssertEquals('Priority copied', Template.Priority, Instances[0].Priority);
+      AssertTrue('Is instance', Instances[0].IsRecurrenceInstance);
+      AssertEquals('Instance date', DateToStr(StartDate), DateToStr(Instances[0].RecurrenceInstanceDate));
+    finally
+      Instances.Free;
+    end;
+  finally
+    Template.Free;
+  end;
+end;
+
+procedure TRecurrenceEngineTest.TestPerformance;
+var
+  StartDate: TDateTime;
+  Occurrences: TList<TDateTime>;
+  StartTime, EndTime: TDateTime;
+  ElapsedMs: Int64;
+begin
+  StartDate := Date;
+  
+  FRule := TRecurrenceRule.Create(rpDaily);
+  FRule.Interval := 1;
+  FRule.StartDate := StartDate;
+  
+  FEngine := TRecurrenceEngine.Create(FRule);
+  
+  StartTime := Now;
+  
+  // Generate 1000 occurrences
+  Occurrences := FEngine.GetNextNOccurrences(StartDate, 1000);
+  try
+    EndTime := Now;
+    ElapsedMs := MilliSecondsBetween(EndTime, StartTime);
+    
+    AssertEquals('Generated count', 1000, Occurrences.Count);
+    AssertTrue('Performance target', ElapsedMs < 100);  // Should be < 100ms
+    
+    WriteLn(Format('Generated 1000 occurrences in %d ms', [ElapsedMs]));
+  finally
+    Occurrences.Free;
+  end;
+end;
+```
+
+**Test Coverage Requirements:**
+- [ ] Test next occurrence calculation for all patterns
+- [ ] Test previous occurrence calculation
+- [ ] Test occurrence generation for date ranges
+- [ ] Test N-occurrence generation
+- [ ] Test exception date skipping during generation
+- [ ] Test end date enforcement
+- [ ] Test max occurrences limit
+- [ ] Test WillOccurOn validation
+- [ ] Test occurrence counting
+- [ ] Test recurrence ended detection
+- [ ] Test task instance generation from template
+- [ ] Test performance (target: 1000 calculations < 100ms)
+
+#### 8.13.3 Integration Tests for Recurring Tasks
+
+```pascal
+unit RecurringTaskIntegrationTests;
+
+{$mode objfpc}{$H+}
+
+interface
+
+uses
+  fpcunit, testregistry, TaskManager, TaskModel, TaskRecurrence, 
+  TaskStorageJSON, SysUtils, DateUtils;
+
+type
+  TRecurringTaskIntegrationTest = class(TTestCase)
+  private
+    FManager: TTaskManager;
+    FTempFile: string;
+  protected
+    procedure SetUp; override;
+    procedure TearDown; override;
+  published
+    procedure TestCreateAndSaveRecurringTask;
+    procedure TestLoadRecurringTask;
+    procedure TestGenerateAndPersistInstances;
+    procedure TestModifyRecurringTaskInstance;
+    procedure TestDeleteRecurringTaskSeries;
+    procedure TestFilterRecurringTasks;
+    procedure TestRecurringTaskStatistics;
+  end;
+
+implementation
+
+procedure TRecurringTaskIntegrationTest.SetUp;
+begin
+  FTempFile := GetTempDir + 'recurring_tasks_test.json';
+  FManager := TTaskManager.Create(TJSONTaskStorage.Create(FTempFile));
+end;
+
+procedure TRecurringTaskIntegrationTest.TearDown;
+begin
+  FManager.Free;
+  if FileExists(FTempFile) then
+    DeleteFile(FTempFile);
+end;
+
+procedure TRecurringTaskIntegrationTest.TestCreateAndSaveRecurringTask;
+var
+  Task: TTask;
+  Rule: TRecurrenceRule;
+begin
+  Task := TTask.Create('Daily Standup');
+  Rule := TRecurrenceRule.Create(rpDaily);
+  Rule.Interval := 1;
+  Rule.StartDate := Date;
+  Rule.EndDate := Date + 90;
+  
+  Task.SetRecurrence(Rule);
+  FManager.AddTask(Task);
+  
+  AssertTrue('Manager has task', FManager.TaskCount > 0);
+  AssertTrue('Task saved', FManager.SaveTasks);
+  AssertTrue('File created', FileExists(FTempFile));
+end;
+
+procedure TRecurringTaskIntegrationTest.TestLoadRecurringTask;
+var
+  Task, LoadedTask: TTask;
+  Rule: TRecurrenceRule;
+  NewManager: TTaskManager;
+begin
+  // Create and save
+  Task := TTask.Create('Weekly Meeting');
+  Rule := TRecurrenceRule.Create(rpWeekly);
+  Rule.Interval := 1;
+  Rule.DaysOfWeek := [dwMonday];
+  Rule.StartDate := Date;
+  
+  Task.SetRecurrence(Rule);
+  FManager.AddTask(Task);
+  FManager.SaveTasks;
+  
+  // Load in new manager
+  NewManager := TTaskManager.Create(TJSONTaskStorage.Create(FTempFile));
+  try
+    AssertTrue('Loaded tasks', NewManager.LoadTasks);
+    AssertEquals('Task count', 1, NewManager.TaskCount);
+    
+    LoadedTask := NewManager.GetTaskByID(Task.ID);
+    AssertNotNull('Task loaded', LoadedTask);
+    AssertTrue('Is recurring', LoadedTask.IsRecurring);
+    AssertEquals('Pattern', Ord(rpWeekly), Ord(LoadedTask.RecurrenceRule.Pattern));
+  finally
+    NewManager.Free;
+  end;
+end;
+```
+
+**Integration Test Coverage:**
+- [ ] Test creating recurring tasks with TTaskManager
+- [ ] Test saving recurring tasks to storage
+- [ ] Test loading recurring tasks from storage
+- [ ] Test generating instances and persisting them
+- [ ] Test modifying individual instances
+- [ ] Test deleting recurring task series
+- [ ] Test filtering recurring vs non-recurring tasks
+- [ ] Test statistics for recurring tasks
+- [ ] Test exception date persistence
+- [ ] Test recurrence rule updates
+
+#### 8.13.4 Edge Case Testing
+
+**Critical Edge Cases:**
+- [ ] Leap year handling (February 29th occurrences)
+- [ ] Month-end dates (e.g., monthly on 31st for months with < 31 days)
+- [ ] Daylight saving time transitions
+- [ ] End of year to beginning of year transitions
+- [ ] Weekly patterns spanning year boundaries
+- [ ] Maximum occurrences reaching exactly on end date
+- [ ] Zero-duration recurrences (start date = end date)
+- [ ] Very large intervals (e.g., every 100 days)
+- [ ] Multiple exception dates in sequence
+- [ ] Concurrent access to recurrence engine
+
+#### 8.13.5 Performance Benchmarks
+
+**Target Performance Metrics:**
+- Recurrence rule validation: < 1ms
+- Next occurrence calculation (daily): < 0.1ms
+- Next occurrence calculation (weekly): < 0.5ms
+- Next occurrence calculation (monthly): < 1ms
+- Generate 100 occurrences: < 10ms
+- Generate 1000 occurrences: < 100ms
+- Task instance creation: < 1ms per instance
+- Exception date lookup: < 0.1ms (using hash set)
+
+**Load Testing:**
+- [ ] Test with 100 concurrent recurring task templates
+- [ ] Test with 10,000 generated instances
+- [ ] Test memory usage with long-running recurrences
+- [ ] Test recurrence calculation accuracy over 10-year span
 ## 9. Class Diagrams and Methods/Properties
 
 ### 9.1 Overview
