@@ -90,6 +90,7 @@ The library is structured in three main layers:
 2. **Business Logic Layer**: Implements task management operations, filtering, and validation
 3. **Persistence Layer**: Handles loading and saving tasks in various formats
 4. **Utility Layer**: Provides helper functions for date/time, string manipulation, etc.
+5. **Task Dependency Management Layer**: Manages relationships between tasks, detects circular dependencies, and provides dependency graph operations
 
 ### 1.5 Design Patterns Used
 
