@@ -2187,6 +2187,209 @@ end;
 
 ---
 
+
+### 4.8 Task Dependency Management API
+
+##### 4.8.1 Creating Dependencies
+
+```pascal
+uses
+  TaskManager, TaskDependency, TaskModel;
+
+var
+  Manager: TTaskManager;
+  DepManager: TTaskDependencyManager;
+  Task1, Task2, Task3: TTask;
+  Dependency: TTaskDependency;
+begin
+  Manager := TTaskManager.Create;
+  try
+    // Create tasks
+    Task1 := Manager.CreateTask('Design Database Schema', tpHigh);
+    Task2 := Manager.CreateTask('Implement Database Layer', tpHigh);
+    Task3 := Manager.CreateTask('Write Unit Tests', tpMedium);
+    
+    // Create dependency manager
+    DepManager := TTaskDependencyManager.Create(Manager.Tasks);
+    try
+      // Task2 depends on Task1 (Task1 must finish before Task2 starts)
+      Dependency := DepManager.AddDependency(
+        Task2.ID,           // Source: depends on
+        Task1.ID,           // Target: dependency
+        dtFinishToStart,    // Type
+        'Database implementation requires completed schema'
+      );
+      
+      // Task3 depends on Task2
+      DepManager.AddDependency(Task3.ID, Task2.ID, dtFinishToStart);
+      
+      WriteLn('Dependencies created successfully');
+      WriteLn(Format('Total dependencies: %d', [DepManager.GetDependencyCount]));
+    finally
+      DepManager.Free;
+    end;
+  finally
+    Manager.Free;
+  end;
+end;
+```
+
+##### 4.8.2 Checking Dependencies Before Task Operations
+
+```pascal
+function CanCompleteTask(Manager: TTaskManager; DepManager: TTaskDependencyManager; 
+                         TaskID: Integer): Boolean;
+var
+  BlockingTasks: TList<Integer>;
+  BlockerID: Integer;
+  BlockerTask: TTask;
+begin
+  Result := True;
+  
+  // Get all tasks that block this one
+  BlockingTasks := DepManager.GetBlockedBy(TaskID);
+  try
+    for BlockerID in BlockingTasks do
+    begin
+      BlockerTask := Manager.GetTaskByID(BlockerID);
+      if (BlockerTask <> nil) and (BlockerTask.Status <> tsCompleted) then
+      begin
+        WriteLn(Format('Task %d is blocked by incomplete task: %s', 
+                      [TaskID, BlockerTask.Title]));
+        Result := False;
+      end;
+    end;
+  finally
+    BlockingTasks.Free;
+  end;
+end;
+
+// Usage
+if CanCompleteTask(Manager, DepManager, MyTask.ID) then
+  Manager.UpdateTaskStatus(MyTask.ID, tsCompleted)
+else
+  WriteLn('Cannot complete task - dependencies not met');
+```
+
+##### 4.8.3 Preventing Circular Dependencies
+
+```pascal
+procedure SafeAddDependency(DepManager: TTaskDependencyManager; 
+                           SourceID, TargetID: Integer);
+begin
+  // Check for circular dependency before adding
+  if DepManager.WouldCreateCycle(SourceID, TargetID) then
+  begin
+    raise ETaskDependencyException.CreateFmt(
+      'Cannot add dependency: would create circular reference between tasks %d and %d',
+      [SourceID, TargetID]
+    );
+  end;
+  
+  DepManager.AddDependency(SourceID, TargetID);
+  WriteLn('Dependency added successfully');
+end;
+```
+
+##### 4.8.4 Finding Dependency Paths
+
+```pascal
+procedure ShowDependencyPath(DepManager: TTaskDependencyManager; 
+                            Manager: TTaskManager;
+                            FromTaskID, ToTaskID: Integer);
+var
+  Path: TList<Integer>;
+  TaskID: Integer;
+  Task: TTask;
+  I: Integer;
+begin
+  Path := DepManager.GetDependencyPath(FromTaskID, ToTaskID);
+  try
+    if Path.Count = 0 then
+    begin
+      WriteLn('No dependency path exists');
+      Exit;
+    end;
+    
+    WriteLn('Dependency path:');
+    for I := 0 to Path.Count - 1 do
+    begin
+      TaskID := Path[I];
+      Task := Manager.GetTaskByID(TaskID);
+      if Task <> nil then
+      begin
+        if I > 0 then Write(' -> ');
+        Write(Format('%s (ID: %d)', [Task.Title, TaskID]));
+      end;
+    end;
+    WriteLn;
+  finally
+    Path.Free;
+  end;
+end;
+```
+
+##### 4.8.5 Getting Task Execution Order
+
+```pascal
+procedure ShowExecutionOrder(DepManager: TTaskDependencyManager; 
+                            Manager: TTaskManager);
+var
+  Graph: TDependencyGraph;
+  OrderedTasks: TList<Integer>;
+  TaskID: Integer;
+  Task: TTask;
+  Dependencies: TList<TTaskDependency>;
+begin
+  Dependencies := DepManager.GetAllDependencies;
+  try
+    Graph := TDependencyGraph.Create(Dependencies);
+    try
+      OrderedTasks := Graph.TopologicalSort;
+      try
+        WriteLn('Recommended task execution order:');
+        for TaskID in OrderedTasks do
+        begin
+          Task := Manager.GetTaskByID(TaskID);
+          if Task <> nil then
+            WriteLn(Format('%d. %s', [OrderedTasks.IndexOf(TaskID) + 1, Task.Title]));
+        end;
+      finally
+        OrderedTasks.Free;
+      end;
+    finally
+      Graph.Free;
+    end;
+  finally
+    Dependencies.Free;
+  end;
+end;
+```
+
+##### 4.8.6 Visualizing Dependencies
+
+```pascal
+procedure ExportDependencyGraph(DepManager: TTaskDependencyManager; 
+                               const Filename: string);
+var
+  DOTContent: string;
+  F: TextFile;
+begin
+  DOTContent := DepManager.ExportToDOT;
+  
+  AssignFile(F, Filename);
+  try
+    Rewrite(F);
+    WriteLn(F, DOTContent);
+  finally
+    CloseFile(F);
+  end;
+  
+  WriteLn(Format('Dependency graph exported to: %s', [Filename]));
+  WriteLn('Use: dot -Tpng dependencies.dot -o dependencies.png');
+end;
+```
+
 ## 5. User Interface Designs
 
 ### 5.1 Overview
@@ -2350,6 +2553,14 @@ Potential future extensions could include:
 - **Optional compression**: Using FPC's built-in zlib support for compressed storage formats
 
 ---
+
+
+### 6.8 Task Dependency Feature
+
+**No additional third-party libraries required** for the Task Dependency feature. All dependency management and graph algorithms are implemented using standard Free Pascal units:
+- `System.Generics.Collections` (TList, TDictionary, TStack)
+- `System.Classes` (TObjectList, TStringList)
+
 
 ## 7. Deployment and Scaling Strategies
 
@@ -3475,6 +3686,210 @@ Each test file should include:
 
 
 
+
+
+### 8.12 Task Dependency Testing
+
+##### 8.12.1 TTaskDependency Unit Tests
+
+```pascal
+procedure TestTaskDependencyCreation;
+var
+  Dep: TTaskDependency;
+begin
+  Dep := TTaskDependency.Create(1, 2, dtFinishToStart);
+  try
+    AssertEquals('Source ID', 1, Dep.SourceTaskID);
+    AssertEquals('Target ID', 2, Dep.TargetTaskID);
+    AssertEquals('Type', dtFinishToStart, Dep.DependencyType);
+    AssertTrue('Valid dependency', Dep.IsValid);
+  finally
+    Dep.Free;
+  end;
+end;
+
+procedure TestDependencyCloning;
+var
+  Original, Clone: TTaskDependency;
+begin
+  Original := TTaskDependency.Create(1, 2);
+  try
+    Original.Description := 'Test dependency';
+    Original.LagTime := 24;
+    
+    Clone := Original.Clone;
+    try
+      AssertEquals('Cloned source', Original.SourceTaskID, Clone.SourceTaskID);
+      AssertEquals('Cloned target', Original.TargetTaskID, Clone.TargetTaskID);
+      AssertEquals('Cloned description', Original.Description, Clone.Description);
+      AssertEquals('Cloned lag time', Original.LagTime, Clone.LagTime);
+    finally
+      Clone.Free;
+    end;
+  finally
+    Original.Free;
+  end;
+end;
+```
+
+##### 8.12.2 TTaskDependencyManager Unit Tests
+
+```pascal
+procedure TestAddDependency;
+var
+  Manager: TTaskManager;
+  DepManager: TTaskDependencyManager;
+  Task1, Task2: TTask;
+  Dep: TTaskDependency;
+begin
+  Manager := TTaskManager.Create;
+  try
+    Task1 := Manager.CreateTask('Task 1', tpHigh);
+    Task2 := Manager.CreateTask('Task 2', tpMedium);
+    
+    DepManager := TTaskDependencyManager.Create(Manager.Tasks);
+    try
+      Dep := DepManager.AddDependency(Task2.ID, Task1.ID);
+      AssertNotNull('Dependency created', Dep);
+      AssertEquals('Dependency count', 1, DepManager.GetDependencyCount);
+    finally
+      DepManager.Free;
+    end;
+  finally
+    Manager.Free;
+  end;
+end;
+
+procedure TestCircularDependencyDetection;
+var
+  Manager: TTaskManager;
+  DepManager: TTaskDependencyManager;
+  T1, T2, T3: TTask;
+begin
+  Manager := TTaskManager.Create;
+  try
+    T1 := Manager.CreateTask('Task 1', tpHigh);
+    T2 := Manager.CreateTask('Task 2', tpHigh);
+    T3 := Manager.CreateTask('Task 3', tpHigh);
+    
+    DepManager := TTaskDependencyManager.Create(Manager.Tasks);
+    try
+      // Create chain: T1 -> T2 -> T3
+      DepManager.AddDependency(T2.ID, T1.ID);
+      DepManager.AddDependency(T3.ID, T2.ID);
+      
+      // Try to create cycle: T3 -> T1
+      AssertTrue('Should detect cycle', 
+                DepManager.WouldCreateCycle(T1.ID, T3.ID));
+      
+      // Should raise exception
+      try
+        DepManager.AddDependency(T1.ID, T3.ID);
+        Fail('Should have raised exception for circular dependency');
+      except
+        on E: ETaskDependencyException do
+          AssertTrue('Correct exception', True);
+      end;
+    finally
+      DepManager.Free;
+    end;
+  finally
+    Manager.Free;
+  end;
+end;
+
+procedure TestDependencyPathFinding;
+var
+  Manager: TTaskManager;
+  DepManager: TTaskDependencyManager;
+  T1, T2, T3, T4: TTask;
+  Path: TList<Integer>;
+begin
+  Manager := TTaskManager.Create;
+  try
+    T1 := Manager.CreateTask('Task 1', tpHigh);
+    T2 := Manager.CreateTask('Task 2', tpHigh);
+    T3 := Manager.CreateTask('Task 3', tpHigh);
+    T4 := Manager.CreateTask('Task 4', tpHigh);
+    
+    DepManager := TTaskDependencyManager.Create(Manager.Tasks);
+    try
+      // Create path: T1 -> T2 -> T3 -> T4
+      DepManager.AddDependency(T2.ID, T1.ID);
+      DepManager.AddDependency(T3.ID, T2.ID);
+      DepManager.AddDependency(T4.ID, T3.ID);
+      
+      Path := DepManager.GetDependencyPath(T1.ID, T4.ID);
+      try
+        AssertEquals('Path length', 4, Path.Count);
+        AssertEquals('Path start', T1.ID, Path[0]);
+        AssertEquals('Path end', T4.ID, Path[3]);
+      finally
+        Path.Free;
+      end;
+    finally
+      DepManager.Free;
+    end;
+  finally
+    Manager.Free;
+  end;
+end;
+```
+
+##### 8.12.3 TDependencyGraph Unit Tests
+
+```pascal
+procedure TestTopologicalSort;
+var
+  Manager: TTaskManager;
+  DepManager: TTaskDependencyManager;
+  Graph: TDependencyGraph;
+  Dependencies: TList<TTaskDependency>;
+  Sorted: TList<Integer>;
+  T1, T2, T3: TTask;
+begin
+  Manager := TTaskManager.Create;
+  try
+    T1 := Manager.CreateTask('Foundation', tpHigh);
+    T2 := Manager.CreateTask('Walls', tpHigh);
+    T3 := Manager.CreateTask('Roof', tpHigh);
+    
+    DepManager := TTaskDependencyManager.Create(Manager.Tasks);
+    try
+      // Dependencies: Foundation -> Walls -> Roof
+      DepManager.AddDependency(T2.ID, T1.ID);
+      DepManager.AddDependency(T3.ID, T2.ID);
+      
+      Dependencies := DepManager.GetAllDependencies;
+      try
+        Graph := TDependencyGraph.Create(Dependencies);
+        try
+          Sorted := Graph.TopologicalSort;
+          try
+            AssertTrue('Valid sort', Sorted.Count = 3);
+            // Foundation should come before Walls
+            AssertTrue('Foundation before Walls', 
+                      Sorted.IndexOf(T1.ID) < Sorted.IndexOf(T2.ID));
+            // Walls should come before Roof
+            AssertTrue('Walls before Roof', 
+                      Sorted.IndexOf(T2.ID) < Sorted.IndexOf(T3.ID));
+          finally
+            Sorted.Free;
+          end;
+        finally
+          Graph.Free;
+        end;
+      finally
+        Dependencies.Free;
+      end;
+    finally
+      DepManager.Free;
+    end;
+  finally
+    Manager.Free;
+  end;
+end;
+```
 
 ## 9. Class Diagrams and Methods/Properties
 
