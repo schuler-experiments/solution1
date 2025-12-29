@@ -93,6 +93,7 @@ The library is structured in three main layers:
 │  │  • TTaskValidator (validation logic)                 │   │
 │  │  • TTaskStatistics (analytics & reporting)           │   │
 │  │  • TTaskDependencyManager (dependency management)    │   │  ← NEW
+  │  • TRecurrenceEngine (recurring task generation)       │   │  ← NEW
 │  └─────────────────────────────────────────────────────┘   │
 ```
 
@@ -103,7 +104,10 @@ The library is structured in three main layers:
 2. **Business Logic Layer**: Implements task management operations, filtering, and validation
 3. **Persistence Layer**: Handles loading and saving tasks in various formats
 4. **Utility Layer**: Provides helper functions for date/time, string manipulation, etc.
-5. **Task Dependency Management Layer**: Manages relationships between tasks, detects circular dependencies, and provides dependency graph operations
+5. **Recurrence Engine Layer**: Generates task instances from recurring task patterns and manages recurrence schedules
+6. **Task Dependency Management Layer**: Manages relationships between tasks, detects circular dependencies, and provides dependency graph operations
+
+**Recurrence Engine Layer**: Generates task instances from recurring task patterns and manages recurrence schedules. This layer handles various recurrence types (daily, weekly, monthly, yearly) and calculates next occurrence dates based on complex recurrence rules.
 
 **Task Dependency Management Layer**: Manages relationships between tasks, detects circular dependencies, and provides dependency graph operations.
 
@@ -113,6 +117,7 @@ The library is structured in three main layers:
 - **Repository Pattern**: For data access abstraction (ITaskStorage interface)
 - **Strategy Pattern**: For different persistence implementations
 - **Factory Pattern**: For creating storage instances based on configuration
+- **Template Method Pattern**: For recurrence pattern calculation algorithms with customizable date calculation strategies
 - **Observer Pattern**: For task change notifications (optional event system)
 - **Singleton Pattern**: For TaskManager instance management (optional)
 
