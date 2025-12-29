@@ -84,6 +84,19 @@ The library is structured in three main layers:
 └─────────────────────────────────────────────────────────────┘
 ```
 
+```
+┌─────────────────────────────────────────────────────────────┐
+│  ┌─────────────────────────────────────────────────────┐   │
+│  │         Business Logic Layer                         │   │
+│  │  • TTaskManager (CRUD operations)                    │   │
+│  │  • TTaskFilter (filtering & searching)               │   │
+│  │  • TTaskValidator (validation logic)                 │   │
+│  │  • TTaskStatistics (analytics & reporting)           │   │
+│  │  • TTaskDependencyManager (dependency management)    │   │  ← NEW
+│  └─────────────────────────────────────────────────────┘   │
+```
+
+
 ### 1.4 Core Components Overview
 
 1. **Data Model Layer**: Defines the task entity and related data structures
@@ -91,6 +104,9 @@ The library is structured in three main layers:
 3. **Persistence Layer**: Handles loading and saving tasks in various formats
 4. **Utility Layer**: Provides helper functions for date/time, string manipulation, etc.
 5. **Task Dependency Management Layer**: Manages relationships between tasks, detects circular dependencies, and provides dependency graph operations
+
+**Task Dependency Management Layer**: Manages relationships between tasks, detects circular dependencies, and provides dependency graph operations.
+
 
 ### 1.5 Design Patterns Used
 
@@ -1243,6 +1259,36 @@ end;
 
 ---
 
+
+### 2.12 Task Dependency Module (`TaskDependency.pas`)
+
+#### Purpose
+Manages relationships and dependencies between tasks, enabling complex task workflows where tasks can block or depend on other tasks.
+
+#### Responsibilities
+- Create and manage task dependencies
+- Validate dependencies (detect circular dependencies)
+- Query dependency graphs (get blockers, get blocked tasks)
+- Provide dependency traversal methods
+- Support cascade operations (optional)
+- Calculate dependency paths and impact analysis
+
+#### Key Classes
+- **`TTaskDependency`**: Represents a single dependency relationship
+- **`TTaskDependencyManager`**: Manages all dependencies for a task collection
+- **`TDependencyGraph`**: Provides graph analysis and traversal operations
+
+#### Dependencies
+- Uses: `TaskModel.pas`, `TaskList.pas`, `TaskExceptions.pas`
+- Used by: `TaskManager.pas`, `TaskStorage.pas` implementations
+
+#### Design Considerations
+- **Graph Structure**: Uses adjacency list for efficient traversal
+- **Circular Detection**: Implements cycle detection using depth-first search
+- **Performance**: O(V+E) for most graph operations where V=tasks, E=dependencies
+- **Thread Safety**: Can be wrapped in thread-safe decorator if needed
+- **Persistence**: Dependencies are serialized with task data
+
 ## 3. Data Models and Structures
 
 ### 3.1 TTaskStatus Enumeration
@@ -1457,6 +1503,159 @@ type
 
 
 ---
+
+
+### 3.9 TDependencyType Enumeration
+
+```pascal
+type
+  TDependencyType = (
+    dtFinishToStart,    // Task B cannot start until Task A finishes (default)
+    dtStartToStart,     // Task B cannot start until Task A starts
+    dtFinishToFinish,   // Task B cannot finish until Task A finishes
+    dtStartToFinish,    // Task B cannot finish until Task A starts (rare)
+    dtRelatedTo         // Informational relationship, no blocking
+  );
+```
+
+**Usage Notes:**
+- `dtFinishToStart`: Most common dependency type (classical "blocks")
+- `dtStartToStart`: Both tasks must begin together
+- `dtFinishToFinish`: Both tasks must complete together
+- `dtStartToFinish`: Task B must wait for Task A to start before finishing
+- `dtRelatedTo`: Link tasks that are related but don't block each other
+
+### 3.10 TTaskDependency Class
+
+```pascal
+type
+  TTaskDependency = class
+  private
+    FSourceTaskID: Integer;      // The task that depends
+    FTargetTaskID: Integer;      // The task being depended upon
+    FDependencyType: TDependencyType;
+    FCreatedAt: TDateTime;
+    FDescription: string;        // Optional description of the dependency
+    FLagTime: Integer;           // Lag time in hours (can be negative for lead time)
+  public
+    constructor Create(ASourceID, ATargetID: Integer; 
+                      ADepType: TDependencyType = dtFinishToStart);
+    destructor Destroy; override;
+    
+    // Properties
+    property SourceTaskID: Integer read FSourceTaskID;
+    property TargetTaskID: Integer read FTargetTaskID;
+    property DependencyType: TDependencyType read FDependencyType write FDependencyType;
+    property CreatedAt: TDateTime read FCreatedAt;
+    property Description: string read FDescription write FDescription;
+    property LagTime: Integer read FLagTime write FLagTime;
+    
+    // Methods
+    function ToString: string;
+    function Clone: TTaskDependency;
+    function IsValid: Boolean;
+  end;
+```
+
+**Key Features:**
+- **Immutable IDs**: Source and Target IDs cannot change after creation
+- **Lag Time**: Supports lag (positive) and lead (negative) time in hours
+- **Description**: Optional human-readable explanation
+- **Timestamp**: Tracks when dependency was created
+
+### 3.11 TTaskDependencyManager Class
+
+```pascal
+type
+  TTaskDependencyManager = class
+  private
+    FDependencies: TObjectList<TTaskDependency>;
+    FTaskList: TTaskList;  // Reference to managed tasks
+    
+    function FindDependency(SourceID, TargetID: Integer): TTaskDependency;
+    function HasCycleDFS(TaskID: Integer; Visited, RecStack: TList<Integer>): Boolean;
+  public
+    constructor Create(ATaskList: TTaskList);
+    destructor Destroy; override;
+    
+    // Dependency CRUD operations
+    function AddDependency(SourceID, TargetID: Integer; 
+                          DepType: TDependencyType = dtFinishToStart;
+                          const Description: string = ''): TTaskDependency;
+    function RemoveDependency(SourceID, TargetID: Integer): Boolean;
+    function GetDependency(SourceID, TargetID: Integer): TTaskDependency;
+    function UpdateDependency(SourceID, TargetID: Integer; 
+                             NewType: TDependencyType): Boolean;
+    
+    // Dependency queries
+    function GetDependencies(TaskID: Integer; 
+                           IncludeSource: Boolean = True;
+                           IncludeTarget: Boolean = True): TList<TTaskDependency>;
+    function GetBlockedBy(TaskID: Integer): TList<Integer>;  // Tasks blocking this one
+    function GetBlocking(TaskID: Integer): TList<Integer>;   // Tasks this one blocks
+    function GetAllDependencies: TList<TTaskDependency>;
+    
+    // Validation
+    function WouldCreateCycle(SourceID, TargetID: Integer): Boolean;
+    function HasCircularDependencies: Boolean;
+    function ValidateDependencies: TStringList;  // Returns list of validation errors
+    
+    // Graph analysis
+    function GetDependencyPath(FromTaskID, ToTaskID: Integer): TList<Integer>;
+    function GetTaskDepth(TaskID: Integer): Integer;  // Depth in dependency tree
+    function GetRootTasks: TList<Integer>;  // Tasks with no dependencies
+    function GetLeafTasks: TList<Integer>;  // Tasks that don't block anything
+    function CanTaskStart(TaskID: Integer): Boolean;  // Check if all dependencies met
+    
+    // Cascade operations
+    procedure CascadeDelete(TaskID: Integer; DeleteDependents: Boolean);
+    procedure CascadeComplete(TaskID: Integer; CompleteDependents: Boolean);
+    
+    // Utility
+    function GetDependencyCount: Integer;
+    function ExportToDOT: string;  // Export to GraphViz DOT format
+    procedure Clear;
+  end;
+```
+
+**Key Methods Explained:**
+
+- **`AddDependency`**: Creates new dependency with cycle detection
+- **`WouldCreateCycle`**: Checks if adding dependency would create circular reference
+- **`GetDependencyPath`**: Finds path between two tasks (if exists)
+- **`CanTaskStart`**: Determines if all blocking tasks are completed
+- **`CascadeDelete`**: Optionally deletes dependent tasks when deleting a task
+- **`ExportToDOT`**: Generates GraphViz visualization of dependency graph
+
+### 3.12 TDependencyGraph Helper Class
+
+```pascal
+type
+  TDependencyGraph = class
+  private
+    FAdjacencyList: TDictionary<Integer, TList<Integer>>;
+    FReverseList: TDictionary<Integer, TList<Integer>>;
+    
+    procedure BuildGraph(Dependencies: TList<TTaskDependency>);
+    function TopologicalSortUtil(TaskID: Integer; Visited: TDictionary<Integer, Boolean>;
+                                 Stack: TStack<Integer>): Boolean;
+  public
+    constructor Create(Dependencies: TList<TTaskDependency>);
+    destructor Destroy; override;
+    
+    // Graph algorithms
+    function TopologicalSort: TList<Integer>;  // Returns ordered task list
+    function DetectCycles: TList<TList<Integer>>;  // Returns all cycles found
+    function GetCriticalPath: TList<Integer>;  // Longest path through graph
+    function GetShortestPath(FromID, ToID: Integer): TList<Integer>;
+    
+    // Graph properties
+    function GetInDegree(TaskID: Integer): Integer;
+    function GetOutDegree(TaskID: Integer): Integer;
+    function IsAcyclic: Boolean;
+    function GetComponentCount: Integer;  // Number of disconnected subgraphs
+  end;
+```
 
 ## 4. API Endpoints and Usage
 
